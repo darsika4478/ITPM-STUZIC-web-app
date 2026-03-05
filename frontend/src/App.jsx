@@ -3,7 +3,7 @@ import Home from "./pages/Home.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
-import MoodInputPage from "./features/mood-input/pages/MoodInputPage.jsx";
+import MoodInputPage from "./features/mood_and_music/pages/MoodInputPage.jsx";
 
 export default function App() {
   return (
