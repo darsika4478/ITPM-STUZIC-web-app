@@ -1,9 +1,10 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home.jsx";
-import Dashboard from "./pages/Dashboard.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import AuthGuard from "./components/user-management/AuthGuard";
+import DashboardLayout from "./layout/DashboardLayout";
+import DashboardHome from "./pages/DashboardHome";
 
 export default function App() {
   return (
@@ -14,7 +15,9 @@ export default function App() {
 
       {/* Protected routes - require authentication */}
       <Route element={<AuthGuard />}>
-        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/dashboard" element={<DashboardLayout />}>
+          <Route index element={<DashboardHome />} />
+        </Route>
       </Route>
 
       <Route path="*" element={<Navigate to="/login" replace />} />
