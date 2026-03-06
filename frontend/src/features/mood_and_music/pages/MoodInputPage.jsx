@@ -3,8 +3,9 @@ import MoodSelector from '../components/MoodSelector';
 import MoodSubmitButton from '../components/MoodSubmitButton';
 import { MOOD_CONFIG } from '../components/MoodEmojiOption';
 
-// ── Custom palette ──────────────────────────────────────────────
-// #B6B4BB · #8F8BB6 · #585296 · #3C436B · #272D3E
+// ── Professional Palette ─────────────────────────────────────────
+// Background: #272D3E | Surface: #3C436B | Primary: #585296
+// Highlight: #8F8BB6  | Text: #B6B4BB
 // ───────────────────────────────────────────────────────────────
 
 const MoodInputPage = () => {
@@ -20,39 +21,38 @@ const MoodInputPage = () => {
     return (
         <div
             className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
-            style={{ background: 'linear-gradient(135deg, #272D3E 0%, #3C436B 35%, #585296 65%, #8F8BB6 100%)' }}
+            style={{ backgroundColor: '#272D3E' }}
         >
-            {/* Decorative blobs — tinted with palette colours */}
+            {/* Decorative blobs — using palette highlights */}
             <div
-                className="absolute top-10 left-10 w-72 h-72 rounded-full blur-3xl pointer-events-none opacity-30"
+                className="absolute top-10 left-10 w-72 h-72 rounded-full blur-3xl pointer-events-none opacity-20"
                 style={{ backgroundColor: '#8F8BB6' }}
             />
             <div
-                className="absolute bottom-10 right-10 w-96 h-96 rounded-full blur-3xl pointer-events-none opacity-20"
-                style={{ backgroundColor: '#B6B4BB' }}
+                className="absolute bottom-10 right-10 w-96 h-96 rounded-full blur-3xl pointer-events-none opacity-10"
+                style={{ backgroundColor: '#585296' }}
             />
             <div
-                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full blur-[100px] pointer-events-none opacity-10"
-                style={{ backgroundColor: '#585296' }}
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full blur-[100px] pointer-events-none opacity-5"
+                style={{ backgroundColor: '#B6B4BB' }}
             />
 
             {/* Floating music notes */}
-            <span className="absolute top-16 right-24 text-white/10 text-7xl select-none pointer-events-none animate-bounce" style={{ animationDuration: '3s' }}>♪</span>
-            <span className="absolute bottom-20 left-20 text-white/10 text-5xl select-none pointer-events-none animate-bounce" style={{ animationDuration: '4s' }}>♫</span>
-            <span className="absolute top-1/3 right-1/4 text-white/5 text-9xl select-none pointer-events-none">♩</span>
+            <span className="absolute top-16 right-24 text-white/5 text-7xl select-none pointer-events-none animate-bounce" style={{ animationDuration: '3s' }}>♪</span>
+            <span className="absolute bottom-20 left-20 text-white/5 text-5xl select-none pointer-events-none animate-bounce" style={{ animationDuration: '4s' }}>♫</span>
 
             {/* Card */}
             <div className="relative z-10 w-full max-w-md">
                 <div
-                    className="backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl px-8 py-10 flex flex-col items-center gap-8"
-                    style={{ backgroundColor: 'rgba(39, 45, 62, 0.55)' }}
+                    className="border border-white/10 rounded-3xl shadow-2xl px-8 py-10 flex flex-col items-center gap-8"
+                    style={{ backgroundColor: '#3C436B' }}
                 >
                     {/* Header */}
                     <div className="text-center">
-                        <h1 className="text-3xl font-bold text-white tracking-tight drop-shadow-lg">
+                        <h1 className="text-3xl font-bold tracking-tight drop-shadow-lg" style={{ color: '#B6B4BB' }}>
                             Mood Input
                         </h1>
-                        <p className="mt-2 text-white/60 text-sm">
+                        <p className="mt-2 text-sm opacity-80" style={{ color: '#B6B4BB' }}>
                             How are you feeling today?
                         </p>
                     </div>
@@ -62,10 +62,9 @@ const MoodInputPage = () => {
 
                     {/* Selected mood label */}
                     {selectedConfig && !confirmed && (
-                        <div className="flex items-center gap-2 border border-white/20 rounded-full px-5 py-2"
-                            style={{ backgroundColor: 'rgba(182,180,187,0.12)' }}>
+                        <div className="flex items-center gap-2 border border-white/5 rounded-full px-5 py-2 bg-white/5">
                             <span className="text-xl">{selectedConfig.emoji}</span>
-                            <span className="text-white/80 font-medium text-sm">
+                            <span className="font-medium text-sm" style={{ color: '#B6B4BB' }}>
                                 You're feeling{' '}
                                 <span className="font-bold text-white">{selectedConfig.label}</span>
                             </span>
@@ -75,14 +74,13 @@ const MoodInputPage = () => {
                     {/* Confirmation message */}
                     {confirmed && selectedConfig && (
                         <div
-                            className="flex flex-col items-center gap-1 border border-white/20 rounded-2xl px-6 py-4 text-center"
-                            style={{ backgroundColor: 'rgba(88,82,150,0.25)' }}
+                            className="flex flex-col items-center gap-1 border border-white/10 rounded-2xl px-6 py-4 text-center bg-white/5"
                         >
                             <span className="text-3xl">{selectedConfig.emoji}</span>
-                            <p className="text-white font-semibold text-sm mt-1">
+                            <p className="font-semibold text-sm mt-1" style={{ color: '#B6B4BB' }}>
                                 Mood confirmed!
                             </p>
-                            <p className="text-white/60 text-xs">
+                            <p className="text-xs opacity-70" style={{ color: '#B6B4BB' }}>
                                 Your <span className="font-bold text-white">{selectedConfig.label}</span> mood has been recorded.
                             </p>
                         </div>
@@ -97,15 +95,16 @@ const MoodInputPage = () => {
                     {confirmed && (
                         <button
                             onClick={() => { setConfirmed(false); setSelectedMood(null); }}
-                            className="text-white/50 text-sm underline underline-offset-2 hover:text-white transition-colors"
+                            className="text-sm underline underline-offset-2 hover:opacity-80 transition-opacity"
+                            style={{ color: '#B6B4BB' }}
                         >
                             Change mood
                         </button>
                     )}
 
                     {/* Note */}
-                    <p className="text-white/40 text-xs text-center">
-                        <span className="font-semibold text-white/60">Note:</span> You can select your mood once per day.
+                    <p className="text-xs text-center opacity-60" style={{ color: '#B6B4BB' }}>
+                        <span className="font-semibold">Note:</span> You can select your mood once per day.
                     </p>
                 </div>
             </div>

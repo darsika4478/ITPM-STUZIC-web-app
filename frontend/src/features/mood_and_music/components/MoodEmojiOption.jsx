@@ -36,13 +36,16 @@ const MoodEmojiOption = ({ mood, selected, onSelect }) => {
             </div>
 
             {/* Number label */}
-            <span className={`text-xs font-bold transition-colors duration-200 ${isSelected ? 'text-white' : 'text-white/50'}`}>
+            <span className={`text-xs font-bold transition-colors duration-200 ${isSelected ? 'text-white' : 'text-[#B6B4BB]'}`}>
                 {mood}
             </span>
 
             {/* Selected dot */}
             {isSelected && (
-                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-white animate-pulse shadow-lg" />
+                <span
+                    className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full animate-pulse shadow-lg"
+                    style={{ backgroundColor: '#585296' }}
+                />
             )}
         </button>
     );
