@@ -125,7 +125,7 @@ const Login = () => {
 
                     <p className="mt-5 text-center text-sm text-[var(--c4)]">
                         New to STUZIC?{' '}
-                        <Link to="/signup" className="font-semibold text-[var(--c4)] hover:underline">
+                        <Link to="/register" className="font-semibold text-[var(--c4)] hover:underline">
                             Create account
                         </Link>
                     </p>
