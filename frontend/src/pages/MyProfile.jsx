@@ -1,12 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+    deleteUser,
+    EmailAuthProvider,
     onAuthStateChanged,
+    reauthenticateWithCredential,
     sendEmailVerification,
     signOut,
+    updatePassword,
     updateProfile,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import AvatarEditorModal from '../components/user-management/AvatarEditorModal';
 
@@ -28,6 +32,20 @@ const MyProfile = () => {
     const [profileError, setProfileError] = useState('');
     const [uploading, setUploading] = useState(false);
     const [showAvatarEditor, setShowAvatarEditor] = useState(false);
+
+    // Password state
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [passwordErrors, setPasswordErrors] = useState({});
+    const [passwordSuccess, setPasswordSuccess] = useState(false);
+
+    // Delete account state
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [deleteConfirmText, setDeleteConfirmText] = useState('');
+    const [deletePassword, setDeletePassword] = useState('');
+    const [deleteError, setDeleteError] = useState('');
+    const [deleting, setDeleting] = useState(false);
 
     // Email verification
     const [verificationSent, setVerificationSent] = useState(false);
@@ -173,6 +191,114 @@ const MyProfile = () => {
             setTimeout(() => setVerificationSent(false), 5000);
         } catch (err) {
             console.error('Send verification email failed:', err);
+        }
+    };
+
+    // Password strength
+    const getPasswordStrength = (pw) => {
+        if (!pw) return { label: '', color: '', width: '0%' };
+        let score = 0;
+        if (pw.length >= 6) score++;
+        if (pw.length >= 10) score++;
+        if (/[A-Z]/.test(pw)) score++;
+        if (/[0-9]/.test(pw)) score++;
+        if (/[^A-Za-z0-9]/.test(pw)) score++;
+        if (score <= 1) return { label: 'Weak', color: 'bg-red-500', width: '20%' };
+        if (score <= 2) return { label: 'Fair', color: 'bg-orange-400', width: '40%' };
+        if (score <= 3) return { label: 'Good', color: 'bg-yellow-400', width: '60%' };
+        if (score <= 4) return { label: 'Strong', color: 'bg-green-400', width: '80%' };
+        return { label: 'Very Strong', color: 'bg-green-500', width: '100%' };
+    };
+
+    const strength = getPasswordStrength(newPassword);
+
+    // ── Change Password ──
+    const handleChangePassword = async (e) => {
+        e.preventDefault();
+        if (!user) return;
+        setPasswordSuccess(false);
+        const errs = {};
+        if (!currentPassword) errs.current = 'Current password is required.';
+        if (!newPassword) errs.new = 'New password is required.';
+        else if (newPassword.length < 6) errs.new = 'Minimum 6 characters.';
+        if (newPassword !== confirmPassword) errs.confirm = 'Passwords do not match.';
+        setPasswordErrors(errs);
+        if (Object.keys(errs).length > 0) return;
+
+        try {
+            const credential = EmailAuthProvider.credential(user.email, currentPassword);
+            await reauthenticateWithCredential(user, credential);
+            await updatePassword(user, newPassword);
+            setPasswordSuccess(true);
+            setCurrentPassword('');
+            setNewPassword('');
+            setConfirmPassword('');
+            setPasswordErrors({});
+            setTimeout(() => setPasswordSuccess(false), 3000);
+        } catch (error) {
+            console.error('Change password failed:', error);
+            if (error?.code === 'auth/wrong-password' || error?.code === 'auth/invalid-credential') {
+                setPasswordErrors({ current: 'Current password is incorrect.' });
+            } else if (error?.code === 'auth/too-many-requests') {
+                setPasswordErrors({ current: 'Too many attempts. Try again later.' });
+            } else {
+                setPasswordErrors({ current: 'Failed to update password.' });
+            }
+        }
+    };
+
+    // ── Delete Account ──
+    const handleDeleteAccount = async () => {
+        if (deleteConfirmText !== 'DELETE') {
+            setDeleteError('Type DELETE to confirm.');
+            return;
+        }
+        if (!deletePassword) {
+            setDeleteError('Password is required for verification.');
+            return;
+        }
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+            setDeleteError('No authenticated user found. Please log in again.');
+            return;
+        }
+        setDeleting(true);
+        setDeleteError('');
+        try {
+            // Re-authenticate FIRST — required for deleteUser
+            const credential = EmailAuthProvider.credential(currentUser.email, deletePassword);
+            await reauthenticateWithCredential(currentUser, credential);
+
+            // 1. Delete user's tasks from Firestore
+            try {
+                const tasksQuery = query(collection(db, 'tasks'), where('userId', '==', currentUser.uid));
+                const tasksSnap = await getDocs(tasksQuery);
+                const deletions = tasksSnap.docs.map((d) => deleteDoc(d.ref));
+                await Promise.all(deletions);
+            } catch (err) {
+                console.warn('Could not delete user tasks:', err);
+            }
+
+            // 2. Delete Firestore user doc
+            try {
+                await deleteDoc(doc(db, 'users', currentUser.uid));
+            } catch (err) {
+                console.warn('Could not delete user doc:', err);
+            }
+
+            // 3. Delete the auth user — MUST be last (signs out automatically)
+            await deleteUser(currentUser);
+            navigate('/login');
+        } catch (error) {
+            console.error('Delete account failed:', error);
+            if (error?.code === 'auth/wrong-password' || error?.code === 'auth/invalid-credential') {
+                setDeleteError('Password is incorrect.');
+            } else if (error?.code === 'auth/requires-recent-login') {
+                setDeleteError('Session expired. Please log out, log back in, and try again.');
+            } else {
+                setDeleteError(`Failed to delete account: ${error?.message || 'Unknown error'}.`);
+            }
+            setDeleting(false);
         }
     };
 
@@ -332,6 +458,149 @@ const MyProfile = () => {
                     </div>
                 </div>
             </div>
+
+            {/* ── Change Password ── */}
+            <div className={cardClass}>
+                <h2 className="mb-4 text-lg font-semibold">Change Password</h2>
+                <form onSubmit={handleChangePassword} className="space-y-4">
+                    <div>
+                        <label className={labelClass}>Current Password</label>
+                        <input
+                            type="password"
+                            value={currentPassword}
+                            onChange={(e) => setCurrentPassword(e.target.value)}
+                            placeholder="Enter current password"
+                            className={inputClass}
+                        />
+                        {passwordErrors.current && (
+                            <p className="mt-1 text-xs text-red-400">{passwordErrors.current}</p>
+                        )}
+                    </div>
+                    <div>
+                        <label className={labelClass}>New Password</label>
+                        <input
+                            type="password"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            placeholder="Minimum 6 characters"
+                            className={inputClass}
+                        />
+                        {newPassword && (
+                            <div className="mt-2">
+                                <div className="flex items-center justify-between text-xs">
+                                    <span className="text-white/50">Strength</span>
+                                    <span className="font-medium text-white/70">{strength.label}</span>
+                                </div>
+                                <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                                    <div
+                                        className={`h-full rounded-full transition-all ${strength.color}`}
+                                        style={{ width: strength.width }}
+                                    />
+                                </div>
+                            </div>
+                        )}
+                        {passwordErrors.new && (
+                            <p className="mt-1 text-xs text-red-400">{passwordErrors.new}</p>
+                        )}
+                    </div>
+                    <div>
+                        <label className={labelClass}>Confirm New Password</label>
+                        <input
+                            type="password"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            placeholder="Re-enter new password"
+                            className={inputClass}
+                        />
+                        {passwordErrors.confirm && (
+                            <p className="mt-1 text-xs text-red-400">{passwordErrors.confirm}</p>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <button type="submit" className={btnPrimary}>
+                            Update Password
+                        </button>
+                        {passwordSuccess && (
+                            <span className="text-xs text-green-400">✓ Password changed!</span>
+                        )}
+                    </div>
+                </form>
+            </div>
+
+            {/* ── Danger Zone ── */}
+            <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-6 backdrop-blur">
+                
+                <p className="mb-4 text-sm text-white/50">
+                    Permanently delete your account, all tasks, and profile data. This action cannot be undone.
+                </p>
+                <button
+                    type="button"
+                    onClick={() => setShowDeleteModal(true)}
+                    className="rounded-xl bg-red-600/80 px-5 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-red-600 active:scale-[0.98]"
+                >
+                    Delete My Account
+                </button>
+            </div>
+
+            {/* ── Delete Confirmation Modal ── */}
+            {showDeleteModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+                    <div className="w-full max-w-md rounded-2xl border border-red-500/30 bg-[#272D3E] p-6 shadow-2xl">
+                        <h3 className="text-lg font-bold text-red-400">Delete Account</h3>
+                        <p className="mt-2 text-sm text-white/60">
+                            This will permanently delete your account, all tasks, and uploaded data.
+                            Type <span className="font-bold text-white">DELETE</span> below to confirm.
+                        </p>
+                        <div className="mt-4 space-y-3">
+                            <div>
+                                <label className="block text-xs font-medium text-white/60">Confirmation</label>
+                                <input
+                                    type="text"
+                                    value={deleteConfirmText}
+                                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                                    placeholder='Type "DELETE"'
+                                    className={inputClass}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-white/60">Current Password</label>
+                                <input
+                                    type="password"
+                                    value={deletePassword}
+                                    onChange={(e) => setDeletePassword(e.target.value)}
+                                    placeholder="Enter your password"
+                                    className={inputClass}
+                                />
+                            </div>
+                            {deleteError && (
+                                <p className="text-xs text-red-400">{deleteError}</p>
+                            )}
+                        </div>
+                        <div className="mt-5 flex justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowDeleteModal(false);
+                                    setDeleteConfirmText('');
+                                    setDeletePassword('');
+                                    setDeleteError('');
+                                }}
+                                className="rounded-xl border border-white/20 px-4 py-2 text-sm font-medium text-white/70 hover:bg-white/10"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleDeleteAccount}
+                                disabled={deleting}
+                                className="rounded-xl bg-red-600 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-red-500 disabled:opacity-50"
+                            >
+                                {deleting ? 'Deleting…' : 'Permanently Delete'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* ── Avatar Editor Modal ── */}
             <AvatarEditorModal
