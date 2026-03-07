@@ -8,6 +8,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
+import AvatarEditorModal from '../components/user-management/AvatarEditorModal';
 
 const MyProfile = () => {
     const navigate = useNavigate();
@@ -25,6 +26,8 @@ const MyProfile = () => {
     const [photoURL, setPhotoURL] = useState('');
     const [profileSaved, setProfileSaved] = useState(false);
     const [profileError, setProfileError] = useState('');
+    const [uploading, setUploading] = useState(false);
+    const [showAvatarEditor, setShowAvatarEditor] = useState(false);
 
     // Email verification
     const [verificationSent, setVerificationSent] = useState(false);
@@ -65,6 +68,79 @@ const MyProfile = () => {
         return parts.length >= 2
             ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
             : n.slice(0, 2).toUpperCase();
+    };
+
+    // ── Avatar Save (from crop modal) ── stores as Base64 in Firestore
+    const handleAvatarSave = async (blob) => {
+        const currentUser = auth.currentUser;
+        if (!blob || !currentUser) return;
+        setUploading(true);
+        setProfileError('');
+        setProfileSaved(false);
+        try {
+            // Convert blob → compressed 200×200 JPEG → base64 data-URL
+            const base64 = await new Promise((resolve, reject) => {
+                const img = new Image();
+                const blobUrl = URL.createObjectURL(blob);
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX = 200;
+                    canvas.width = MAX;
+                    canvas.height = MAX;
+                    canvas.getContext('2d').drawImage(img, 0, 0, MAX, MAX);
+                    URL.revokeObjectURL(blobUrl);
+                    resolve(canvas.toDataURL('image/jpeg', 0.7));
+                };
+                img.onerror = () => {
+                    URL.revokeObjectURL(blobUrl);
+                    reject(new Error('Failed to process image.'));
+                };
+                img.src = blobUrl;
+            });
+
+            // Safety check — Firestore docs have a 1 MB limit
+            if (base64.length > 500_000) {
+                throw new Error('Photo too large. Please choose a smaller image.');
+            }
+
+            await setDoc(
+                doc(db, 'users', currentUser.uid),
+                { photoURL: base64 },
+                { merge: true },
+            );
+            setPhotoURL(base64);
+            setShowAvatarEditor(false);
+            setProfileSaved(true);
+            setTimeout(() => setProfileSaved(false), 3000);
+        } catch (err) {
+            console.error('Avatar save failed:', err);
+            setProfileError(`Upload failed: ${err?.message || 'Unknown error'}`);
+            throw err; // Re-throw so the modal can catch it and clear "Saving…"
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    // ── Avatar Remove ──
+    const handleRemoveAvatar = async () => {
+        const currentUser = auth.currentUser;
+        if (!currentUser) return;
+        setUploading(true);
+        setProfileError('');
+        try {
+            await setDoc(
+                doc(db, 'users', currentUser.uid),
+                { photoURL: null },
+                { merge: true },
+            );
+            setPhotoURL('');
+            setShowAvatarEditor(false);
+        } catch (err) {
+            console.error('Remove avatar failed:', err);
+            setProfileError(`Failed to remove photo: ${err?.message || 'Unknown error'}`);
+        } finally {
+            setUploading(false);
+        }
     };
 
     // ── Save Profile ──
@@ -143,9 +219,14 @@ const MyProfile = () => {
 
             {/* ── Avatar + Profile Info ── */}
             <div className={cardClass}>
-                {/* Avatar — centered above heading */}
+                {/* Avatar — centered above heading, pen icon to edit */}
                 <div className="mb-5 flex flex-col items-center gap-3">
-                    <div className="relative shrink-0">
+                    <button
+                        type="button"
+                        onClick={() => setShowAvatarEditor(true)}
+                        className="group relative shrink-0"
+                        aria-label="Edit profile photo"
+                    >
                         {photoURL ? (
                             <img
                                 src={photoURL}
@@ -157,7 +238,18 @@ const MyProfile = () => {
                                 {getInitials(name)}
                             </div>
                         )}
-                    </div>
+                        {/* Pen icon overlay */}
+                        <div className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-[#585296] text-white shadow-lg ring-2 ring-[#272D3E] transition group-hover:bg-[#8F8BB6]">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                            </svg>
+                        </div>
+                        {uploading && (
+                            <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50">
+                                <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            </div>
+                        )}
+                    </button>
                 </div>
 
                 <h2 className="mb-5 text-center text-lg font-semibold">Profile Information</h2>
@@ -240,6 +332,15 @@ const MyProfile = () => {
                     </div>
                 </div>
             </div>
+
+            {/* ── Avatar Editor Modal ── */}
+            <AvatarEditorModal
+                open={showAvatarEditor}
+                currentPhoto={photoURL}
+                onSave={handleAvatarSave}
+                onDelete={handleRemoveAvatar}
+                onClose={() => setShowAvatarEditor(false)}
+            />
         </div>
     );
 };
