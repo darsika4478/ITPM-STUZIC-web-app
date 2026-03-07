@@ -1,3 +1,8 @@
 export default function Login() {
-  return <h1>Login Page</h1>;
+  return (
+    <div style={{ padding: 24 }}>
+      <h1 style={{ marginBottom: 12 }}>Login</h1>
+      <p>Temporary login page (Firebase will be added later).</p>
+    </div>
+  );
 }
