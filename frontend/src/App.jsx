@@ -12,7 +12,8 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      <Route path="/signup" element={<Register />} />
+      <Route path="/register" element={<Navigate to="/signup" replace />} />
 
       {/* Protected routes - require authentication */}
       <Route element={<AuthGuard />}>
