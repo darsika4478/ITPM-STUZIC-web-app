@@ -5,6 +5,7 @@ import Register from "./pages/Register.jsx";
 import AuthGuard from "./components/user-management/AuthGuard";
 import DashboardLayout from "./layout/DashboardLayout";
 import DashboardHome from "./pages/DashboardHome";
+import MyProfile from "./pages/MyProfile";
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
       <Route element={<AuthGuard />}>
         <Route path="/dashboard" element={<DashboardLayout />}>
           <Route index element={<DashboardHome />} />
+          <Route path="profile" element={<MyProfile />} />
         </Route>
       </Route>
 
