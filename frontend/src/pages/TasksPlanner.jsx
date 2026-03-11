@@ -78,6 +78,14 @@ export default function TasksPlanner() {
     const [searchQuery, setSearchQuery] = useState("");
     const [filterPriority, setFilterPriority] = useState("All");
 
+    // Edit task state
+    const [editingTask, setEditingTask] = useState(null);
+    const [editTitle, setEditTitle] = useState("");
+    const [editDescription, setEditDescription] = useState("");
+    const [editDueDate, setEditDueDate] = useState("");
+    const [editPriority, setEditPriority] = useState("Medium");
+    const [updating, setUpdating] = useState(false);
+
     // Real-time listener for user's tasks
     useEffect(() => {
         const user = auth.currentUser;
@@ -163,6 +171,46 @@ export default function TasksPlanner() {
             setConfirmDelete(null);
         } catch (error) {
             console.error("Error deleting task:", error);
+        }
+    };
+
+    // Open edit modal with task data
+    const openEditModal = (task) => {
+        setEditingTask(task);
+        setEditTitle(task.title);
+        setEditDescription(task.description || "");
+        setEditDueDate(task.dueDate || "");
+        setEditPriority(task.priority);
+    };
+
+    // Close edit modal
+    const closeEditModal = () => {
+        setEditingTask(null);
+        setEditTitle("");
+        setEditDescription("");
+        setEditDueDate("");
+        setEditPriority("Medium");
+        setUpdating(false);
+    };
+
+    // Update a task
+    const handleUpdateTask = async (e) => {
+        e.preventDefault();
+        if (!editTitle.trim() || !editingTask) return;
+
+        setUpdating(true);
+        try {
+            await updateDoc(doc(db, "tasks", editingTask.id), {
+                title: editTitle.trim(),
+                description: editDescription.trim() || null,
+                dueDate: editDueDate || null,
+                priority: editPriority,
+            });
+            closeEditModal();
+        } catch (error) {
+            console.error("Error updating task:", error);
+            alert("Failed to update task. Please try again.");
+            setUpdating(false);
         }
     };
 
@@ -548,8 +596,8 @@ export default function TasksPlanner() {
                                         {task.title}
                                     </h4>
 
-                                    {/* Delete */}
-                                    <div className="shrink-0">
+                                    {/* Edit + Delete */}
+                                    <div className="flex items-center gap-1 shrink-0">
                                         {confirmDelete === task.id ? (
                                             <div className="flex items-center gap-1.5">
                                                 <button
@@ -566,15 +614,26 @@ export default function TasksPlanner() {
                                                 </button>
                                             </div>
                                         ) : (
-                                            <button
-                                                onClick={() => setConfirmDelete(task.id)}
-                                                className="rounded-lg p-1.5 text-white/20 transition hover:bg-red-500/10 hover:text-red-400 opacity-0 group-hover:opacity-100"
-                                                title="Delete task"
-                                            >
-                                                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                </svg>
-                                            </button>
+                                            <>
+                                                <button
+                                                    onClick={() => openEditModal(task)}
+                                                    className="rounded-lg p-1.5 text-white/20 transition hover:bg-[var(--c3)]/15 hover:text-[var(--c3)] opacity-0 group-hover:opacity-100"
+                                                    title="Edit task"
+                                                >
+                                                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                    </svg>
+                                                </button>
+                                                <button
+                                                    onClick={() => setConfirmDelete(task.id)}
+                                                    className="rounded-lg p-1.5 text-white/20 transition hover:bg-red-500/10 hover:text-red-400 opacity-0 group-hover:opacity-100"
+                                                    title="Delete task"
+                                                >
+                                                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
+                                            </>
                                         )}
                                     </div>
                                 </div>
@@ -615,6 +674,125 @@ export default function TasksPlanner() {
                             </div>
                         </div>
                     ))}
+                </div>
+            )}
+
+            {/* Edit Task Modal */}
+            {editingTask && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    {/* Backdrop */}
+                    <div
+                        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                        onClick={closeEditModal}
+                    />
+
+                    {/* Modal */}
+                    <form
+                        onSubmit={handleUpdateTask}
+                        className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-white/15 bg-[var(--c5)] shadow-2xl shadow-black/40"
+                    >
+                        {/* Priority strip */}
+                        <div className={`h-1.5 w-full ${
+                            editPriority === "High" ? "bg-gradient-to-r from-red-500 to-red-400" :
+                            editPriority === "Medium" ? "bg-gradient-to-r from-amber-500 to-amber-400" :
+                            "bg-gradient-to-r from-green-500 to-green-400"
+                        }`} />
+
+                        <div className="p-6">
+                            <h3 className="mb-5 text-lg font-semibold text-white">Edit Task</h3>
+
+                            {/* Title */}
+                            <div className="mb-4">
+                                <label className="mb-1.5 block text-sm font-medium text-[var(--c1)]">
+                                    Title <span className="text-red-400">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={editTitle}
+                                    onChange={(e) => setEditTitle(e.target.value)}
+                                    className="w-full rounded-xl border border-white/15 bg-white/8 px-4 py-3 text-sm text-white placeholder-white/30 outline-none transition focus:border-[var(--c3)] focus:ring-2 focus:ring-[var(--c3)]/20"
+                                    required
+                                    autoFocus
+                                />
+                            </div>
+
+                            {/* Description */}
+                            <div className="mb-4">
+                                <label className="mb-1.5 block text-sm font-medium text-[var(--c1)]">
+                                    Description
+                                </label>
+                                <textarea
+                                    value={editDescription}
+                                    onChange={(e) => setEditDescription(e.target.value)}
+                                    placeholder="Add details..."
+                                    rows={3}
+                                    className="w-full rounded-xl border border-white/15 bg-white/8 px-4 py-3 text-sm text-white placeholder-white/30 outline-none transition focus:border-[var(--c3)] focus:ring-2 focus:ring-[var(--c3)]/20 resize-none"
+                                />
+                            </div>
+
+                            {/* Due Date & Priority */}
+                            <div className="mb-6 flex flex-wrap gap-4">
+                                <div className="flex-1 min-w-[160px]">
+                                    <label className="mb-1.5 block text-sm font-medium text-[var(--c1)]">
+                                        Due Date
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={editDueDate}
+                                        onChange={(e) => setEditDueDate(e.target.value)}
+                                        className="w-full rounded-xl border border-white/15 bg-white/8 px-4 py-3 text-sm text-white outline-none transition focus:border-[var(--c3)] focus:ring-2 focus:ring-[var(--c3)]/20"
+                                    />
+                                </div>
+                                <div className="flex-1 min-w-[160px]">
+                                    <label className="mb-1.5 block text-sm font-medium text-[var(--c1)]">
+                                        Priority
+                                    </label>
+                                    <div className="flex gap-2">
+                                        {["Low", "Medium", "High"].map((p) => {
+                                            const activeColors = {
+                                                Low: "border-green-500/50 bg-green-500/20 text-green-400",
+                                                Medium: "border-amber-500/50 bg-amber-500/20 text-amber-400",
+                                                High: "border-red-500/50 bg-red-500/20 text-red-400",
+                                            };
+                                            const dots = { Low: "🟢", Medium: "🟡", High: "🔴" };
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    key={p}
+                                                    onClick={() => setEditPriority(p)}
+                                                    className={`flex-1 rounded-xl border py-2.5 text-xs font-medium transition ${
+                                                        editPriority === p
+                                                            ? activeColors[p]
+                                                            : "border-white/10 bg-white/5 text-white/40 hover:bg-white/10"
+                                                    }`}
+                                                >
+                                                    {dots[p]} {p}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex items-center justify-end gap-3">
+                                <button
+                                    type="button"
+                                    onClick={closeEditModal}
+                                    className="rounded-xl px-5 py-2.5 text-sm font-medium text-[var(--c1)] transition hover:bg-white/10 hover:text-white"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={updating || !editTitle.trim()}
+                                    className="rounded-xl bg-gradient-to-r from-[var(--c3)] to-[var(--c4)] px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[var(--c3)]/20 transition hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {updating ? "Saving..." : "Save Changes"}
+                                </button>
+                            </div>
+                        </div>
+                    </form>
                 </div>
             )}
         </div>
