@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
     collection,
     addDoc,
@@ -16,11 +16,62 @@ import { auth, db } from "../config/firebase";
 export default function TasksPlanner() {
     const [tasks, setTasks] = useState([]);
     const [title, setTitle] = useState("");
+    const [description, setDescription] = useState("");
     const [dueDate, setDueDate] = useState("");
     const [priority, setPriority] = useState("Medium");
     const [loading, setLoading] = useState(true);
     const [adding, setAdding] = useState(false);
     const [showForm, setShowForm] = useState(false);
+
+    // Undo / Redo history
+    const historyRef = useRef([{ title: "", description: "" }]);
+    const historyIndexRef = useRef(0);
+    const [canUndo, setCanUndo] = useState(false);
+    const [canRedo, setCanRedo] = useState(false);
+
+    const pushHistory = useCallback((t, d) => {
+        const idx = historyIndexRef.current;
+        // Trim any forward history
+        historyRef.current = historyRef.current.slice(0, idx + 1);
+        historyRef.current.push({ title: t, description: d });
+        historyIndexRef.current = historyRef.current.length - 1;
+        setCanUndo(historyIndexRef.current > 0);
+        setCanRedo(false);
+    }, []);
+
+    const handleUndo = useCallback(() => {
+        if (historyIndexRef.current <= 0) return;
+        historyIndexRef.current -= 1;
+        const snap = historyRef.current[historyIndexRef.current];
+        setTitle(snap.title);
+        setDescription(snap.description);
+        setCanUndo(historyIndexRef.current > 0);
+        setCanRedo(true);
+    }, []);
+
+    const handleRedo = useCallback(() => {
+        if (historyIndexRef.current >= historyRef.current.length - 1) return;
+        historyIndexRef.current += 1;
+        const snap = historyRef.current[historyIndexRef.current];
+        setTitle(snap.title);
+        setDescription(snap.description);
+        setCanUndo(true);
+        setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
+    }, []);
+
+    // Keyboard shortcut: Cmd/Ctrl+Z = undo, Cmd/Ctrl+Shift+Z = redo
+    useEffect(() => {
+        if (!showForm) return;
+        const handler = (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === "z") {
+                e.preventDefault();
+                if (e.shiftKey) handleRedo();
+                else handleUndo();
+            }
+        };
+        window.addEventListener("keydown", handler);
+        return () => window.removeEventListener("keydown", handler);
+    }, [showForm, handleUndo, handleRedo]);
     const [confirmDelete, setConfirmDelete] = useState(null);
     const [error, setError] = useState("");
     const [activeTab, setActiveTab] = useState("All");
@@ -75,6 +126,7 @@ export default function TasksPlanner() {
         try {
             await addDoc(collection(db, "tasks"), {
                 title: title.trim(),
+                description: description.trim() || null,
                 dueDate: dueDate || null,
                 priority,
                 completed: false,
@@ -82,6 +134,7 @@ export default function TasksPlanner() {
                 createdAt: serverTimestamp(),
             });
             setTitle("");
+            setDescription("");
             setDueDate("");
             setPriority("Medium");
             setShowForm(false);
@@ -162,7 +215,11 @@ export default function TasksPlanner() {
 
         // Search filter
         if (searchQuery.trim()) {
-            return t.title.toLowerCase().includes(searchQuery.toLowerCase());
+            const q = searchQuery.toLowerCase();
+            return (
+                t.title.toLowerCase().includes(q) ||
+                (t.description && t.description.toLowerCase().includes(q))
+            );
         }
 
         return true;
@@ -171,19 +228,11 @@ export default function TasksPlanner() {
     return (
         <div className="mx-auto max-w-4xl">
             {/* Header */}
-            <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
-                <div>
-                    <h1 className="text-3xl font-bold text-white">📋 Task Planner</h1>
-                    <p className="mt-1 text-[var(--c1)]">
-                        Organize your study tasks and stay on track
-                    </p>
-                </div>
-                <button
-                    onClick={() => setShowForm(!showForm)}
-                    className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[var(--c3)] to-[var(--c4)] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-[var(--c3)]/20 transition hover:scale-105 active:scale-95"
-                >
-                    {showForm ? "✕ Cancel" : "＋ New Task"}
-                </button>
+            <div className="mb-8">
+                <h1 className="text-3xl font-bold text-white">📋 Task Planner</h1>
+                <p className="mt-1 text-[var(--c1)]">
+                    Organize your study tasks and stay on track
+                </p>
             </div>
 
             {/* Error Banner */}
@@ -193,67 +242,151 @@ export default function TasksPlanner() {
                 </div>
             )}
 
-            {/* Add Task Form */}
-            {showForm && (
-                <form
-                    onSubmit={handleAddTask}
-                    className="mb-8 rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl"
-                >
-                    <h3 className="mb-4 text-lg font-semibold text-white">Create New Task</h3>
-
-                    <div className="mb-4">
-                        <label className="mb-1.5 block text-sm font-medium text-[var(--c1)]">
-                            Task Title <span className="text-red-400">*</span>
-                        </label>
+            {/* Keep-style Task Input Bar */}
+            <div className="mb-8">
+                {!showForm ? (
+                    /* Collapsed bar */
+                    <div
+                        onClick={() => setShowForm(true)}
+                        className="flex cursor-text items-center rounded-2xl border border-white/15 bg-white/5 px-5 py-4 shadow-lg shadow-black/10 transition hover:border-white/25 hover:bg-white/8"
+                    >
+                        <span className="flex-1 text-sm text-white/35">Take a note...</span>
+                        <div className="flex items-center gap-2">
+                            <span className="rounded-lg p-1.5 text-white/25 transition hover:bg-white/10 hover:text-white/50" title="New task">
+                                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                </svg>
+                            </span>
+                        </div>
+                    </div>
+                ) : (
+                    /* Expanded form */
+                    <form
+                        onSubmit={handleAddTask}
+                        className="overflow-hidden rounded-2xl border border-white/15 bg-white/5 shadow-xl shadow-black/15 backdrop-blur-xl transition-all"
+                    >
+                        {/* Title input */}
                         <input
                             type="text"
                             value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            placeholder="e.g., Complete Math Assignment Chapter 5"
-                            className="w-full rounded-xl border border-white/15 bg-white/8 px-4 py-3 text-sm text-white placeholder-white/30 outline-none transition focus:border-[var(--c3)] focus:ring-2 focus:ring-[var(--c3)]/20"
-                            required
+                            onChange={(e) => {
+                                const v = e.target.value;
+                                setTitle(v);
+                                pushHistory(v, description);
+                            }}
+                            placeholder="Title"
+                            className="w-full border-none bg-transparent px-5 pt-4 pb-1 text-base font-semibold text-white placeholder-white/30 outline-none"
                             autoFocus
                         />
-                    </div>
 
-                    <div className="mb-5 flex flex-wrap gap-4">
-                        <div className="flex-1 min-w-[180px]">
-                            <label className="mb-1.5 block text-sm font-medium text-[var(--c1)]">
-                                Due Date
-                            </label>
-                            <input
-                                type="date"
-                                value={dueDate}
-                                onChange={(e) => setDueDate(e.target.value)}
-                                min={new Date().toISOString().split("T")[0]}
-                                className="w-full rounded-xl border border-white/15 bg-white/8 px-4 py-3 text-sm text-white outline-none transition focus:border-[var(--c3)] focus:ring-2 focus:ring-[var(--c3)]/20"
-                            />
-                        </div>
-                        <div className="flex-1 min-w-[180px]">
-                            <label className="mb-1.5 block text-sm font-medium text-[var(--c1)]">
-                                Priority
-                            </label>
-                            <select
-                                value={priority}
-                                onChange={(e) => setPriority(e.target.value)}
-                                className="w-full rounded-xl border border-white/15 bg-white/8 px-4 py-3 text-sm text-white outline-none transition focus:border-[var(--c3)] focus:ring-2 focus:ring-[var(--c3)]/20"
-                            >
-                                <option value="Low" className="bg-[var(--c5)]">🟢 Low</option>
-                                <option value="Medium" className="bg-[var(--c5)]">🟡 Medium</option>
-                                <option value="High" className="bg-[var(--c5)]">🔴 High</option>
-                            </select>
-                        </div>
-                    </div>
+                        {/* Description textarea */}
+                        <textarea
+                            value={description}
+                            onChange={(e) => {
+                                const v = e.target.value;
+                                setDescription(v);
+                                pushHistory(title, v);
+                            }}
+                            placeholder="Take a note..."
+                            rows={2}
+                            className="w-full border-none bg-transparent px-5 pt-1 pb-3 text-sm text-white/80 placeholder-white/25 outline-none resize-none"
+                        />
 
-                    <button
-                        type="submit"
-                        disabled={adding || !title.trim()}
-                        className="w-full rounded-xl bg-gradient-to-r from-[var(--c3)] to-[var(--c4)] py-3 text-sm font-semibold text-white shadow-lg transition hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {adding ? "Adding..." : "✓ Add Task"}
-                    </button>
-                </form>
-            )}
+                        {/* Bottom toolbar */}
+                        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/8 px-4 py-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                                {/* Priority pills */}
+                                {["Low", "Medium", "High"].map((p) => {
+                                    const colors = {
+                                        Low: priority === "Low" ? "bg-green-500/25 text-green-400 border-green-500/40" : "bg-white/5 text-white/40 border-white/10 hover:bg-green-500/10 hover:text-green-400",
+                                        Medium: priority === "Medium" ? "bg-amber-500/25 text-amber-400 border-amber-500/40" : "bg-white/5 text-white/40 border-white/10 hover:bg-amber-500/10 hover:text-amber-400",
+                                        High: priority === "High" ? "bg-red-500/25 text-red-400 border-red-500/40" : "bg-white/5 text-white/40 border-white/10 hover:bg-red-500/10 hover:text-red-400",
+                                    };
+                                    const dots = { Low: "🟢", Medium: "🟡", High: "🔴" };
+                                    return (
+                                        <button
+                                            type="button"
+                                            key={p}
+                                            onClick={() => setPriority(p)}
+                                            className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition ${colors[p]}`}
+                                        >
+                                            {dots[p]} {p}
+                                        </button>
+                                    );
+                                })}
+
+                                {/* Date picker */}
+                                <div className="relative">
+                                    <input
+                                        type="date"
+                                        value={dueDate}
+                                        onChange={(e) => setDueDate(e.target.value)}
+                                        min={new Date().toISOString().split("T")[0]}
+                                        className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium outline-none transition ${
+                                            dueDate
+                                                ? "border-[var(--c3)]/40 bg-[var(--c3)]/15 text-[var(--c3)]"
+                                                : "border-white/10 bg-white/5 text-white/40 hover:bg-white/10"
+                                        }`}
+                                    />
+                                </div>
+                                {/* Undo / Redo */}
+                                <div className="flex items-center gap-0.5 ml-1 border-l border-white/10 pl-2">
+                                    <button
+                                        type="button"
+                                        onClick={handleUndo}
+                                        disabled={!canUndo}
+                                        className="rounded-lg p-1.5 text-white/30 transition hover:bg-white/10 hover:text-white disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-white/30"
+                                        title="Undo (⌘Z)"
+                                    >
+                                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleRedo}
+                                        disabled={!canRedo}
+                                        className="rounded-lg p-1.5 text-white/30 transition hover:bg-white/10 hover:text-white disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-white/30"
+                                        title="Redo (⌘⇧Z)"
+                                    >
+                                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 15l6-6m0 0l-6-6m6 6H9a6 6 0 000 12h3" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Action buttons */}
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowForm(false);
+                                        setTitle("");
+                                        setDescription("");
+                                        setDueDate("");
+                                        setPriority("Medium");
+                                        historyRef.current = [{ title: "", description: "" }];
+                                        historyIndexRef.current = 0;
+                                        setCanUndo(false);
+                                        setCanRedo(false);
+                                    }}
+                                    className="rounded-lg px-4 py-1.5 text-xs font-medium text-[var(--c1)] transition hover:bg-white/10 hover:text-white"
+                                >
+                                    Close
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={adding || !title.trim()}
+                                    className="rounded-lg bg-[var(--c3)] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-[var(--c3)]/80 disabled:opacity-30 disabled:cursor-not-allowed"
+                                >
+                                    {adding ? "Adding..." : "Add"}
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                )}
+            </div>
 
             {/* Stats Row */}
             <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -346,124 +479,144 @@ export default function TasksPlanner() {
                 </div>
             </div>
 
-            {/* Task List */}
-            <div className="space-y-3">
-                {loading ? (
-                    <div className="flex flex-col items-center justify-center py-16 text-[var(--c1)]">
-                        <div className="mb-4 h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-[var(--c3)]" />
-                        <p>Loading tasks...</p>
-                    </div>
-                ) : tasks.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 py-16 text-center">
-                        <span className="text-5xl">📝</span>
-                        <h3 className="mt-4 text-lg font-semibold text-white">No tasks yet</h3>
-                        <p className="mt-1 text-sm text-[var(--c1)]">
-                            Click "＋ New Task" to create your first task!
-                        </p>
-                    </div>
-                ) : filteredTasks.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 py-16 text-center">
-                        <span className="text-5xl">🔍</span>
-                        <h3 className="mt-4 text-lg font-semibold text-white">No matching tasks</h3>
-                        <p className="mt-1 text-sm text-[var(--c1)]">
-                            Try adjusting your filters or search query
-                        </p>
-                        <button
-                            onClick={() => { setActiveTab("All"); setSearchQuery(""); setFilterPriority("All"); }}
-                            className="mt-4 rounded-xl bg-white/10 px-5 py-2 text-sm font-medium text-white transition hover:bg-white/15"
-                        >
-                            Clear all filters
-                        </button>
-                    </div>
-                ) : (
-                    filteredTasks.map((task) => (
+            {/* Task Cards */}
+            {loading ? (
+                <div className="flex flex-col items-center justify-center py-16 text-[var(--c1)]">
+                    <div className="mb-4 h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-[var(--c3)]" />
+                    <p>Loading tasks...</p>
+                </div>
+            ) : tasks.length === 0 ? (
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 py-16 text-center">
+                    <span className="text-5xl">📝</span>
+                    <h3 className="mt-4 text-lg font-semibold text-white">No tasks yet</h3>
+                    <p className="mt-1 text-sm text-[var(--c1)]">
+                        Click "＋ New Task" to create your first task!
+                    </p>
+                </div>
+            ) : filteredTasks.length === 0 ? (
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 py-16 text-center">
+                    <span className="text-5xl">🔍</span>
+                    <h3 className="mt-4 text-lg font-semibold text-white">No matching tasks</h3>
+                    <p className="mt-1 text-sm text-[var(--c1)]">
+                        Try adjusting your filters or search query
+                    </p>
+                    <button
+                        onClick={() => { setActiveTab("All"); setSearchQuery(""); setFilterPriority("All"); }}
+                        className="mt-4 rounded-xl bg-white/10 px-5 py-2 text-sm font-medium text-white transition hover:bg-white/15"
+                    >
+                        Clear all filters
+                    </button>
+                </div>
+            ) : (
+                <div className="grid gap-4 sm:grid-cols-2">
+                    {filteredTasks.map((task) => (
                         <div
                             key={task.id}
-                            className={`group flex items-start gap-4 rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur transition hover:bg-white/8 ${
-                                task.completed ? "opacity-50" : ""
+                            className={`group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur transition hover:bg-white/8 hover:shadow-lg hover:shadow-black/10 hover:-translate-y-0.5 ${
+                                task.completed ? "opacity-60" : ""
                             }`}
                         >
-                            {/* Completion checkbox */}
-                            <button
-                                onClick={() => handleToggleComplete(task.id, task.completed)}
-                                className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 transition ${
-                                    task.completed
-                                        ? "border-green-500 bg-green-500/20 text-green-400"
-                                        : "border-white/20 hover:border-[var(--c3)] hover:bg-[var(--c3)]/10"
-                                }`}
-                                title={task.completed ? "Mark as incomplete" : "Mark as complete"}
-                            >
-                                {task.completed && (
-                                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                    </svg>
-                                )}
-                            </button>
+                            {/* Priority color strip on top */}
+                            <div className={`h-1.5 w-full ${
+                                task.priority === "High" ? "bg-gradient-to-r from-red-500 to-red-400" :
+                                task.priority === "Medium" ? "bg-gradient-to-r from-amber-500 to-amber-400" :
+                                "bg-gradient-to-r from-green-500 to-green-400"
+                            }`} />
 
-                            {/* Task info */}
-                            <div className="flex-1 min-w-0">
-                                <h4
-                                    className={`text-base font-semibold text-white ${
-                                        task.completed ? "line-through opacity-70" : ""
-                                    }`}
-                                >
-                                    {task.title}
-                                </h4>
-                                <div className="mt-2 flex flex-wrap items-center gap-2">
-                                    <span
-                                        className={`inline-flex items-center rounded-lg border px-2.5 py-0.5 text-xs font-medium ${getPriorityColor(task.priority)}`}
+                            <div className="p-5">
+                                {/* Card Header: checkbox + title + delete */}
+                                <div className="flex items-start gap-3">
+                                    <button
+                                        onClick={() => handleToggleComplete(task.id, task.completed)}
+                                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition ${
+                                            task.completed
+                                                ? "border-green-500 bg-green-500/20 text-green-400"
+                                                : "border-white/25 hover:border-[var(--c3)] hover:bg-[var(--c3)]/10"
+                                        }`}
+                                        title={task.completed ? "Mark as incomplete" : "Mark as complete"}
                                     >
+                                        {task.completed && (
+                                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        )}
+                                    </button>
+
+                                    <h4 className={`flex-1 text-sm font-semibold leading-snug text-white ${
+                                        task.completed ? "line-through opacity-70" : ""
+                                    }`}>
+                                        {task.title}
+                                    </h4>
+
+                                    {/* Delete */}
+                                    <div className="shrink-0">
+                                        {confirmDelete === task.id ? (
+                                            <div className="flex items-center gap-1.5">
+                                                <button
+                                                    onClick={() => handleDeleteTask(task.id)}
+                                                    className="rounded-lg bg-red-500/20 px-2.5 py-1 text-[11px] font-semibold text-red-400 transition hover:bg-red-500/30"
+                                                >
+                                                    Delete
+                                                </button>
+                                                <button
+                                                    onClick={() => setConfirmDelete(null)}
+                                                    className="rounded-lg bg-white/10 px-2.5 py-1 text-[11px] font-medium text-[var(--c1)] transition hover:bg-white/15"
+                                                >
+                                                    No
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => setConfirmDelete(task.id)}
+                                                className="rounded-lg p-1.5 text-white/20 transition hover:bg-red-500/10 hover:text-red-400 opacity-0 group-hover:opacity-100"
+                                                title="Delete task"
+                                            >
+                                                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Description */}
+                                {task.description && (
+                                    <p className={`mt-2.5 ml-8 text-xs leading-relaxed text-[var(--c1)] ${
+                                        task.completed ? "line-through opacity-60" : ""
+                                    }`}>
+                                        {task.description.length > 120
+                                            ? task.description.slice(0, 120) + "..."
+                                            : task.description}
+                                    </p>
+                                )}
+
+                                {/* Card Footer: badges */}
+                                <div className="mt-4 ml-8 flex flex-wrap items-center gap-2">
+                                    <span className={`inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-[11px] font-medium ${getPriorityColor(task.priority)}`}>
+                                        <span className={`h-1.5 w-1.5 rounded-full ${getPriorityDot(task.priority)}`} />
                                         {task.priority}
                                     </span>
-                                    <span
-                                        className={`text-xs ${
-                                            isOverdue(task.dueDate) && !task.completed
-                                                ? "text-red-400 font-medium"
-                                                : "text-[var(--c1)]"
-                                        }`}
-                                    >
+
+                                    <span className={`inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[11px] ${
+                                        isOverdue(task.dueDate) && !task.completed
+                                            ? "bg-red-500/10 text-red-400 font-medium"
+                                            : "bg-white/5 text-[var(--c1)]"
+                                    }`}>
                                         📅 {formatDate(task.dueDate)}
-                                        {isOverdue(task.dueDate) && !task.completed && " (Overdue!)"}
+                                        {isOverdue(task.dueDate) && !task.completed && " • Overdue"}
                                     </span>
+
                                     {task.completed && (
-                                        <span className="text-xs font-medium text-green-400">✅ Done</span>
+                                        <span className="rounded-lg bg-green-500/10 px-2 py-0.5 text-[11px] font-medium text-green-400">
+                                            ✅ Done
+                                        </span>
                                     )}
                                 </div>
                             </div>
-
-                            {/* Delete button */}
-                            <div className="shrink-0">
-                                {confirmDelete === task.id ? (
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => handleDeleteTask(task.id)}
-                                            className="rounded-lg bg-red-500/20 px-3 py-1.5 text-xs font-semibold text-red-400 transition hover:bg-red-500/30"
-                                        >
-                                            Confirm
-                                        </button>
-                                        <button
-                                            onClick={() => setConfirmDelete(null)}
-                                            className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-[var(--c1)] transition hover:bg-white/15"
-                                        >
-                                            Cancel
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <button
-                                        onClick={() => setConfirmDelete(task.id)}
-                                        className="rounded-lg p-2 text-white/30 transition hover:bg-red-500/10 hover:text-red-400 opacity-0 group-hover:opacity-100"
-                                        title="Delete task"
-                                    >
-                                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
-                                )}
-                            </div>
                         </div>
-                    ))
-                )}
-            </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
