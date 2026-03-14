@@ -4,6 +4,7 @@ import Dashboard from "./pages/Dashboard.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import MoodInputPage from "./features/mood_and_music/pages/MoodInputPage.jsx";
+import MoodRecommendationPage from "./features/mood_and_music_recommendation/pages/MoodRecommendationPage.jsx";
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/mood-input" element={<MoodInputPage />} />
+      <Route path="/mood-recommendation" element={<MoodRecommendationPage />} />
     </Routes>
   );
 }

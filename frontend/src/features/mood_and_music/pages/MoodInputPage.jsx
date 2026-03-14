@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import MoodSelector from '../components/MoodSelector';
 import MoodSubmitButton from '../components/MoodSubmitButton';
 import { MOOD_CONFIG } from '../components/MoodEmojiOption';
@@ -10,12 +11,14 @@ import { MOOD_CONFIG } from '../components/MoodEmojiOption';
 
 const MoodInputPage = () => {
     const [selectedMood, setSelectedMood] = useState(null);
-    const [confirmed, setConfirmed] = useState(false);
+    const navigate = useNavigate();
 
     const selectedConfig = MOOD_CONFIG.find((m) => m.value === selectedMood);
 
     const handleConfirm = () => {
-        if (selectedMood !== null) setConfirmed(true);
+        if (selectedMood !== null) {
+            navigate('/mood-recommendation', { state: { mood: selectedConfig } });
+        }
     };
 
     return (
@@ -61,46 +64,19 @@ const MoodInputPage = () => {
                     <MoodSelector selectedMood={selectedMood} onMoodSelect={setSelectedMood} />
 
                     {/* Selected mood label */}
-                    {selectedConfig && !confirmed && (
-                        <div className="flex items-center gap-2 border border-white/5 rounded-full px-5 py-2 bg-white/5">
+                    {selectedConfig && (
+                        <div className="flex items-center gap-2 border border-white/20 rounded-full px-5 py-2"
+                            style={{ backgroundColor: 'rgba(182,180,187,0.12)' }}>
                             <span className="text-xl">{selectedConfig.emoji}</span>
-                            <span className="font-medium text-sm" style={{ color: '#B6B4BB' }}>
+                            <span className="text-white/80 font-medium text-sm">
                                 You're feeling{' '}
                                 <span className="font-bold text-white">{selectedConfig.label}</span>
                             </span>
                         </div>
                     )}
 
-                    {/* Confirmation message */}
-                    {confirmed && selectedConfig && (
-                        <div
-                            className="flex flex-col items-center gap-1 border border-white/10 rounded-2xl px-6 py-4 text-center bg-white/5"
-                        >
-                            <span className="text-3xl">{selectedConfig.emoji}</span>
-                            <p className="font-semibold text-sm mt-1" style={{ color: '#B6B4BB' }}>
-                                Mood confirmed!
-                            </p>
-                            <p className="text-xs opacity-70" style={{ color: '#B6B4BB' }}>
-                                Your <span className="font-bold text-white">{selectedConfig.label}</span> mood has been recorded.
-                            </p>
-                        </div>
-                    )}
-
                     {/* Submit Button */}
-                    {!confirmed && (
-                        <MoodSubmitButton onClick={handleConfirm} disabled={selectedMood === null} />
-                    )}
-
-                    {/* Re-select after confirming */}
-                    {confirmed && (
-                        <button
-                            onClick={() => { setConfirmed(false); setSelectedMood(null); }}
-                            className="text-sm underline underline-offset-2 hover:opacity-80 transition-opacity"
-                            style={{ color: '#B6B4BB' }}
-                        >
-                            Change mood
-                        </button>
-                    )}
+                    <MoodSubmitButton onClick={handleConfirm} disabled={selectedMood === null} />
 
                     {/* Note */}
                     <p className="text-xs text-center opacity-60" style={{ color: '#B6B4BB' }}>
