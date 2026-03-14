@@ -12,7 +12,6 @@ const DashboardLayout = () => {
     const [avatarURL, setAvatarURL] = useState('');
     const navigate = useNavigate();
 
-    // Helper: derive display values from a name string
     const applyName = (resolvedName) => {
         const first = resolvedName.split(' ')[0];
         setFirstName(first);
@@ -135,7 +134,6 @@ const DashboardLayout = () => {
 
             {/* ── Main Content ── */}
             <main className="ml-64 flex-1 min-h-screen">
-                {/* Page Content */}
                 <div className="p-8">
                     <Outlet />
                 </div>
