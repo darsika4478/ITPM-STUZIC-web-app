@@ -51,7 +51,6 @@ export default function DashboardHome() {
     }).length;
 
     const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-
     const recentTasks = tasks.slice(0, 5);
 
     const getPriorityColor = (p) => {
@@ -123,7 +122,6 @@ export default function DashboardHome() {
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur">
                     <h3 className="text-sm font-semibold text-white">📈 Overall Progress</h3>
                     <div className="mt-4 flex items-end gap-4">
-                        {/* Circular progress */}
                         <div className="relative h-24 w-24 shrink-0">
                             <svg className="h-full w-full -rotate-90" viewBox="0 0 100 100">
                                 <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="10" />
@@ -211,15 +209,10 @@ export default function DashboardHome() {
                                 key={task.id}
                                 className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/3 px-4 py-3 transition hover:bg-white/5"
                             >
-                                {/* Priority dot */}
                                 <span className={`h-2 w-2 shrink-0 rounded-full ${getPriorityColor(task.priority)}`} />
-
-                                {/* Task title */}
                                 <p className={`flex-1 truncate text-sm text-white ${task.completed ? "line-through opacity-50" : ""}`}>
                                     {task.title}
                                 </p>
-
-                                {/* Status badge */}
                                 {task.completed ? (
                                     <span className="rounded-md bg-green-500/15 px-2 py-0.5 text-[10px] font-medium text-green-400">Done</span>
                                 ) : isOverdue(task.dueDate) ? (
