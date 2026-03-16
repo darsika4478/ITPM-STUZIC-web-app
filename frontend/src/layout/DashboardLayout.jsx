@@ -83,7 +83,7 @@ const DashboardLayout = () => {
                 {/* Logo */}
                 <div className="flex items-center gap-3 px-5 py-5 border-b border-white/10">
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/20">
-                        <img src={logo} alt="STUZIC" className="h-9 w-9 object-contain" />
+                        <img src={logo} alt="STUZIC" className="h-9 w-9 object-contain" style={{ filter: 'brightness(0) invert(1)' }} />
                     </div>
                     <div>
                         <p className="text-sm font-bold text-white">STUZIC</p>
