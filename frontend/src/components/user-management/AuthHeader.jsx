@@ -1,22 +1,34 @@
 import React from 'react';
-import logoIcon from '../../assets/logo.png';
+import logoIcon from '../../assets/logo-icon.png';
 
+/**
+ * AuthHeader — Shared header for Login and Register pages
+ *
+ * Shows the STUZIC logo and a short tagline/heading depending on the page.
+ * Props:
+ *   variant — 'login' | 'signup'  (defaults to 'login')
+ */
 const AuthHeader = ({ variant = 'login' }) => (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+        {/* App logo */}
         <img
             src={logoIcon}
             alt="STUZIC Logo"
-            style={{ height: '90px', width: 'auto', objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
+            style={{ display: 'block', height: '90px', width: 'auto', objectFit: 'contain', margin: '0 auto' }}
         />
+
+        {/* Login variant: just a tagline below the logo */}
         {variant === 'login' && (
-            <p style={{ marginTop: '6px', fontSize: '0.875rem', color: '#a78bfa' }}>Study. Organize. Focus.</p>
+            <p style={{ marginTop: '6px', fontSize: '0.875rem', color: '#c4b5fd' }}>Study. Organize. Focus.</p>
         )}
+
+        {/* Signup variant: heading + tagline */}
         {variant === 'signup' && (
             <>
-                <h1 style={{ marginTop: '10px', fontSize: '1.75rem', fontWeight: 600, color: '#f0ecff', letterSpacing: '0.02em' }}>
+                <h1 style={{ marginTop: '10px', fontSize: '1.875rem', fontWeight: 600, letterSpacing: '0.025em', color: '#f0ecff', margin: '10px 0 0' }}>
                     Create Account
                 </h1>
-                <p style={{ marginTop: '4px', fontSize: '0.875rem', color: '#a78bfa' }}>Join STUZIC to manage tasks.</p>
+                <p style={{ marginTop: '4px', fontSize: '0.875rem', color: '#c4b5fd' }}>Join STUZIC to manage tasks.</p>
             </>
         )}
     </div>

@@ -60,14 +60,12 @@ const Register = () => {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: '2rem 1rem', position: 'relative', overflow: 'hidden',
         }}>
-            {/* Ambient blobs */}
             <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
                 <div style={{ position: 'absolute', top: '-60px', right: '-50px', width: '300px', height: '300px', borderRadius: '50%', background: 'rgba(109,95,231,0.28)', filter: 'blur(80px)' }} />
                 <div style={{ position: 'absolute', bottom: '-50px', left: '-40px', width: '280px', height: '280px', borderRadius: '50%', background: 'rgba(80,60,200,0.22)', filter: 'blur(70px)' }} />
                 <div style={{ position: 'absolute', top: '45%', left: '35%', width: '220px', height: '220px', borderRadius: '50%', background: 'rgba(140,100,240,0.15)', filter: 'blur(60px)' }} />
             </div>
 
-            {/* Floating emojis */}
             <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
                 <span style={{ position: 'absolute', top: '8%',   left: '6%',  fontSize: '1.5rem', opacity: 0.4 }}>📖</span>
                 <span style={{ position: 'absolute', top: '10%',  right: '8%', fontSize: '1.5rem', opacity: 0.4 }}>🎶</span>
@@ -76,7 +74,6 @@ const Register = () => {
                 <span style={{ position: 'absolute', top: '5%',   left: '42%', fontSize: '1.2rem', opacity: 0.4 }}>🎯</span>
             </div>
 
-            {/* Card */}
             <div style={{
                 position: 'relative', zIndex: 10,
                 width: '100%', maxWidth: '420px',
@@ -90,68 +87,38 @@ const Register = () => {
 
                 <form style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.9rem' }} onSubmit={handleSubmit}>
                     <div>
-                        <label htmlFor="name" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#c4b5fd', display: 'block', marginBottom: '6px' }}>
-                            Name
-                        </label>
-                        <input
-                            id="name"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="Your name"
-                            style={inputStyle}
+                        <label htmlFor="name" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#c4b5fd', display: 'block', marginBottom: '6px' }}>Name</label>
+                        <input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" style={inputStyle}
                             onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
-                            onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'}
-                        />
+                            onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'} />
                         {errors.name && <p style={{ marginTop: '4px', fontSize: '0.75rem', color: '#f87171' }}>{errors.name}</p>}
                     </div>
 
                     <div>
-                        <label htmlFor="email" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#c4b5fd', display: 'block', marginBottom: '6px' }}>
-                            Email
-                        </label>
-                        <input
-                            id="email"
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="name@stuzic.lk"
-                            style={inputStyle}
+                        <label htmlFor="email" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#c4b5fd', display: 'block', marginBottom: '6px' }}>Email</label>
+                        <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@stuzic.lk" style={inputStyle}
                             onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
-                            onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'}
-                        />
+                            onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'} />
                         {errors.email && <p style={{ marginTop: '4px', fontSize: '0.75rem', color: '#f87171' }}>{errors.email}</p>}
                     </div>
 
                     <div>
-                        <label htmlFor="password" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#c4b5fd', display: 'block', marginBottom: '6px' }}>
-                            Password
-                        </label>
-                        <input
-                            id="password"
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Minimum 6 characters"
-                            style={inputStyle}
+                        <label htmlFor="password" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#c4b5fd', display: 'block', marginBottom: '6px' }}>Password</label>
+                        <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Minimum 6 characters" style={inputStyle}
                             onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
-                            onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'}
-                        />
+                            onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'} />
                         {errors.password && <p style={{ marginTop: '4px', fontSize: '0.75rem', color: '#f87171' }}>{errors.password}</p>}
                     </div>
 
                     {formError && <p style={{ fontSize: '0.875rem', color: '#f87171', textAlign: 'center' }}>{formError}</p>}
 
-                    <button
-                        type="submit"
-                        style={{
-                            width: '100%', padding: '12px',
-                            borderRadius: '14px', fontSize: '0.9rem', fontWeight: 700,
-                            color: '#fff', border: 'none', cursor: 'pointer',
-                            background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)',
-                            boxShadow: '0 4px 20px rgba(109,95,231,0.45)',
-                            transition: 'transform 0.15s, box-shadow 0.15s',
-                            marginTop: '4px',
-                        }}
+                    <button type="submit" style={{
+                        width: '100%', padding: '12px', borderRadius: '14px', fontSize: '0.9rem', fontWeight: 700,
+                        color: '#fff', border: 'none', cursor: 'pointer',
+                        background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)',
+                        boxShadow: '0 4px 20px rgba(109,95,231,0.45)',
+                        transition: 'transform 0.15s, box-shadow 0.15s', marginTop: '4px',
+                    }}
                         onMouseEnter={(e) => { e.target.style.transform = 'scale(1.01)'; e.target.style.boxShadow = '0 6px 28px rgba(109,95,231,0.6)'; }}
                         onMouseLeave={(e) => { e.target.style.transform = 'scale(1)'; e.target.style.boxShadow = '0 4px 20px rgba(109,95,231,0.45)'; }}
                     >
@@ -164,11 +131,8 @@ const Register = () => {
                     <Link to="/login" style={{ fontWeight: 700, color: '#fff', textDecoration: 'none' }}
                         onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
                         onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
-                    >
-                        Log in
-                    </Link>
+                    >Log in</Link>
                 </p>
-
                 <p style={{ marginTop: '1rem', textAlign: 'center', fontSize: '0.72rem', color: '#a78bfa' }}>
                     Built for students • tasks • notes • focus
                 </p>
