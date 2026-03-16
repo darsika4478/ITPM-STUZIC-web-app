@@ -6,6 +6,8 @@ import AuthGuard from "./components/user-management/AuthGuard";
 import DashboardLayout from "./layout/DashboardLayout";
 import DashboardHome from "./pages/DashboardHome";
 import MyProfile from "./pages/MyProfile";
+import TasksPlanner from "./pages/TasksPlanner";
+import MoodRecommendationPage from "./features/mood_and_music_recommendation/pages/MoodRecommendationPage.jsx";
 
 export default function App() {
   return (
@@ -20,10 +22,12 @@ export default function App() {
         <Route path="/dashboard" element={<DashboardLayout />}>
           <Route index element={<DashboardHome />} />
           <Route path="profile" element={<MyProfile />} />
+          <Route path="tasks" element={<TasksPlanner />} />
         </Route>
       </Route>
 
       <Route path="*" element={<Navigate to="/login" replace />} />
+      <Route path="/mood-recommendation" element={<MoodRecommendationPage />} />
     </Routes>
   );
 }

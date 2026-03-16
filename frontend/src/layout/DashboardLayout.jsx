@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
-import logoIcon from '../assets/logo-icon.png';
+import logoIcon from '../assets/logo.png';
 
 /**
  * DashboardLayout — Persistent sidebar shell for all dashboard pages
@@ -126,7 +126,6 @@ const DashboardLayout = () => {
                     <p style={{ marginBottom: '0.5rem', paddingLeft: '1rem', fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#a78bfa' }}>
                         Menu
                     </p>
-                    {/* "end" prop ensures /dashboard only matches exactly, not /dashboard/tasks */}
                     <NavLink to="/dashboard" end style={({ isActive }) => navLinkStyle(isActive)}>
                         <span style={{ fontSize: '1.125rem' }}>🏠</span> Dashboard
                     </NavLink>
@@ -137,7 +136,6 @@ const DashboardLayout = () => {
 
                 {/* User card + logout — bottom of sidebar */}
                 <div style={{ borderTop: '1px solid rgba(109,95,231,0.18)', padding: '0.75rem' }}>
-                    {/* Clicking the user card navigates to the profile page */}
                     <button
                         type="button"
                         onClick={() => navigate('/dashboard/profile')}
@@ -145,7 +143,6 @@ const DashboardLayout = () => {
                         onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(109,95,231,0.15)'}
                         onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
                     >
-                        {/* Avatar: shows photo if available, otherwise initials */}
                         <div style={{ display: 'flex', height: '36px', width: '36px', flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)', fontSize: '0.875rem', fontWeight: 700, color: '#fff', border: '2px solid rgba(167,139,250,0.3)', overflow: 'hidden' }}>
                             {avatarURL
                                 ? <img src={avatarURL} alt="Avatar" style={{ height: '100%', width: '100%', objectFit: 'cover' }} />
