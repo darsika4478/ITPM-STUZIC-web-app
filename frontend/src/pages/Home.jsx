@@ -17,7 +17,6 @@ import logoText from '../assets/logo-text.png';
  * interfere with the dashboard's CSS variables or Tailwind classes.
  */
 
-// Static feature list — icon, title, description
 const features = [
     { icon: "📝", title: "Smart Notes", desc: "Capture lectures, ideas & summaries in one place with rich formatting." },
     { icon: "✅", title: "Task Manager", desc: "Plan assignments, set deadlines & track progress effortlessly." },
@@ -25,7 +24,6 @@ const features = [
     { icon: "🎵", title: "Study Music", desc: "Curated lo-fi & ambient playlists to boost your concentration." },
 ];
 
-// Social proof stats displayed in the bar below the hero
 const stats = [
     { value: "10K+", label: "Active Students" },
     { value: "50K+", label: "Tasks Completed" },
@@ -33,14 +31,12 @@ const stats = [
     { value: "4.9★", label: "User Rating" },
 ];
 
-// How it works steps
 const steps = [
     { step: "01", title: "Sign Up",         desc: "Create your free account in seconds — no credit card required." },
     { step: "02", title: "Organize",        desc: "Add your courses, tasks, and notes. STUZIC keeps everything tidy." },
     { step: "03", title: "Focus & Achieve", desc: "Use the timer & music to study effectively and crush your goals." },
 ];
 
-// Shared glass card style — reused across features, how-it-works, stats
 const cardStyle = {
     borderRadius: '24px',
     border: '1px solid rgba(167,139,250,0.15)',
@@ -58,7 +54,7 @@ export default function Home() {
             background: 'linear-gradient(135deg, #1c1848 0%, #231f5c 50%, #2b2570 100%)',
             color: '#f0ecff', overflowX: 'hidden',
         }}>
-            {/* ── Ambient background blobs — decorative only ── */}
+            {/* ── Ambient background blobs ── */}
             <div style={{ pointerEvents: 'none', position: 'fixed', inset: 0, zIndex: 0 }}>
                 <div style={{ position: 'absolute', top: '-160px', left: '-160px', height: '500px', width: '500px', borderRadius: '50%', background: 'rgba(109,95,231,0.22)', filter: 'blur(120px)' }} />
                 <div style={{ position: 'absolute', top: '33%', right: '-128px', height: '400px', width: '400px', borderRadius: '50%', background: 'rgba(80,60,200,0.18)', filter: 'blur(100px)' }} />
@@ -73,11 +69,9 @@ export default function Home() {
             }}>
                 <img src={logoText} alt="STUZIC" style={{ height: '180px', width: 'auto', objectFit: 'contain' }} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    {/* Ghost login button */}
                     <Link to="/login" style={{ borderRadius: '12px', border: '1.5px solid rgba(167,139,250,0.35)', padding: '8px 20px', fontSize: '0.875rem', fontWeight: 500, color: '#c4b5fd', textDecoration: 'none', background: 'rgba(255,255,255,0.05)' }}>
                         Log In
                     </Link>
-                    {/* Solid signup button */}
                     <Link to="/signup" style={{ borderRadius: '12px', padding: '8px 20px', fontSize: '0.875rem', fontWeight: 700, color: '#fff', textDecoration: 'none', background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)', boxShadow: '0 4px 16px rgba(109,95,231,0.45)' }}>
                         Sign Up Free
                     </Link>
@@ -86,15 +80,9 @@ export default function Home() {
 
             {/* ── Hero section ── */}
             <section style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4rem 1.5rem 6rem', textAlign: 'center' }}>
-
-                {/* Rotating rings + text block */}
                 <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '4rem 3rem' }}>
-                    {/* Outer ring */}
                     <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '2px dashed rgba(109,95,231,0.35)', animation: 'spin 20s linear infinite' }} />
-                    {/* Inner ring */}
                     <div style={{ position: 'absolute', inset: '1.5rem', borderRadius: '50%', border: '1px solid rgba(109,95,231,0.2)', animation: 'spin 30s linear infinite reverse' }} />
-
-                    {/* Headline + subtitle inside the rings */}
                     <div style={{ position: 'relative', zIndex: 10 }}>
                         <h1 style={{ maxWidth: '768px', fontSize: 'clamp(2rem, 5vw, 3.75rem)', fontWeight: 800, lineHeight: 1.15, letterSpacing: '-0.02em', color: '#f0ecff', margin: 0 }}>
                             Your All-in-One{' '}
@@ -108,7 +96,6 @@ export default function Home() {
                     </div>
                 </div>
 
-                {/* CTA buttons */}
                 <div style={{ marginTop: '2.25rem', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
                     <Link to="/signup" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', borderRadius: '16px', padding: '14px 32px', fontSize: '1rem', fontWeight: 700, color: '#fff', textDecoration: 'none', background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)', boxShadow: '0 8px 32px rgba(109,95,231,0.45)' }}>
                         Get Started — It's Free
@@ -121,7 +108,6 @@ export default function Home() {
                     </a>
                 </div>
 
-                {/* Floating decorative emojis */}
                 <div style={{ pointerEvents: 'none', position: 'absolute', inset: 0 }}>
                     <span style={{ position: 'absolute', left: '10%', top: '20%', fontSize: '1.875rem', opacity: 0.4 }}>📚</span>
                     <span style={{ position: 'absolute', right: '12%', top: '18%', fontSize: '1.875rem', opacity: 0.4 }}>🎧</span>
@@ -130,7 +116,7 @@ export default function Home() {
                 </div>
             </section>
 
-            {/* ── Stats bar — 4 numbers in a glass panel ── */}
+            {/* ── Stats bar ── */}
             <section style={{ position: 'relative', zIndex: 10, maxWidth: '1024px', margin: '0 auto', padding: '0 1.5rem' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderRadius: '24px', border: '1px solid rgba(167,139,250,0.15)', background: 'rgba(255,255,255,0.05)', padding: '2rem 1.5rem', backdropFilter: 'blur(20px)', boxShadow: '0 4px 24px rgba(0,0,0,0.25)' }}>
                     {stats.map((s, i) => (
@@ -145,7 +131,6 @@ export default function Home() {
             {/* ── Features section ── */}
             <section id="features" style={{ position: 'relative', zIndex: 10, maxWidth: '1152px', margin: '0 auto', padding: '7rem 1.5rem' }}>
                 <div style={{ textAlign: 'center' }}>
-                    {/* Section badge */}
                     <span style={{ display: 'inline-block', borderRadius: '999px', background: 'rgba(109,95,231,0.18)', padding: '6px 16px', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#a78bfa' }}>Features</span>
                     <h2 style={{ marginTop: '1rem', fontSize: 'clamp(1.75rem, 4vw, 3rem)', fontWeight: 700, color: '#f0ecff', lineHeight: 1.2 }}>
                         Everything You Need to{' '}
@@ -155,8 +140,6 @@ export default function Home() {
                         Built by students, for students — STUZIC combines the tools you actually use into one distraction-free workspace.
                     </p>
                 </div>
-
-                {/* Feature cards grid — auto-fills columns based on available width */}
                 <div style={{ marginTop: '4rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem' }}>
                     {features.map((f) => (
                         <div key={f.title} style={cardStyle}
@@ -171,7 +154,7 @@ export default function Home() {
                 </div>
             </section>
 
-            {/* ── How it works — 3-step process ── */}
+            {/* ── How it works ── */}
             <section style={{ position: 'relative', zIndex: 10, maxWidth: '1024px', margin: '0 auto', padding: '0 1.5rem 7rem' }}>
                 <div style={{ textAlign: 'center' }}>
                     <span style={{ display: 'inline-block', borderRadius: '999px', background: 'rgba(109,95,231,0.18)', padding: '6px 16px', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#a78bfa' }}>How It Works</span>
@@ -183,7 +166,6 @@ export default function Home() {
                 <div style={{ marginTop: '4rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '2rem' }}>
                     {steps.map((item) => (
                         <div key={item.step} style={{ ...cardStyle, textAlign: 'center' }}>
-                            {/* Numbered badge */}
                             <div style={{ margin: '0 auto 1rem', display: 'flex', height: '56px', width: '56px', alignItems: 'center', justifyContent: 'center', borderRadius: '16px', background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)', fontSize: '1.25rem', fontWeight: 700, color: '#fff', boxShadow: '0 4px 16px rgba(109,95,231,0.45)' }}>
                                 {item.step}
                             </div>
@@ -194,10 +176,9 @@ export default function Home() {
                 </div>
             </section>
 
-            {/* ── CTA banner — final push to sign up ── */}
+            {/* ── CTA banner ── */}
             <section style={{ position: 'relative', zIndex: 10, maxWidth: '896px', margin: '0 auto', padding: '0 1.5rem 7rem' }}>
                 <div style={{ position: 'relative', overflow: 'hidden', borderRadius: '28px', background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)', padding: '4rem', textAlign: 'center', boxShadow: '0 20px 60px rgba(109,95,231,0.5)' }}>
-                    {/* Decorative glow orbs inside the CTA box */}
                     <div style={{ pointerEvents: 'none', position: 'absolute', inset: 0 }}>
                         <div style={{ position: 'absolute', top: '-80px', right: '-80px', height: '240px', width: '240px', borderRadius: '50%', background: 'rgba(255,255,255,0.12)', filter: 'blur(40px)' }} />
                         <div style={{ position: 'absolute', bottom: '-80px', left: '-80px', height: '240px', width: '240px', borderRadius: '50%', background: 'rgba(255,255,255,0.12)', filter: 'blur(40px)' }} />

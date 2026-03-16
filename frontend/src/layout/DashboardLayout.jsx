@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
-import logoIcon from '../assets/logo.png';
+import logoIcon from '../assets/logo-icon.png';
 
 /**
  * DashboardLayout — Persistent sidebar shell for all dashboard pages
@@ -20,7 +20,6 @@ import logoIcon from '../assets/logo.png';
  *   /dashboard/profile  → MyProfile
  */
 const DashboardLayout = () => {
-    // Sidebar user card state
     const [email, setEmail] = useState('');
     const [firstName, setFirstName] = useState('');
     const [initials, setInitials] = useState('');
@@ -32,7 +31,6 @@ const DashboardLayout = () => {
         const first = resolvedName.split(' ')[0];
         setFirstName(first);
         const parts = resolvedName.trim().split(/\s+/);
-        // Two or more words → first + last initial; single word → first two chars
         const ini = parts.length >= 2
             ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
             : resolvedName.slice(0, 2).toUpperCase();
@@ -40,45 +38,35 @@ const DashboardLayout = () => {
     };
 
     useEffect(() => {
-        let unsubFirestore = null; // holds the Firestore snapshot unsubscribe fn
+        let unsubFirestore = null;
 
-        // ── Auth state listener ──
-        // Fires immediately with the current user, then on every auth change
         const unsubAuth = onAuthStateChanged(auth, (user) => {
-            // Clean up any previous Firestore subscription on user change
             if (unsubFirestore) { unsubFirestore(); unsubFirestore = null; }
 
             if (!user) {
-                // User logged out — clear sidebar data
                 setEmail(''); setFirstName(''); setInitials(''); setAvatarURL('');
                 return;
             }
 
-            // Seed from auth profile immediately (fast, no Firestore round-trip)
             setEmail(user.email || '');
             const authName = user.displayName || user.email?.split('@')[0] || '';
             if (authName) applyName(authName.charAt(0).toUpperCase() + authName.slice(1));
             if (user.photoURL) setAvatarURL(user.photoURL);
 
-            // ── Firestore real-time listener ──
-            // Keeps sidebar in sync with name/avatar changes from MyProfile page
             unsubFirestore = onSnapshot(doc(db, 'users', user.uid), (snap) => {
                 if (!snap.exists()) return;
                 const data = snap.data();
 
-                // Resolve name: Firestore → auth display name → email prefix
                 let resolvedName = data.name || user.displayName || '';
                 if (!resolvedName && user.email) {
                     const prefix = user.email.split('@')[0];
                     resolvedName = prefix.charAt(0).toUpperCase() + prefix.slice(1);
                 }
                 applyName(resolvedName);
-                // Firestore photoURL takes priority (Base64 avatar from MyProfile)
                 setAvatarURL(data.photoURL || user.photoURL || '');
             });
         });
 
-        // Clean up both listeners on unmount
         return () => { unsubAuth(); if (unsubFirestore) unsubFirestore(); };
     }, []);
 
@@ -87,7 +75,6 @@ const DashboardLayout = () => {
         navigate('/login');
     };
 
-    // Returns inline style object for sidebar nav links based on active state
     const navLinkStyle = (isActive) => ({
         display: 'flex', alignItems: 'center', gap: '0.75rem',
         borderRadius: '12px', padding: '10px 16px',
@@ -121,7 +108,7 @@ const DashboardLayout = () => {
                     </div>
                 </div>
 
-                {/* Navigation links — NavLink applies active style automatically */}
+                {/* Navigation links */}
                 <nav style={{ marginTop: '1rem', display: 'flex', flex: 1, flexDirection: 'column', gap: '0.25rem', padding: '0 0.75rem' }}>
                     <p style={{ marginBottom: '0.5rem', paddingLeft: '1rem', fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#a78bfa' }}>
                         Menu
@@ -134,7 +121,7 @@ const DashboardLayout = () => {
                     </NavLink>
                 </nav>
 
-                {/* User card + logout — bottom of sidebar */}
+                {/* User card + logout */}
                 <div style={{ borderTop: '1px solid rgba(109,95,231,0.18)', padding: '0.75rem' }}>
                     <button
                         type="button"
@@ -155,7 +142,6 @@ const DashboardLayout = () => {
                         </div>
                     </button>
 
-                    {/* Logout button */}
                     <button
                         onClick={handleLogout}
                         style={{ marginTop: '0.25rem', display: 'flex', width: '100%', alignItems: 'center', gap: '0.75rem', borderRadius: '12px', padding: '10px 16px', fontSize: '0.875rem', fontWeight: 500, color: '#f87171', background: 'none', border: 'none', cursor: 'pointer', transition: 'background 0.15s' }}
@@ -170,7 +156,6 @@ const DashboardLayout = () => {
             {/* ── Main content area ── offset by sidebar width */}
             <main style={{ marginLeft: '256px', flex: 1, minHeight: '100vh' }}>
                 <div style={{ padding: '2rem' }}>
-                    {/* Child route (DashboardHome / TasksPlanner / MyProfile) renders here */}
                     <Outlet />
                 </div>
             </main>
