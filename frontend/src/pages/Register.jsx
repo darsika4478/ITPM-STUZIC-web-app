@@ -5,14 +5,32 @@ import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import AuthHeader from '../components/user-management/AuthHeader';
 
+/**
+ * Register — New user sign-up page
+ *
+ * Flow:
+ *  1. User fills name, email, password
+ *  2. validate() checks all fields client-side
+ *  3. handleSubmit creates the Firebase Auth account
+ *  4. Updates the auth profile with the display name
+ *  5. Creates a Firestore user document under /users/{uid}
+ *  6. On success → navigate to /dashboard
+ */
 const Register = () => {
     const navigate = useNavigate();
+
+    // Form field state
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+
+    // Field-level validation errors shown under each input
     const [errors, setErrors] = useState({});
+
+    // Firebase or submission-level error (e.g. email already in use)
     const [formError, setFormError] = useState('');
 
+    // Client-side validation before calling Firebase
     const validate = () => {
         const nextErrors = {};
         if (!name.trim()) nextErrors.name = 'Name is required.';
@@ -20,25 +38,33 @@ const Register = () => {
         if (!password.trim()) nextErrors.password = 'Password is required.';
         if (password && password.length < 6) nextErrors.password = 'Minimum 6 characters.';
         setErrors(nextErrors);
-        return Object.keys(nextErrors).length === 0;
+        return Object.keys(nextErrors).length === 0; // true = valid
     };
 
+    // Handle form submission: create Firebase Auth account + Firestore user doc
     const handleSubmit = async (event) => {
         event.preventDefault();
         setFormError('');
         if (!validate()) return;
 
         try {
+            // Step 1: Create Firebase Auth account
             const result = await createUserWithEmailAndPassword(auth, email.trim(), password);
+
+            // Step 2: Set the display name on the auth profile
             await updateProfile(result.user, { displayName: name.trim() });
+
+            // Step 3: Create Firestore user document for profile data
             await setDoc(doc(db, 'users', result.user.uid), {
                 name: name.trim(),
                 email: email.trim(),
-                photoURL: null,
+                photoURL: null,           // no avatar yet
                 createdAt: serverTimestamp(),
             });
+
             navigate('/dashboard');
         } catch (error) {
+            // Map common Firebase error codes to user-friendly messages
             if (error?.code === 'auth/email-already-in-use') {
                 setFormError('Email already registered.');
                 return;
@@ -51,109 +77,144 @@ const Register = () => {
         }
     };
 
+    // Shared style for all text inputs
+    const inputStyle = {
+        width: '100%', padding: '10px 16px',
+        borderRadius: '12px', fontSize: '0.875rem',
+        border: '1.5px solid rgba(167,139,250,0.35)',
+        background: 'rgba(255,255,255,0.07)', color: '#f0ecff',
+        outline: 'none', boxSizing: 'border-box',
+        transition: 'border-color 0.2s',
+    };
+
     return (
-        <main className="relative min-h-screen overflow-hidden bg-[var(--c5)] text-white">
-            <div className="pointer-events-none absolute inset-0">
-                <div className="absolute -top-28 right-10 h-72 w-72 rounded-full bg-[var(--c2)]/30 blur-3xl" />
-                <div className="absolute bottom-10 -left-16 h-80 w-80 rounded-full bg-[var(--c4)]/35 blur-3xl" />
-                <div className="absolute top-1/2 left-1/3 h-64 w-64 -translate-x-1/2 rounded-full bg-[var(--c3)]/35 blur-3xl" />
-                <svg className="absolute inset-0 h-full w-full opacity-[0.08]" aria-hidden="true">
-                    <defs>
-                        <pattern id="lines" width="28" height="28" patternUnits="userSpaceOnUse">
-                            <path d="M0 28L28 0" stroke="white" strokeWidth="1" />
-                        </pattern>
-                    </defs>
-                    <rect width="100%" height="100%" fill="url(#lines)" />
-                </svg>
+        <main style={{
+            minHeight: '100vh',
+            background: 'linear-gradient(135deg, #1c1848 0%, #231f5c 50%, #2b2570 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '2rem 1rem', position: 'relative', overflow: 'hidden',
+        }}>
+            {/* Ambient purple blobs — purely decorative */}
+            <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+                <div style={{ position: 'absolute', top: '-60px', right: '-50px', width: '300px', height: '300px', borderRadius: '50%', background: 'rgba(109,95,231,0.28)', filter: 'blur(80px)' }} />
+                <div style={{ position: 'absolute', bottom: '-50px', left: '-40px', width: '280px', height: '280px', borderRadius: '50%', background: 'rgba(80,60,200,0.22)', filter: 'blur(70px)' }} />
+                <div style={{ position: 'absolute', top: '45%', left: '35%', width: '220px', height: '220px', borderRadius: '50%', background: 'rgba(140,100,240,0.15)', filter: 'blur(60px)' }} />
             </div>
 
-            <div className="pointer-events-none absolute inset-0 hidden md:block">
-                <div className="absolute left-12 top-20 text-2xl opacity-70">📖</div>
-                <div className="absolute right-20 top-20 text-2xl opacity-70">🎶</div>
-                <div className="absolute left-24 bottom-24 text-2xl opacity-70">📝</div>
-                <div className="absolute right-16 bottom-20 text-2xl opacity-70">⏳</div>
-
-                <svg className="absolute left-8 top-1/2 h-16 w-16 -rotate-6 text-[var(--c1)]/70" viewBox="0 0 24 24" fill="none">
-                    <path d="M6 4h9a3 3 0 0 1 3 3v12H9a3 3 0 0 0-3 3V4Z" stroke="currentColor" strokeWidth="1.6" />
-                    <path d="M6 4v16" stroke="currentColor" strokeWidth="1.6" />
-                </svg>
-                <svg className="absolute right-8 top-1/3 h-14 w-14 rotate-12 text-[var(--c2)]/70" viewBox="0 0 24 24" fill="none">
-                    <path d="M12 3v18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                    <path d="M7 8h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                    <path d="M7 16h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                </svg>
+            {/* Floating emojis — decorative only */}
+            <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+                <span style={{ position: 'absolute', top: '8%', left: '6%', fontSize: '1.5rem', opacity: 0.4 }}>📖</span>
+                <span style={{ position: 'absolute', top: '10%', right: '8%', fontSize: '1.5rem', opacity: 0.4 }}>🎶</span>
+                <span style={{ position: 'absolute', bottom: '14%', left: '8%', fontSize: '1.5rem', opacity: 0.4 }}>📝</span>
+                <span style={{ position: 'absolute', bottom: '10%', right: '6%', fontSize: '1.5rem', opacity: 0.4 }}>⏳</span>
+                <span style={{ position: 'absolute', top: '5%', left: '42%', fontSize: '1.2rem', opacity: 0.4 }}>🎯</span>
             </div>
 
-            <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-10">
-                <div className="w-full max-w-md rounded-3xl bg-[var(--c1)]/90 p-8 text-[var(--c5)] shadow-2xl backdrop-blur">
-                    <AuthHeader variant="signup" />
+            {/* Glassmorphism register card */}
+            <div style={{
+                position: 'relative', zIndex: 10,
+                width: '100%', maxWidth: '420px',
+                background: 'rgba(30,24,72,0.75)',
+                borderRadius: '28px', padding: '2.5rem',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.05)',
+                backdropFilter: 'blur(24px)',
+                border: '1px solid rgba(167,139,250,0.22)',
+            }}>
+                {/* Logo + "Create Account" heading */}
+                <AuthHeader variant="signup" />
 
-                    <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-                        <div>
-                            <label htmlFor="name" className="text-sm font-medium">
-                                Name
-                            </label>
-                            <input
-                                id="name"
-                                className="mt-1 w-full rounded-2xl border border-[var(--c2)]/50 bg-white/80 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--c3)]"
-                                value={name}
-                                onChange={(event) => setName(event.target.value)}
-                                placeholder="Your name"
-                            />
-                            {errors.name && <p className="mt-1 text-xs text-[var(--c4)]">{errors.name}</p>}
-                        </div>
+                {/* Registration form */}
+                <form style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.9rem' }} onSubmit={handleSubmit}>
 
-                        <div>
-                            <label htmlFor="email" className="text-sm font-medium">
-                                Email
-                            </label>
-                            <input
-                                id="email"
-                                className="mt-1 w-full rounded-2xl border border-[var(--c2)]/50 bg-white/80 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--c3)]"
-                                value={email}
-                                onChange={(event) => setEmail(event.target.value)}
-                                placeholder="name@stuzic.lk"
-                                type="email"
-                            />
-                            {errors.email && <p className="mt-1 text-xs text-[var(--c4)]">{errors.email}</p>}
-                        </div>
+                    {/* Name field */}
+                    <div>
+                        <label htmlFor="name" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#c4b5fd', display: 'block', marginBottom: '6px' }}>
+                            Name
+                        </label>
+                        <input
+                            id="name"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="Your name"
+                            style={inputStyle}
+                            onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
+                            onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'}
+                        />
+                        {errors.name && <p style={{ marginTop: '4px', fontSize: '0.75rem', color: '#f87171' }}>{errors.name}</p>}
+                    </div>
 
-                        <div>
-                            <label htmlFor="password" className="text-sm font-medium">
-                                Password
-                            </label>
-                            <input
-                                id="password"
-                                className="mt-1 w-full rounded-2xl border border-[var(--c2)]/50 bg-white/80 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--c3)]"
-                                value={password}
-                                onChange={(event) => setPassword(event.target.value)}
-                                placeholder="Minimum 6 characters"
-                                type="password"
-                            />
-                            {errors.password && <p className="mt-1 text-xs text-[var(--c4)]">{errors.password}</p>}
-                        </div>
+                    {/* Email field */}
+                    <div>
+                        <label htmlFor="email" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#c4b5fd', display: 'block', marginBottom: '6px' }}>
+                            Email
+                        </label>
+                        <input
+                            id="email"
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="name@stuzic.lk"
+                            style={inputStyle}
+                            onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
+                            onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'}
+                        />
+                        {errors.email && <p style={{ marginTop: '4px', fontSize: '0.75rem', color: '#f87171' }}>{errors.email}</p>}
+                    </div>
 
-                        {formError && <p className="text-sm text-[var(--c4)]">{formError}</p>}
+                    {/* Password field */}
+                    <div>
+                        <label htmlFor="password" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#c4b5fd', display: 'block', marginBottom: '6px' }}>
+                            Password
+                        </label>
+                        <input
+                            id="password"
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Minimum 6 characters"
+                            style={inputStyle}
+                            onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
+                            onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'}
+                        />
+                        {errors.password && <p style={{ marginTop: '4px', fontSize: '0.75rem', color: '#f87171' }}>{errors.password}</p>}
+                    </div>
 
-                        <button
-                            type="submit"
-                            className="w-full rounded-2xl bg-gradient-to-r from-[var(--c3)] to-[var(--c4)] py-2.5 text-white font-semibold shadow-lg transition hover:scale-[1.01] active:scale-[0.98]"
-                        >
-                            Create Account
-                        </button>
-                    </form>
+                    {/* Firebase-level error (email taken, weak password, etc.) */}
+                    {formError && <p style={{ fontSize: '0.875rem', color: '#f87171', textAlign: 'center' }}>{formError}</p>}
 
-                    <p className="mt-5 text-center text-sm text-[var(--c4)]">
-                        Already have an account?{' '}
-                        <Link to="/login" className="font-semibold text-[var(--c4)] hover:underline">
-                            Log in
-                        </Link>
-                    </p>
+                    {/* Submit button */}
+                    <button
+                        type="submit"
+                        style={{
+                            width: '100%', padding: '12px',
+                            borderRadius: '14px', fontSize: '0.9rem', fontWeight: 700,
+                            color: '#fff', border: 'none', cursor: 'pointer',
+                            background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)',
+                            boxShadow: '0 4px 20px rgba(109,95,231,0.45)',
+                            transition: 'transform 0.15s, box-shadow 0.15s',
+                            marginTop: '4px',
+                        }}
+                        onMouseEnter={(e) => { e.target.style.transform = 'scale(1.01)'; e.target.style.boxShadow = '0 6px 28px rgba(109,95,231,0.6)'; }}
+                        onMouseLeave={(e) => { e.target.style.transform = 'scale(1)'; e.target.style.boxShadow = '0 4px 20px rgba(109,95,231,0.45)'; }}
+                    >
+                        Create Account
+                    </button>
+                </form>
 
-                    <p className="mt-6 text-center text-xs text-[var(--c4)]/70">
-                        Built for students • tasks • notes • focus
-                    </p>
-                </div>
+                {/* Link back to login */}
+                <p style={{ marginTop: '1.25rem', textAlign: 'center', fontSize: '0.875rem', color: '#c4b5fd' }}>
+                    Already have an account?{' '}
+                    <Link to="/login" style={{ fontWeight: 700, color: '#fff', textDecoration: 'none' }}
+                        onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                        onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+                    >
+                        Log in
+                    </Link>
+                </p>
+
+                <p style={{ marginTop: '1rem', textAlign: 'center', fontSize: '0.72rem', color: '#a78bfa' }}>
+                    Built for students • tasks • notes • focus
+                </p>
             </div>
         </main>
     );

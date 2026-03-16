@@ -6,7 +6,6 @@ import {
     onAuthStateChanged,
     reauthenticateWithCredential,
     sendEmailVerification,
-    signOut,
     updatePassword,
     updateProfile,
 } from 'firebase/auth';
@@ -14,43 +13,52 @@ import { collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, where } fro
 import { auth, db } from '../config/firebase';
 import AvatarEditorModal from '../components/user-management/AvatarEditorModal';
 
+/**
+ * MyProfile — User account management page
+ *
+ * Sections:
+ *  1. Avatar — click to open crop modal, stored as Base64 in Firestore
+ *  2. Profile Info — change display name, send email verification
+ *  3. Account Details — read-only metadata (created date, UID, etc.)
+ *  4. Change Password — requires current password re-auth before updating
+ *  5. Danger Zone — permanently delete account + all Firestore data
+ */
 const MyProfile = () => {
     const navigate = useNavigate();
 
-    // Reactive user state — never stale
+    // Keep user in sync with Firebase auth (handles token refresh, etc.)
     const [user, setUser] = useState(auth.currentUser);
-
     useEffect(() => {
         const unsub = onAuthStateChanged(auth, (u) => setUser(u));
         return () => unsub();
     }, []);
 
-    // Profile state
+    // ── Profile section state ──
     const [name, setName] = useState('');
     const [photoURL, setPhotoURL] = useState('');
-    const [profileSaved, setProfileSaved] = useState(false);
+    const [profileSaved, setProfileSaved] = useState(false);   // success flash
     const [profileError, setProfileError] = useState('');
-    const [uploading, setUploading] = useState(false);
+    const [uploading, setUploading] = useState(false);          // avatar upload in progress
     const [showAvatarEditor, setShowAvatarEditor] = useState(false);
 
-    // Password state
+    // ── Password section state ──
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [passwordErrors, setPasswordErrors] = useState({});
     const [passwordSuccess, setPasswordSuccess] = useState(false);
 
-    // Delete account state
+    // ── Delete account section state ──
     const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [deleteConfirmText, setDeleteConfirmText] = useState('');
+    const [deleteConfirmText, setDeleteConfirmText] = useState(''); // must type "DELETE"
     const [deletePassword, setDeletePassword] = useState('');
     const [deleteError, setDeleteError] = useState('');
     const [deleting, setDeleting] = useState(false);
 
-    // Email verification
+    // ── Email verification state ──
     const [verificationSent, setVerificationSent] = useState(false);
 
-    // Load profile from Firestore
+    // Load name and avatar from Firestore on mount (or when user changes)
     useEffect(() => {
         if (!user) return;
         const loadProfile = async () => {
@@ -58,12 +66,14 @@ const MyProfile = () => {
                 const snap = await getDoc(doc(db, 'users', user.uid));
                 if (snap.exists()) {
                     const data = snap.data();
+                    // Prefer Firestore name → auth display name → email prefix
                     if (data.name) setName(data.name);
                     else if (user.displayName) setName(user.displayName);
                     else {
                         const prefix = user.email.split('@')[0];
                         setName(prefix.charAt(0).toUpperCase() + prefix.slice(1));
                     }
+                    // Prefer Firestore photoURL → auth photoURL
                     if (data.photoURL) setPhotoURL(data.photoURL);
                     else if (user.photoURL) setPhotoURL(user.photoURL);
                 } else {
@@ -79,7 +89,7 @@ const MyProfile = () => {
         loadProfile();
     }, [user]);
 
-    // Initials helper
+    // Generate initials from full name (e.g. "Thisara Sandapium" → "TS")
     const getInitials = (n) => {
         if (!n) return '??';
         const parts = n.trim().split(/\s+/);
@@ -88,7 +98,9 @@ const MyProfile = () => {
             : n.slice(0, 2).toUpperCase();
     };
 
-    // ── Avatar Save (from crop modal) ── stores as Base64 in Firestore
+    // ── Avatar Save ──
+    // Receives cropped blob from AvatarEditorModal, converts to Base64,
+    // then saves to Firestore (no Firebase Storage needed on Spark plan)
     const handleAvatarSave = async (blob) => {
         const currentUser = auth.currentUser;
         if (!blob || !currentUser) return;
@@ -96,7 +108,7 @@ const MyProfile = () => {
         setProfileError('');
         setProfileSaved(false);
         try {
-            // Convert blob → compressed 200×200 JPEG → base64 data-URL
+            // Resize to 200×200 JPEG and encode as Base64 data-URL
             const base64 = await new Promise((resolve, reject) => {
                 const img = new Image();
                 const blobUrl = URL.createObjectURL(blob);
@@ -109,23 +121,14 @@ const MyProfile = () => {
                     URL.revokeObjectURL(blobUrl);
                     resolve(canvas.toDataURL('image/jpeg', 0.7));
                 };
-                img.onerror = () => {
-                    URL.revokeObjectURL(blobUrl);
-                    reject(new Error('Failed to process image.'));
-                };
+                img.onerror = () => { URL.revokeObjectURL(blobUrl); reject(new Error('Failed to process image.')); };
                 img.src = blobUrl;
             });
 
-            // Safety check — Firestore docs have a 1 MB limit
-            if (base64.length > 500_000) {
-                throw new Error('Photo too large. Please choose a smaller image.');
-            }
+            // Firestore document limit is 1 MB — reject oversized images
+            if (base64.length > 500_000) throw new Error('Photo too large. Please choose a smaller image.');
 
-            await setDoc(
-                doc(db, 'users', currentUser.uid),
-                { photoURL: base64 },
-                { merge: true },
-            );
+            await setDoc(doc(db, 'users', currentUser.uid), { photoURL: base64 }, { merge: true });
             setPhotoURL(base64);
             setShowAvatarEditor(false);
             setProfileSaved(true);
@@ -133,24 +136,20 @@ const MyProfile = () => {
         } catch (err) {
             console.error('Avatar save failed:', err);
             setProfileError(`Upload failed: ${err?.message || 'Unknown error'}`);
-            throw err; // Re-throw so the modal can catch it and clear "Saving…"
+            throw err; // re-throw so the modal can reset its "Saving…" state
         } finally {
             setUploading(false);
         }
     };
 
-    // ── Avatar Remove ──
+    // ── Avatar Remove ── clears photoURL in Firestore
     const handleRemoveAvatar = async () => {
         const currentUser = auth.currentUser;
         if (!currentUser) return;
         setUploading(true);
         setProfileError('');
         try {
-            await setDoc(
-                doc(db, 'users', currentUser.uid),
-                { photoURL: null },
-                { merge: true },
-            );
+            await setDoc(doc(db, 'users', currentUser.uid), { photoURL: null }, { merge: true });
             setPhotoURL('');
             setShowAvatarEditor(false);
         } catch (err) {
@@ -161,16 +160,13 @@ const MyProfile = () => {
         }
     };
 
-    // ── Save Profile ──
+    // ── Save Profile Name ── updates both Firestore and Firebase Auth display name
     const handleSaveProfile = async (e) => {
         e.preventDefault();
         if (!user) return;
         setProfileSaved(false);
         setProfileError('');
-        if (!name.trim()) {
-            setProfileError('Name cannot be empty.');
-            return;
-        }
+        if (!name.trim()) { setProfileError('Name cannot be empty.'); return; }
         try {
             await setDoc(doc(db, 'users', user.uid), { name: name.trim() }, { merge: true });
             await updateProfile(user, { displayName: name.trim() });
@@ -182,7 +178,7 @@ const MyProfile = () => {
         }
     };
 
-    // ── Email Verification ──
+    // ── Email Verification ── sends a verification email via Firebase Auth
     const handleSendVerification = async () => {
         if (!user) return;
         try {
@@ -194,25 +190,26 @@ const MyProfile = () => {
         }
     };
 
-    // Password strength
+    // Returns strength label and bar color/width based on password complexity
     const getPasswordStrength = (pw) => {
-        if (!pw) return { label: '', color: '', width: '0%' };
+        if (!pw) return { label: '', color: 'transparent', width: '0%' };
         let score = 0;
         if (pw.length >= 6) score++;
         if (pw.length >= 10) score++;
         if (/[A-Z]/.test(pw)) score++;
         if (/[0-9]/.test(pw)) score++;
         if (/[^A-Za-z0-9]/.test(pw)) score++;
-        if (score <= 1) return { label: 'Weak', color: 'bg-red-500', width: '20%' };
-        if (score <= 2) return { label: 'Fair', color: 'bg-orange-400', width: '40%' };
-        if (score <= 3) return { label: 'Good', color: 'bg-yellow-400', width: '60%' };
-        if (score <= 4) return { label: 'Strong', color: 'bg-green-400', width: '80%' };
-        return { label: 'Very Strong', color: 'bg-green-500', width: '100%' };
+        if (score <= 1) return { label: 'Weak', color: '#ef4444', width: '20%' };
+        if (score <= 2) return { label: 'Fair', color: '#f97316', width: '40%' };
+        if (score <= 3) return { label: 'Good', color: '#eab308', width: '60%' };
+        if (score <= 4) return { label: 'Strong', color: '#4ade80', width: '80%' };
+        return { label: 'Very Strong', color: '#22c55e', width: '100%' };
     };
-
     const strength = getPasswordStrength(newPassword);
 
     // ── Change Password ──
+    // Re-authenticates with current password first (Firebase requires this),
+    // then calls updatePassword with the new password
     const handleChangePassword = async (e) => {
         e.preventDefault();
         if (!user) return;
@@ -227,12 +224,10 @@ const MyProfile = () => {
 
         try {
             const credential = EmailAuthProvider.credential(user.email, currentPassword);
-            await reauthenticateWithCredential(user, credential);
+            await reauthenticateWithCredential(user, credential); // verify current password
             await updatePassword(user, newPassword);
             setPasswordSuccess(true);
-            setCurrentPassword('');
-            setNewPassword('');
-            setConfirmPassword('');
+            setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
             setPasswordErrors({});
             setTimeout(() => setPasswordSuccess(false), 3000);
         } catch (error) {
@@ -248,45 +243,34 @@ const MyProfile = () => {
     };
 
     // ── Delete Account ──
+    // Order matters: re-auth → delete tasks → delete user doc → delete auth user
+    // deleteUser() must be last — it signs the user out automatically
     const handleDeleteAccount = async () => {
-        if (deleteConfirmText !== 'DELETE') {
-            setDeleteError('Type DELETE to confirm.');
-            return;
-        }
-        if (!deletePassword) {
-            setDeleteError('Password is required for verification.');
-            return;
-        }
+        if (deleteConfirmText !== 'DELETE') { setDeleteError('Type DELETE to confirm.'); return; }
+        if (!deletePassword) { setDeleteError('Password is required for verification.'); return; }
         const currentUser = auth.currentUser;
-        if (!currentUser) {
-            setDeleteError('No authenticated user found. Please log in again.');
-            return;
-        }
+        if (!currentUser) { setDeleteError('No authenticated user found. Please log in again.'); return; }
+
         setDeleting(true);
         setDeleteError('');
         try {
-            // Re-authenticate FIRST — required for deleteUser
+            // Re-authenticate before destructive operation
             const credential = EmailAuthProvider.credential(currentUser.email, deletePassword);
             await reauthenticateWithCredential(currentUser, credential);
 
-            // 1. Delete user's tasks from Firestore
+            // Delete all tasks belonging to this user
             try {
                 const tasksQuery = query(collection(db, 'tasks'), where('userId', '==', currentUser.uid));
                 const tasksSnap = await getDocs(tasksQuery);
-                const deletions = tasksSnap.docs.map((d) => deleteDoc(d.ref));
-                await Promise.all(deletions);
-            } catch (err) {
-                console.warn('Could not delete user tasks:', err);
-            }
+                await Promise.all(tasksSnap.docs.map((d) => deleteDoc(d.ref)));
+            } catch (err) { console.warn('Could not delete user tasks:', err); }
 
-            // 2. Delete Firestore user doc
+            // Delete the Firestore user document
             try {
                 await deleteDoc(doc(db, 'users', currentUser.uid));
-            } catch (err) {
-                console.warn('Could not delete user doc:', err);
-            }
+            } catch (err) { console.warn('Could not delete user doc:', err); }
 
-            // 3. Delete the auth user — MUST be last (signs out automatically)
+            // Finally, delete the Firebase Auth account (signs out automatically)
             await deleteUser(currentUser);
             navigate('/login');
         } catch (error) {
@@ -302,314 +286,259 @@ const MyProfile = () => {
         }
     };
 
-    // ── Logout ──
-    const handleLogout = async () => {
-        await signOut(auth);
-        navigate('/login');
-    };
-
-    // ── Metadata ──
+    // Format Firebase metadata timestamps to readable strings
     const createdAt = user?.metadata?.creationTime
-        ? new Date(user.metadata.creationTime).toLocaleDateString('en-US', {
-              year: 'numeric', month: 'long', day: 'numeric',
-          })
+        ? new Date(user.metadata.creationTime).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
         : '—';
     const lastLogin = user?.metadata?.lastSignInTime
-        ? new Date(user.metadata.lastSignInTime).toLocaleDateString('en-US', {
-              year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
-          })
+        ? new Date(user.metadata.lastSignInTime).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
         : '—';
 
-    const inputClass =
-        'mt-1 w-full rounded-xl border border-[#8F8BB6]/40 bg-white/10 px-4 py-2.5 text-sm text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#585296]';
-    const labelClass = 'block text-sm font-medium text-white/80';
-    const cardClass = 'rounded-2xl border border-white/10 bg-[#3C436B]/50 p-6 backdrop-blur';
-    const btnPrimary =
-        'rounded-xl bg-[#585296] px-5 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-[#8F8BB6] active:scale-[0.98]';
+    // ── Shared style objects ──
+    const inputStyle = {
+        width: '100%', padding: '10px 16px', borderRadius: '12px', fontSize: '0.875rem',
+        border: '1.5px solid rgba(167,139,250,0.35)',
+        background: 'rgba(255,255,255,0.07)', color: '#f0ecff',
+        outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.2s', marginTop: '5px',
+    };
+    const labelStyle = { display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#c4b5fd' };
+    const cardStyle = {
+        background: 'rgba(255,255,255,0.06)', borderRadius: '20px', padding: '1.75rem',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.25)', border: '1px solid rgba(167,139,250,0.15)',
+        backdropFilter: 'blur(20px)',
+    };
+    const btnPrimaryStyle = {
+        padding: '10px 22px', borderRadius: '12px', fontSize: '0.875rem', fontWeight: 700,
+        color: '#fff', border: 'none', cursor: 'pointer',
+        background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)',
+        boxShadow: '0 4px 16px rgba(109,95,231,0.4)', transition: 'transform 0.15s',
+    };
 
+    // Show placeholder while Firebase resolves the user
     if (!user) {
         return (
-            <div className="flex h-64 items-center justify-center">
-                <p className="text-sm text-white/50">Loading profile…</p>
+            <div style={{ display: 'flex', height: '16rem', alignItems: 'center', justifyContent: 'center' }}>
+                <p style={{ fontSize: '0.875rem', color: '#a78bfa' }}>Loading profile…</p>
             </div>
         );
     }
 
     return (
-        <div className="mx-auto max-w-2xl space-y-6 pb-10">
-            {/* Page heading */}
-            <div>
-                <h1 className="text-2xl font-bold">My Profile</h1>
-                <p className="mt-1 text-sm text-white/60">Manage your account, security, and preferences.</p>
-            </div>
+        // Negative margin trick: extends background to fill the full content area
+        // (overrides the 2rem padding applied by DashboardLayout)
+        <div style={{
+            margin: '-2rem', padding: '2rem', minHeight: '100vh',
+            background: 'linear-gradient(135deg, #1c1848 0%, #231f5c 50%, #2b2570 100%)',
+        }}>
+            <div style={{ maxWidth: '680px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.25rem', paddingBottom: '2.5rem' }}>
 
-            {/* ── Avatar + Profile Info ── */}
-            <div className={cardClass}>
-                {/* Avatar — centered above heading, pen icon to edit */}
-                <div className="mb-5 flex flex-col items-center gap-3">
-                    <button
-                        type="button"
-                        onClick={() => setShowAvatarEditor(true)}
-                        className="group relative shrink-0"
-                        aria-label="Edit profile photo"
-                    >
-                        {photoURL ? (
-                            <img
-                                src={photoURL}
-                                alt="Avatar"
-                                className="h-24 w-24 rounded-full object-cover ring-2 ring-[#8F8BB6]/40"
-                            />
-                        ) : (
-                            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[#585296] text-2xl font-bold text-white ring-2 ring-[#8F8BB6]/40">
-                                {getInitials(name)}
+                
+
+                {/* ── Avatar + Profile Info card ── */}
+                <div style={cardStyle}>
+                    {/* Avatar with edit button overlay — opens crop modal */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                        <button
+                            type="button"
+                            onClick={() => setShowAvatarEditor(true)}
+                            style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                            aria-label="Edit profile photo"
+                        >
+                            {/* Show photo if available, otherwise show initials */}
+                            {photoURL ? (
+                                <img src={photoURL} alt="Avatar" style={{ height: '96px', width: '96px', borderRadius: '50%', objectFit: 'cover', boxShadow: '0 0 0 3px rgba(167,139,250,0.4)' }} />
+                            ) : (
+                                <div style={{ display: 'flex', height: '96px', width: '96px', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)', fontSize: '1.5rem', fontWeight: 700, color: '#fff', boxShadow: '0 0 0 3px rgba(167,139,250,0.4)' }}>
+                                    {getInitials(name)}
+                                </div>
+                            )}
+                            {/* Pencil icon badge */}
+                            <div style={{ position: 'absolute', bottom: 0, right: 0, display: 'flex', height: '2rem', width: '2rem', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: '#6d5fe7', color: '#fff', boxShadow: '0 2px 8px rgba(109,95,231,0.5)', border: '2px solid #1c1848' }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" style={{ height: '0.875rem', width: '0.875rem' }} viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                </svg>
                             </div>
-                        )}
-                        {/* Pen icon overlay */}
-                        <div className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-[#585296] text-white shadow-lg ring-2 ring-[#272D3E] transition group-hover:bg-[#8F8BB6]">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                            </svg>
+                            {/* Upload spinner overlay */}
+                            {uploading && (
+                                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: 'rgba(0,0,0,0.5)' }}>
+                                    <div style={{ height: '1.25rem', width: '1.25rem', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', animation: 'spin 1s linear infinite' }} />
+                                </div>
+                            )}
+                        </button>
+                    </div>
+
+                    <h2 style={{ textAlign: 'center', fontSize: '1.125rem', fontWeight: 600, color: '#f0ecff', margin: '0 0 1.25rem' }}>Profile Information</h2>
+
+                    {/* Name and email form */}
+                    <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {/* Email — read-only with verification status badge */}
+                        <div>
+                            <label style={labelStyle}>Email</label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <input type="email" value={user?.email || ''} disabled style={{ ...inputStyle, flex: 1, opacity: 0.5, cursor: 'not-allowed' }} />
+                                {user && !user.emailVerified && (
+                                    <span style={{ flexShrink: 0, borderRadius: '8px', background: 'rgba(251,146,60,0.18)', padding: '3px 8px', fontSize: '0.65rem', fontWeight: 700, color: '#fb923c' }}>Unverified</span>
+                                )}
+                                {user?.emailVerified && (
+                                    <span style={{ flexShrink: 0, borderRadius: '8px', background: 'rgba(52,211,153,0.18)', padding: '3px 8px', fontSize: '0.65rem', fontWeight: 700, color: '#34d399' }}>Verified</span>
+                                )}
+                            </div>
+                            {/* Show verification link only if email not yet verified */}
+                            {user && !user.emailVerified && (
+                                <button type="button" onClick={handleSendVerification} style={{ marginTop: '6px', fontSize: '0.75rem', fontWeight: 500, color: '#a78bfa', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                                    {verificationSent ? '✓ Verification email sent!' : 'Send verification email'}
+                                </button>
+                            )}
                         </div>
-                        {uploading && (
-                            <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50">
-                                <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                            </div>
-                        )}
+
+                        {/* Editable display name */}
+                        <div>
+                            <label style={labelStyle}>Name</label>
+                            <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" style={inputStyle}
+                                onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
+                                onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'} />
+                            {profileError && <p style={{ marginTop: '4px', fontSize: '0.75rem', color: '#f87171' }}>{profileError}</p>}
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <button type="submit" style={btnPrimaryStyle}>Save Changes</button>
+                            {profileSaved && <span style={{ fontSize: '0.75rem', color: '#34d399', fontWeight: 600 }}>✓ Saved!</span>}
+                        </div>
+                    </form>
+                </div>
+
+                {/* ── Account Details card — read-only metadata from Firebase Auth ── */}
+                <div style={cardStyle}>
+                    <h2 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#f0ecff', margin: '0 0 0.75rem' }}>Account Details</h2>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.875rem' }}>
+                        <div>
+                            <p style={{ color: '#c4b5fd', marginBottom: '2px', marginTop: 0 }}>Account Created</p>
+                            <p style={{ fontWeight: 600, color: '#f0ecff', margin: 0 }}>{createdAt}</p>
+                        </div>
+                        <div>
+                            <p style={{ color: '#c4b5fd', marginBottom: '2px', marginTop: 0 }}>Last Sign-In</p>
+                            <p style={{ fontWeight: 600, color: '#f0ecff', margin: 0 }}>{lastLogin}</p>
+                        </div>
+                        <div>
+                            <p style={{ color: '#c4b5fd', marginBottom: '2px', marginTop: 0 }}>User ID</p>
+                            <p style={{ fontFamily: 'monospace', fontSize: '0.72rem', color: '#a78bfa', margin: 0, wordBreak: 'break-all' }}>{user?.uid}</p>
+                        </div>
+                        <div>
+                            <p style={{ color: '#c4b5fd', marginBottom: '2px', marginTop: 0 }}>Auth Provider</p>
+                            <p style={{ fontWeight: 600, color: '#f0ecff', margin: 0 }}>Email / Password</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* ── Change Password card ── */}
+                <div style={cardStyle}>
+                    <h2 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#f0ecff', margin: '0 0 1rem' }}>Change Password</h2>
+                    <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {/* Current password — used for re-authentication */}
+                        <div>
+                            <label style={labelStyle}>Current Password</label>
+                            <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="Enter current password" style={inputStyle}
+                                onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
+                                onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'} />
+                            {passwordErrors.current && <p style={{ marginTop: '4px', fontSize: '0.75rem', color: '#f87171' }}>{passwordErrors.current}</p>}
+                        </div>
+
+                        {/* New password with live strength indicator */}
+                        <div>
+                            <label style={labelStyle}>New Password</label>
+                            <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Minimum 6 characters" style={inputStyle}
+                                onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
+                                onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'} />
+                            {newPassword && (
+                                <div style={{ marginTop: '8px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '4px' }}>
+                                        <span style={{ color: '#c4b5fd' }}>Strength</span>
+                                        <span style={{ fontWeight: 600, color: '#c4b5fd' }}>{strength.label}</span>
+                                    </div>
+                                    {/* Bar width and color are dynamic — kept as inline style */}
+                                    <div style={{ height: '6px', width: '100%', overflow: 'hidden', borderRadius: '999px', background: 'rgba(255,255,255,0.1)' }}>
+                                        <div style={{ height: '100%', borderRadius: '999px', background: strength.color, width: strength.width, transition: 'width 0.3s' }} />
+                                    </div>
+                                </div>
+                            )}
+                            {passwordErrors.new && <p style={{ marginTop: '4px', fontSize: '0.75rem', color: '#f87171' }}>{passwordErrors.new}</p>}
+                        </div>
+
+                        <div>
+                            <label style={labelStyle}>Confirm New Password</label>
+                            <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter new password" style={inputStyle}
+                                onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
+                                onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'} />
+                            {passwordErrors.confirm && <p style={{ marginTop: '4px', fontSize: '0.75rem', color: '#f87171' }}>{passwordErrors.confirm}</p>}
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <button type="submit" style={btnPrimaryStyle}>Update Password</button>
+                            {passwordSuccess && <span style={{ fontSize: '0.75rem', color: '#34d399', fontWeight: 600 }}>✓ Password changed!</span>}
+                        </div>
+                    </form>
+                </div>
+
+                {/* ── Danger Zone — irreversible account deletion ── */}
+                <div style={{ borderRadius: '20px', border: '1.5px solid rgba(248,113,113,0.3)', background: 'rgba(248,113,113,0.06)', padding: '1.75rem', backdropFilter: 'blur(20px)' }}>
+                    <h2 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#f87171', margin: '0 0 0.5rem' }}>Danger Zone</h2>
+                    <p style={{ margin: '0 0 1rem', fontSize: '0.875rem', color: 'rgba(248,113,113,0.8)' }}>
+                        Permanently delete your account, all tasks, and profile data. This action cannot be undone.
+                    </p>
+                    <button type="button" onClick={() => setShowDeleteModal(true)} style={{ padding: '10px 22px', borderRadius: '12px', fontSize: '0.875rem', fontWeight: 700, color: '#fff', border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)', boxShadow: '0 4px 16px rgba(220,38,38,0.4)' }}>
+                        Delete My Account
                     </button>
                 </div>
 
-                <h2 className="mb-5 text-center text-lg font-semibold">Profile Information</h2>
-
-                {/* Name + Email form */}
-                <form onSubmit={handleSaveProfile} className="space-y-4">
-                    <div>
-                        <label className={labelClass}>Email</label>
-                        <div className="flex items-center gap-2">
-                            <input
-                                type="email"
-                                value={user?.email || ''}
-                                disabled
-                                className={`${inputClass} flex-1 cursor-not-allowed opacity-60`}
-                            />
-                            {user && !user.emailVerified && (
-                                <span className="shrink-0 rounded-lg bg-orange-500/20 px-2 py-1 text-[10px] font-semibold text-orange-300">
-                                    Unverified
-                                </span>
-                            )}
-                            {user?.emailVerified && (
-                                <span className="shrink-0 rounded-lg bg-green-500/20 px-2 py-1 text-[10px] font-semibold text-green-300">
-                                    Verified
-                                </span>
-                            )}
-                        </div>
-                        {user && !user.emailVerified && (
-                            <button
-                                type="button"
-                                onClick={handleSendVerification}
-                                className="mt-1.5 text-xs font-medium text-[#8F8BB6] hover:underline"
-                            >
-                                {verificationSent ? '✓ Verification email sent!' : 'Send verification email'}
-                            </button>
-                        )}
-                    </div>
-                    <div>
-                        <label className={labelClass}>Name</label>
-                        <input
-                            type="text"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="Your name"
-                            className={inputClass}
-                        />
-                        {profileError && (
-                            <p className="mt-1 text-xs text-red-400">{profileError}</p>
-                        )}
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <button type="submit" className={btnPrimary}>
-                            Save Changes
-                        </button>
-                        {profileSaved && (
-                            <span className="text-xs text-green-400">✓ Saved!</span>
-                        )}
-                    </div>
-                </form>
-            </div>
-
-            {/* ── Account Details ── */}
-            <div className={cardClass}>
-                <h2 className="mb-3 text-lg font-semibold">Account Details</h2>
-                <div className="grid gap-3 text-sm sm:grid-cols-2">
-                    <div>
-                        <p className="text-white/50">Account Created</p>
-                        <p className="font-medium">{createdAt}</p>
-                    </div>
-                    <div>
-                        <p className="text-white/50">Last Sign-In</p>
-                        <p className="font-medium">{lastLogin}</p>
-                    </div>
-                    <div>
-                        <p className="text-white/50">User ID</p>
-                        <p className="font-mono text-xs text-white/60">{user?.uid}</p>
-                    </div>
-                    <div>
-                        <p className="text-white/50">Auth Provider</p>
-                        <p className="font-medium">Email / Password</p>
-                    </div>
-                </div>
-            </div>
-
-            {/* ── Change Password ── */}
-            <div className={cardClass}>
-                <h2 className="mb-4 text-lg font-semibold">Change Password</h2>
-                <form onSubmit={handleChangePassword} className="space-y-4">
-                    <div>
-                        <label className={labelClass}>Current Password</label>
-                        <input
-                            type="password"
-                            value={currentPassword}
-                            onChange={(e) => setCurrentPassword(e.target.value)}
-                            placeholder="Enter current password"
-                            className={inputClass}
-                        />
-                        {passwordErrors.current && (
-                            <p className="mt-1 text-xs text-red-400">{passwordErrors.current}</p>
-                        )}
-                    </div>
-                    <div>
-                        <label className={labelClass}>New Password</label>
-                        <input
-                            type="password"
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            placeholder="Minimum 6 characters"
-                            className={inputClass}
-                        />
-                        {newPassword && (
-                            <div className="mt-2">
-                                <div className="flex items-center justify-between text-xs">
-                                    <span className="text-white/50">Strength</span>
-                                    <span className="font-medium text-white/70">{strength.label}</span>
+                {/* ── Delete Confirmation Modal ── */}
+                {showDeleteModal && (
+                    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(10,8,36,0.7)', padding: '1rem', backdropFilter: 'blur(4px)' }}>
+                        <div style={{ width: '100%', maxWidth: '28rem', borderRadius: '20px', border: '1px solid rgba(248,113,113,0.25)', background: 'rgba(20,15,55,0.95)', padding: '1.5rem', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', backdropFilter: 'blur(20px)' }}>
+                            <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#f87171', margin: 0 }}>Delete Account</h3>
+                            <p style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#c4b5fd' }}>
+                                This will permanently delete your account, all tasks, and uploaded data.
+                                Type <strong style={{ color: '#f0ecff' }}>DELETE</strong> below to confirm.
+                            </p>
+                            <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                {/* Must type "DELETE" exactly to enable the confirm button */}
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#c4b5fd' }}>Confirmation</label>
+                                    <input type="text" value={deleteConfirmText} onChange={(e) => setDeleteConfirmText(e.target.value)} placeholder='Type "DELETE"' style={inputStyle}
+                                        onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
+                                        onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'} />
                                 </div>
-                                <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-                                    <div
-                                        className={`h-full rounded-full transition-all ${strength.color}`}
-                                        style={{ width: strength.width }}
-                                    />
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#c4b5fd' }}>Current Password</label>
+                                    <input type="password" value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} placeholder="Enter your password" style={inputStyle}
+                                        onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
+                                        onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'} />
                                 </div>
+                                {deleteError && <p style={{ fontSize: '0.75rem', color: '#f87171', margin: 0 }}>{deleteError}</p>}
                             </div>
-                        )}
-                        {passwordErrors.new && (
-                            <p className="mt-1 text-xs text-red-400">{passwordErrors.new}</p>
-                        )}
-                    </div>
-                    <div>
-                        <label className={labelClass}>Confirm New Password</label>
-                        <input
-                            type="password"
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            placeholder="Re-enter new password"
-                            className={inputClass}
-                        />
-                        {passwordErrors.confirm && (
-                            <p className="mt-1 text-xs text-red-400">{passwordErrors.confirm}</p>
-                        )}
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <button type="submit" className={btnPrimary}>
-                            Update Password
-                        </button>
-                        {passwordSuccess && (
-                            <span className="text-xs text-green-400">✓ Password changed!</span>
-                        )}
-                    </div>
-                </form>
-            </div>
-
-            {/* ── Danger Zone ── */}
-            <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-6 backdrop-blur">
-                
-                <p className="mb-4 text-sm text-white/50">
-                    Permanently delete your account, all tasks, and profile data. This action cannot be undone.
-                </p>
-                <button
-                    type="button"
-                    onClick={() => setShowDeleteModal(true)}
-                    className="rounded-xl bg-red-600/80 px-5 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-red-600 active:scale-[0.98]"
-                >
-                    Delete My Account
-                </button>
-            </div>
-
-            {/* ── Delete Confirmation Modal ── */}
-            {showDeleteModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-                    <div className="w-full max-w-md rounded-2xl border border-red-500/30 bg-[#272D3E] p-6 shadow-2xl">
-                        <h3 className="text-lg font-bold text-red-400">Delete Account</h3>
-                        <p className="mt-2 text-sm text-white/60">
-                            This will permanently delete your account, all tasks, and uploaded data.
-                            Type <span className="font-bold text-white">DELETE</span> below to confirm.
-                        </p>
-                        <div className="mt-4 space-y-3">
-                            <div>
-                                <label className="block text-xs font-medium text-white/60">Confirmation</label>
-                                <input
-                                    type="text"
-                                    value={deleteConfirmText}
-                                    onChange={(e) => setDeleteConfirmText(e.target.value)}
-                                    placeholder='Type "DELETE"'
-                                    className={inputClass}
-                                />
+                            <div style={{ marginTop: '1.25rem', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                                {/* Cancel — resets all delete modal state */}
+                                <button type="button" onClick={() => { setShowDeleteModal(false); setDeleteConfirmText(''); setDeletePassword(''); setDeleteError(''); }}
+                                    style={{ padding: '8px 18px', borderRadius: '10px', fontSize: '0.875rem', fontWeight: 500, color: '#c4b5fd', border: '1.5px solid rgba(167,139,250,0.3)', background: 'transparent', cursor: 'pointer' }}>
+                                    Cancel
+                                </button>
+                                <button type="button" onClick={handleDeleteAccount} disabled={deleting}
+                                    style={{ padding: '8px 20px', borderRadius: '10px', fontSize: '0.875rem', fontWeight: 700, color: '#fff', border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)', boxShadow: '0 4px 16px rgba(220,38,38,0.3)', opacity: deleting ? 0.6 : 1 }}>
+                                    {deleting ? 'Deleting…' : 'Permanently Delete'}
+                                </button>
                             </div>
-                            <div>
-                                <label className="block text-xs font-medium text-white/60">Current Password</label>
-                                <input
-                                    type="password"
-                                    value={deletePassword}
-                                    onChange={(e) => setDeletePassword(e.target.value)}
-                                    placeholder="Enter your password"
-                                    className={inputClass}
-                                />
-                            </div>
-                            {deleteError && (
-                                <p className="text-xs text-red-400">{deleteError}</p>
-                            )}
-                        </div>
-                        <div className="mt-5 flex justify-end gap-3">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setShowDeleteModal(false);
-                                    setDeleteConfirmText('');
-                                    setDeletePassword('');
-                                    setDeleteError('');
-                                }}
-                                className="rounded-xl border border-white/20 px-4 py-2 text-sm font-medium text-white/70 hover:bg-white/10"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleDeleteAccount}
-                                disabled={deleting}
-                                className="rounded-xl bg-red-600 px-5 py-2 text-sm font-semibold text-white shadow transition hover:bg-red-500 disabled:opacity-50"
-                            >
-                                {deleting ? 'Deleting…' : 'Permanently Delete'}
-                            </button>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* ── Avatar Editor Modal ── */}
-            <AvatarEditorModal
-                open={showAvatarEditor}
-                currentPhoto={photoURL}
-                onSave={handleAvatarSave}
-                onDelete={handleRemoveAvatar}
-                onClose={() => setShowAvatarEditor(false)}
-            />
+                {/* Avatar crop modal — manages its own open/close state via props */}
+                <AvatarEditorModal
+                    open={showAvatarEditor}
+                    currentPhoto={photoURL}
+                    onSave={handleAvatarSave}
+                    onDelete={handleRemoveAvatar}
+                    onClose={() => setShowAvatarEditor(false)}
+                />
+            </div>
         </div>
     );
 };
