@@ -2,70 +2,93 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 
 const DashboardHome = () => {
+    const cardStyle = {
+        background: 'rgba(255,255,255,0.06)',
+        borderRadius: '20px',
+        padding: '1.5rem',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
+        border: '1px solid rgba(167,139,250,0.15)',
+        backdropFilter: 'blur(20px)',
+    };
+
     return (
-        <div className="mx-auto max-w-4xl">
-            <div>
-                <h1 className="text-3xl font-bold text-white">🏠 Dashboard Overview</h1>
-                <p className="mt-1 text-[var(--c1)]">Quick glance at your study tasks and progress.</p>
-            </div>
+        <div style={{
+            margin: '-2rem',
+            padding: '2rem',
+            minHeight: '100vh',
+            background: 'linear-gradient(135deg, #1c1848 0%, #231f5c 50%, #2b2570 100%)',
+        }}>
+            <div style={{ maxWidth: '896px', margin: '0 auto' }}>
+                <div>
+                
+                    <p style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: '#a78bfa', marginBottom: 0 }}>Quick glance at your study tasks and progress.</p>
+                </div>
 
-            {/* Stats Row */}
-            <div className="mt-8 grid gap-4 sm:grid-cols-3">
-                {[
-                    { label: "Today's Tasks", value: '5', icon: '📅', color: 'text-amber-400' },
-                    { label: 'Completed', value: '12', icon: '✅', color: 'text-green-400' },
-                    { label: 'Upcoming', value: '3', icon: '⏳', color: 'text-blue-400' },
-                ].map((card) => (
-                    <div
-                        key={card.label}
-                        className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur transition hover:bg-white/8"
+                {/* Stats Row */}
+                <div style={{ marginTop: '2rem', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+                    {[
+                        { label: "Today's Tasks", value: '5', icon: '📅', color: '#fbbf24' },
+                        { label: 'Completed', value: '12', icon: '✅', color: '#34d399' },
+                        { label: 'Upcoming', value: '3', icon: '⏳', color: '#60a5fa' },
+                    ].map((card) => (
+                        <div key={card.label} style={cardStyle}>
+                            <span style={{ fontSize: '1.5rem' }}>{card.icon}</span>
+                            <p style={{ marginTop: '0.5rem', fontSize: '1.875rem', fontWeight: 700, color: card.color, marginBottom: 0 }}>{card.value}</p>
+                            <p style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: '#c4b5fd', marginBottom: 0 }}>{card.label}</p>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Quick Access */}
+                <h2 style={{ marginTop: '2.5rem', marginBottom: '1rem', fontSize: '1.125rem', fontWeight: 600, color: '#f0ecff' }}>Quick Access</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
+                    <Link
+                        to="/dashboard/tasks"
+                        style={{ ...cardStyle, textDecoration: 'none', display: 'block', transition: 'transform 0.15s, box-shadow 0.15s, border-color 0.15s' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = 'rgba(167,139,250,0.4)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(0,0,0,0.35)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'rgba(167,139,250,0.15)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,0.25)'; }}
                     >
-                        <span className="text-2xl">{card.icon}</span>
-                        <p className={`mt-2 text-3xl font-bold ${card.color}`}>{card.value}</p>
-                        <p className="mt-1 text-sm text-[var(--c1)]">{card.label}</p>
-                    </div>
-                ))}
-            </div>
+                        <span style={{ fontSize: '1.875rem' }}>📋</span>
+                        <h3 style={{ marginTop: '0.75rem', fontSize: '1.125rem', fontWeight: 600, color: '#f0ecff', marginBottom: 0 }}>Task Planner</h3>
+                        <p style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: '#c4b5fd', marginBottom: 0 }}>
+                            Manage your assignments, set deadlines & track progress.
+                        </p>
+                    </Link>
+                    <Link
+                        to="/dashboard/profile"
+                        style={{ ...cardStyle, textDecoration: 'none', display: 'block', transition: 'transform 0.15s, box-shadow 0.15s, border-color 0.15s' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = 'rgba(167,139,250,0.4)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(0,0,0,0.35)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'rgba(167,139,250,0.15)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,0.25)'; }}
+                    >
+                        <span style={{ fontSize: '1.875rem' }}>👤</span>
+                        <h3 style={{ marginTop: '0.75rem', fontSize: '1.125rem', fontWeight: 600, color: '#f0ecff', marginBottom: 0 }}>My Profile</h3>
+                        <p style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: '#c4b5fd', marginBottom: 0 }}>
+                            Edit your name, avatar, password & account settings.
+                        </p>
+                    </Link>
+                </div>
 
-            {/* Quick Access */}
-            <h2 className="mt-10 mb-4 text-lg font-semibold text-white">Quick Access</h2>
-            <div className="grid gap-4 sm:grid-cols-2">
-                <Link
-                    to="/dashboard/tasks"
-                    className="group rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur transition hover:border-[var(--c3)]/40 hover:bg-white/10 hover:shadow-xl hover:shadow-[var(--c3)]/5"
-                >
-                    <span className="text-3xl">📋</span>
-                    <h3 className="mt-3 text-lg font-semibold text-white">Task Planner</h3>
-                    <p className="mt-1 text-sm text-[var(--c1)]">
-                        Manage your assignments, set deadlines & track progress.
+                {/* Focus Section */}
+                <div style={{ ...cardStyle, marginTop: '2rem' }}>
+                    <h2 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#f0ecff', margin: 0 }}>🎯 Focus Today</h2>
+                    <p style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#c4b5fd' }}>
+                        Plan your tasks, stay consistent, and keep your study streak alive.
                     </p>
-                </Link>
-                <Link
-                    to="/dashboard/profile"
-                    className="group rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur transition hover:border-[var(--c3)]/40 hover:bg-white/10 hover:shadow-xl hover:shadow-[var(--c3)]/5"
-                >
-                    <span className="text-3xl">👤</span>
-                    <h3 className="mt-3 text-lg font-semibold text-white">My Profile</h3>
-                    <p className="mt-1 text-sm text-[var(--c1)]">
-                        Edit your name, avatar, password & account settings.
-                    </p>
-                </Link>
-            </div>
-
-            {/* Focus Section */}
-            <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur">
-                <h2 className="text-lg font-semibold text-white">🎯 Focus Today</h2>
-                <p className="mt-2 text-sm text-[var(--c1)]">
-                    Plan your tasks, stay consistent, and keep your study streak alive.
-                </p>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                        <p className="text-xs font-medium text-[var(--c2)]">Study Plan</p>
-                        <p className="mt-1 text-sm text-white">Review module notes and practice quizzes.</p>
-                    </div>
-                    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                        <p className="text-xs font-medium text-[var(--c2)]">Music Playlist</p>
-                        <p className="mt-1 text-sm text-white">Lo-fi focus session, 45 minutes.</p>
+                    <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }}>
+                        <div style={{
+                            borderRadius: '14px', border: '1px solid rgba(167,139,250,0.2)',
+                            background: 'rgba(255,255,255,0.04)', padding: '1rem',
+                        }}>
+                            <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#a78bfa', margin: 0 }}>Study Plan</p>
+                            <p style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: '#e0d9ff', marginBottom: 0 }}>Review module notes and practice quizzes.</p>
+                        </div>
+                        <div style={{
+                            borderRadius: '14px', border: '1px solid rgba(167,139,250,0.2)',
+                            background: 'rgba(255,255,255,0.04)', padding: '1rem',
+                        }}>
+                            <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#a78bfa', margin: 0 }}>Music Playlist</p>
+                            <p style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: '#e0d9ff', marginBottom: 0 }}>Lo-fi focus session, 45 minutes.</p>
+                        </div>
                     </div>
                 </div>
             </div>
