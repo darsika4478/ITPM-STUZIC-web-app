@@ -48,8 +48,10 @@ const Register = () => {
         if (!validate()) return;
 
         try {
+            const normalizedEmail = email.trim().toLowerCase();
+
             // Step 1: Create Firebase Auth account
-            const result = await createUserWithEmailAndPassword(auth, email.trim(), password);
+            const result = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
 
             // Step 2: Set the display name on the auth profile
             await updateProfile(result.user, { displayName: name.trim() });
@@ -57,7 +59,8 @@ const Register = () => {
             // Step 3: Create Firestore user document for profile data
             await setDoc(doc(db, 'users', result.user.uid), {
                 name: name.trim(),
-                email: email.trim(),
+                email: normalizedEmail,
+                emailLower: normalizedEmail,
                 photoURL: null,           // no avatar yet
                 createdAt: serverTimestamp(),
             });
