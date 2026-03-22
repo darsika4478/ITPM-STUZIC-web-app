@@ -10,6 +10,8 @@ import TasksPlanner from "./pages/TasksPlanner";
 import MoodInputPage from "./features/mood_and_music/pages/MoodInputPage.jsx";
 import MoodRecommendationPage from "./features/mood_and_music_recommendation/pages/MoodRecommendationPage.jsx";
 
+import MoodHistoryPage from "./features/mood_history/pages/MoodHistoryPage.jsx";
+
 export default function App() {
   return (
     <Routes>
@@ -26,6 +28,7 @@ export default function App() {
           <Route path="tasks" element={<TasksPlanner />} />
           <Route path="mood" element={<MoodInputPage />} />
           <Route path="mood-recommendation" element={<MoodRecommendationPage />} />
+          <Route path="mood-history" element={<MoodHistoryPage />} />
         </Route>
       </Route>
 

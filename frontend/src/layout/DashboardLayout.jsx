@@ -122,6 +122,9 @@ const DashboardLayout = () => {
                     <NavLink to="/dashboard/mood" style={({ isActive }) => navLinkStyle(isActive)}>
                         <span style={{ fontSize: '1.125rem' }}>🎵</span> Mood & Music
                     </NavLink>
+                    <NavLink to="/dashboard/mood-history" style={({ isActive }) => navLinkStyle(isActive)}>
+                        <span style={{ fontSize: '1.125rem' }}>🕰️</span> Mood History
+                    </NavLink>
                 </nav>
 
                 {/* User card + logout */}
