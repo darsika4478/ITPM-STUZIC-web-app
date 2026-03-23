@@ -11,6 +11,7 @@ import MoodInputPage from "./features/mood_and_music/pages/MoodInputPage.jsx";
 import MoodRecommendationPage from "./features/mood_and_music_recommendation/pages/MoodRecommendationPage.jsx";
 
 import MoodHistoryPage from "./features/mood_history/pages/MoodHistoryPage.jsx";
+import MoodAnalyticsPage from "./features/mood_analytics/pages/MoodAnalyticsPage.jsx";
 
 export default function App() {
   return (
@@ -29,6 +30,7 @@ export default function App() {
           <Route path="mood" element={<MoodInputPage />} />
           <Route path="mood-recommendation" element={<MoodRecommendationPage />} />
           <Route path="mood-history" element={<MoodHistoryPage />} />
+          <Route path="mood-analytics" element={<MoodAnalyticsPage />} />
         </Route>
       </Route>
 
