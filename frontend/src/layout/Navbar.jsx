@@ -55,6 +55,9 @@ export default function Navbar() {
           <NavLink to="/dashboard" style={linkStyle}>
             Dashboard
           </NavLink>
+          <NavLink to="/music" style={linkStyle}>
+            Music
+          </NavLink>
         </nav>
 
         {/* Right: Auth Links */}
