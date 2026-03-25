@@ -3,7 +3,7 @@ import Home from "./pages/Home.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
-import MoodInputPage from "./features/mood-input/pages/MoodInputPage.jsx";
+import MusicPlayerLayout from "./pages/MusicPlayerLayout.jsx";
 
 export default function App() {
   return (
@@ -12,7 +12,7 @@ export default function App() {
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
-      <Route path="/mood-input" element={<MoodInputPage />} />
+      <Route path="/music" element={<MusicPlayerLayout />} />
     </Routes>
   );
 }
