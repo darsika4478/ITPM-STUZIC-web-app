@@ -1,5 +1,6 @@
 @import "tailwindcss";
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 
 >>>>>>> Darshikan/feature/firebase-setup
@@ -83,3 +84,18 @@ a:hover {
   background: var(--c-accent);
 }
 >>>>>>> Darshikan/feature/firebase-setup
+=======
+
+:root {
+  --c1: #c4b5fd;
+  --c2: #a78bfa;
+  --c3: #6d5fe7;
+  --c4: #4a3fa8;
+  --c5: #1c1848;
+}
+
+body {
+  background: var(--c5);
+  color: #f0ecff;
+}
+>>>>>>> f2b9df4100d3acc8891a43b7826cb12eb215dd72
