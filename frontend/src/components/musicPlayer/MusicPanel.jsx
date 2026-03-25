@@ -1,4 +1,5 @@
-// MusicPanel.jsx – styled wrapper that groups NowPlayingCard + PlayerControls + SessionTimer
+// MusicPanel.jsx – Main UI component that groups NowPlayingCard + PlayerControls + SessionTimer
+// This serves as the core music player interface that can be extended by various view components
 import NowPlayingCard from "./NowPlayingCard";
 import PlayerControls from "./PlayerControls";
 import SessionTimer from "./SessionTimer";
