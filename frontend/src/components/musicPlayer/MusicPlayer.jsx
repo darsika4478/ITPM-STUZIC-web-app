@@ -5,7 +5,15 @@ import { getPlaylistByMood } from "../../data/dummyTracks";
 import MusicPanel from "./MusicPanel";
 import SessionHistory from "./SessionHistory";
 
-export default function MusicPlayer({ mood = "focus" }) {
+const MOODS = [
+  { id: "sad", label: "Sad", emoji: "😔" },
+  { id: "low", label: "Low", emoji: "😞" },
+  { id: "neutral", label: "Neutral", emoji: "😐" },
+  { id: "good", label: "Good", emoji: "🙂" },
+  { id: "happy", label: "Happy", emoji: "😄" },
+];
+
+export default function MusicPlayer({ mood = "neutral", onMoodChange }) {
   const playlist = getPlaylistByMood(mood);
   const {
     currentTrack,
@@ -37,28 +45,41 @@ export default function MusicPlayer({ mood = "focus" }) {
         durationMinutes: elapsedFocusMinutes || Math.round(completedFocusCount * 25),
       };
       setSessions((prev) => [newSession, ...prev]);
-
-      // TODO: replace with Firestore call once firebaseConfig is set up
-      // import { startSession, endSession } from "../../firebase/sessionService";
     },
     [mood, currentTrack]
   );
 
   return (
-    <div style={styles.page}>
-      {/* Page title */}
-      <div style={styles.titleRow}>
-        <h1 style={styles.pageTitle}>
-          <span style={{ color: "var(--c-accent)" }}>♪</span> Music Player
+    <div className="flex flex-col gap-6 w-full max-w-[1400px] mx-auto py-6 px-4">
+      {/* Header Row with Title and Mood Selector */}
+      <div className="flex flex-col md:flex-row items-center justify-between gap-6 w-full">
+        <h1 className="text-3xl font-extrabold text-[#B6B4BB] tracking-wide flex-shrink-0">
+          <span className="text-[#8F8BB6] mr-2">♪</span> Music Player
         </h1>
-        <span style={styles.moodPill}>
-          Mood: <strong style={{ color: "var(--c-text)" }}>{mood}</strong>
-        </span>
+        
+        {/* Mood Selection System */}
+        <div className="flex gap-2 sm:gap-4 bg-[#3C436B]/60 p-2 sm:p-3 rounded-2xl border border-[#8F8BB6]/15 backdrop-blur-md shadow-inner overflow-x-auto w-full md:w-auto">
+          {MOODS.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => onMoodChange && onMoodChange(m.id)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 ease-out whitespace-nowrap outline-none ${
+                mood === m.id
+                  ? "bg-[#585296] text-white shadow-[0_0_20px_rgba(88,82,150,0.6)] scale-105 border border-[#8F8BB6]/30"
+                  : "text-[#B6B4BB] hover:bg-[#8F8BB6]/15 hover:text-white border border-transparent"
+              }`}
+            >
+              <span className="text-lg">{m.emoji}</span>
+              <span className="hidden sm:inline">{m.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div style={styles.layout}>
-        {/* Left column: player panel */}
-        <div style={styles.leftCol}>
+      {/* Main Layout Area */}
+      <div className="flex flex-col lg:flex-row gap-8 items-start w-full">
+        {/* Left column: Player panel (70%) */}
+        <div className="w-full lg:w-[70%] flex-shrink-0">
           <MusicPanel
             currentTrack={currentTrack}
             mood={mood}
@@ -74,149 +95,54 @@ export default function MusicPlayer({ mood = "focus" }) {
           />
         </div>
 
-        {/* Right column: playlist + session history */}
-        <div style={styles.rightCol}>
-          {/* Playlist */}
-          <div style={styles.playlistCard}>
-            <h3 style={styles.sectionHeading}>Playlist</h3>
-            <div style={styles.trackList}>
-              {playlist.map((track, idx) => (
-                <button
-                  key={track.id}
-                  id={`track-${track.id}`}
-                  onClick={() => selectTrack(idx)}
-                  style={{
-                    ...styles.trackItem,
-                    background: idx === currentIndex
-                      ? "rgba(88,82,150,0.25)"
-                      : "transparent",
-                    borderLeft: idx === currentIndex
-                      ? "3px solid var(--c-primary)"
-                      : "3px solid transparent",
-                  }}
-                >
-                  <span style={styles.trackNum}>{idx + 1}</span>
-                  <div style={styles.trackInfo}>
-                    <span style={styles.trackTitle}>{track.title}</span>
-                    <span style={styles.trackArtist}>{track.artist}</span>
-                  </div>
-                  {idx === currentIndex && isPlaying && (
-                    <span style={styles.playingDot}>▶</span>
-                  )}
-                </button>
-              ))}
+        {/* Right column: Playlist + Session History (30%) */}
+        <div className="w-full lg:w-[30%] flex flex-col gap-6">
+          
+          {/* Playlist Card */}
+          <div className="bg-[#3C436B] rounded-2xl border border-[#8F8BB6]/20 overflow-hidden shadow-lg transition-all hover:shadow-[0_8px_30px_rgba(60,67,107,0.4)]">
+            <h3 className="m-0 py-4 px-5 text-[15px] font-bold text-white border-b border-[#8F8BB6]/15 bg-gradient-to-r from-[#3C436B] to-[#585296]/20">
+              Playlist
+            </h3>
+            <div className="flex flex-col max-h-[400px] overflow-y-auto">
+              {playlist.map((track, idx) => {
+                const isActive = idx === currentIndex;
+                return (
+                  <button
+                    key={track.id}
+                    onClick={() => selectTrack(idx)}
+                    className={`flex items-center gap-3 p-3.5 w-full text-left transition-colors border-b border-[#8F8BB6]/5 last:border-0 ${
+                      isActive 
+                        ? "bg-[#585296]/30 border-l-4 border-l-[#8F8BB6]" 
+                        : "bg-transparent border-l-4 border-l-transparent hover:bg-[#8F8BB6]/10"
+                    }`}
+                  >
+                    <span className="text-xs text-[#B6B4BB]/60 w-5 text-right flex-shrink-0 font-medium tracking-wider">
+                      {(idx + 1).toString().padStart(2, '0')}
+                    </span>
+                    <div className="flex-1 flex flex-col gap-0.5 min-w-0">
+                      <span className={`text-[14px] font-semibold truncate ${isActive ? "text-white" : "text-[#B6B4BB]"}`}>
+                        {track.title}
+                      </span>
+                      <span className="text-xs text-[#8F8BB6] truncate">
+                        {track.artist}
+                      </span>
+                    </div>
+                    {isActive && isPlaying && (
+                      <span className="text-xs text-[#8F8BB6] animate-pulse">▶</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Session history */}
-          <SessionHistory sessions={sessions} />
+          {/* Session History Card */}
+          <div className="bg-[#3C436B] rounded-2xl border border-[#8F8BB6]/20 overflow-hidden shadow-lg hover:shadow-[0_8px_30px_rgba(60,67,107,0.4)] transition-all">
+            <SessionHistory sessions={sessions} />
+          </div>
+
         </div>
       </div>
     </div>
   );
 }
-
-const styles = {
-  page: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 24,
-  },
-  titleRow: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    flexWrap: "wrap",
-    gap: 10,
-  },
-  pageTitle: {
-    margin: 0,
-    fontSize: 26,
-    fontWeight: 800,
-    color: "var(--c-text)",
-    letterSpacing: 0.3,
-  },
-  moodPill: {
-    fontSize: 13,
-    color: "var(--c-accent)",
-    background: "rgba(143,139,182,0.12)",
-    padding: "5px 14px",
-    borderRadius: 20,
-    textTransform: "capitalize",
-  },
-  layout: {
-    display: "flex",
-    gap: 24,
-    alignItems: "flex-start",
-    flexWrap: "wrap",
-  },
-  leftCol: {
-    flex: "0 0 auto",
-    width: "100%",
-    maxWidth: 440,
-  },
-  rightCol: {
-    flex: 1,
-    minWidth: 280,
-    display: "flex",
-    flexDirection: "column",
-    gap: 18,
-  },
-  playlistCard: {
-    background: "var(--c-surface)",
-    borderRadius: 16,
-    border: "1px solid rgba(143,139,182,0.2)",
-    overflow: "hidden",
-  },
-  sectionHeading: {
-    margin: 0,
-    padding: "14px 20px",
-    fontSize: 15,
-    fontWeight: 700,
-    color: "var(--c-text)",
-    borderBottom: "1px solid rgba(143,139,182,0.12)",
-  },
-  trackList: {
-    display: "flex",
-    flexDirection: "column",
-  },
-  trackItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    padding: "12px 16px",
-    border: "none",
-    cursor: "pointer",
-    textAlign: "left",
-    width: "100%",
-    transition: "background 0.15s",
-    color: "var(--c-text)",
-    borderBottom: "1px solid rgba(143,139,182,0.06)",
-  },
-  trackNum: {
-    fontSize: 12,
-    color: "rgba(182,180,187,0.4)",
-    width: 18,
-    textAlign: "right",
-    flexShrink: 0,
-  },
-  trackInfo: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    gap: 2,
-  },
-  trackTitle: {
-    fontSize: 14,
-    fontWeight: 600,
-    color: "var(--c-text)",
-  },
-  trackArtist: {
-    fontSize: 12,
-    color: "var(--c-accent)",
-  },
-  playingDot: {
-    fontSize: 11,
-    color: "var(--c-primary)",
-  },
-};

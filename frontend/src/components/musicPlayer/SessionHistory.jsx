@@ -2,6 +2,12 @@
 import { DUMMY_SESSIONS } from "../../data/dummyTracks";
 
 const MOOD_EMOJI = {
+  sad:      "😔",
+  low:      "😞",
+  neutral:  "😐",
+  good:     "🙂",
+  happy:    "😄",
+  // fallbacks for old data
   focus:    "🎯",
   chill:    "😌",
   deepwork: "💪",
@@ -21,8 +27,8 @@ export default function SessionHistory({ sessions }) {
 
   if (!data || data.length === 0) {
     return (
-      <div style={styles.empty}>
-        <p style={{ color: "var(--c-accent)", fontSize: 14 }}>No sessions recorded yet. Start a focus session above! 🚀</p>
+      <div className="py-8 px-6 text-center bg-[#3C436B] rounded-2xl border border-[#8F8BB6]/20">
+        <p className="text-[#8F8BB6] text-sm m-0">No sessions recorded yet. Start a focus session above! 🚀</p>
       </div>
     );
   }
@@ -30,32 +36,43 @@ export default function SessionHistory({ sessions }) {
   const totalMinutes = data.reduce((sum, s) => sum + (s.durationMinutes || 0), 0);
 
   return (
-    <div style={styles.wrapper}>
+    <div className="bg-[#3C436B] rounded-2xl border border-[#8F8BB6]/20 overflow-hidden shadow-lg w-full">
       {/* Header */}
-      <div style={styles.header}>
-        <h3 style={styles.heading}>Session History</h3>
-        <span style={styles.totalBadge}>🏆 {totalMinutes} min total</span>
+      <div className="flex items-center justify-between px-5 py-4 border-b border-[#8F8BB6]/15 bg-gradient-to-r from-[#3C436B] to-[#585296]/20">
+        <h3 className="m-0 text-[15px] font-bold text-white">Session History</h3>
+        <span className="text-xs font-semibold text-[#8F8BB6] bg-[#8F8BB6]/10 px-3 py-1 rounded-full">
+          🏆 {totalMinutes} min total
+        </span>
       </div>
 
       {/* Session list */}
-      <div style={styles.list}>
+      <div className="flex flex-col max-h-[400px] overflow-y-auto">
         {data.map((session) => (
-          <div key={session.id} style={styles.sessionCard}>
+          <div key={session.id} className="flex items-center justify-between px-5 py-3.5 border-b border-[#8F8BB6]/5 last:border-0 hover:bg-[#8F8BB6]/10 transition-colors">
+            
             {/* Left: mood emoji + mood label */}
-            <div style={styles.left}>
-              <span style={styles.moodEmoji}>
+            <div className="flex items-center gap-3">
+              <span className="text-2xl leading-none">
                 {MOOD_EMOJI[session.mood?.toLowerCase()] || "🎵"}
               </span>
-              <div>
-                <p style={styles.trackName}>{session.trackTitle || "Unknown Track"}</p>
-                <p style={styles.moodLabel}>{session.mood || "—"}</p>
+              <div className="flex flex-col">
+                <p className="m-0 text-sm font-semibold text-[#B6B4BB] truncate max-w-[140px] sm:max-w-xs">
+                  {session.trackTitle || "Unknown Track"}
+                </p>
+                <p className="m-0 text-xs text-[#8F8BB6] capitalize">
+                  {session.mood || "—"}
+                </p>
               </div>
             </div>
 
             {/* Right: stats */}
-            <div style={styles.right}>
-              <span style={styles.duration}>⏱ {session.durationMinutes ?? "?"} min</span>
-              <span style={styles.date}>{formatDate(session.startTime)}</span>
+            <div className="flex flex-col items-end gap-1">
+              <span className="text-[13px] font-semibold text-[#B6B4BB]">
+                ⏱ {session.durationMinutes ?? "?"} min
+              </span>
+              <span className="text-[11px] text-[#B6B4BB]/50">
+                {formatDate(session.startTime)}
+              </span>
             </div>
           </div>
         ))}
@@ -63,89 +80,3 @@ export default function SessionHistory({ sessions }) {
     </div>
   );
 }
-
-const styles = {
-  wrapper: {
-    background: "var(--c-surface)",
-    borderRadius: 16,
-    border: "1px solid rgba(143,139,182,0.2)",
-    overflow: "hidden",
-  },
-  header: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "16px 20px",
-    borderBottom: "1px solid rgba(143,139,182,0.15)",
-  },
-  heading: {
-    margin: 0,
-    fontSize: 16,
-    fontWeight: 700,
-    color: "var(--c-text)",
-  },
-  totalBadge: {
-    fontSize: 12,
-    fontWeight: 600,
-    color: "var(--c-accent)",
-    background: "rgba(143,139,182,0.12)",
-    padding: "3px 10px",
-    borderRadius: 20,
-  },
-  list: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 0,
-  },
-  sessionCard: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "14px 20px",
-    borderBottom: "1px solid rgba(143,139,182,0.08)",
-    transition: "background 0.15s",
-  },
-  left: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-  },
-  moodEmoji: {
-    fontSize: 26,
-    lineHeight: 1,
-  },
-  trackName: {
-    margin: 0,
-    fontSize: 14,
-    fontWeight: 600,
-    color: "var(--c-text)",
-  },
-  moodLabel: {
-    margin: 0,
-    fontSize: 12,
-    color: "var(--c-accent)",
-    textTransform: "capitalize",
-  },
-  right: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-end",
-    gap: 4,
-  },
-  duration: {
-    fontSize: 13,
-    fontWeight: 600,
-    color: "var(--c-text)",
-  },
-  date: {
-    fontSize: 11,
-    color: "rgba(182,180,187,0.5)",
-  },
-  empty: {
-    padding: "32px 24px",
-    textAlign: "center",
-    background: "var(--c-surface)",
-    borderRadius: 16,
-    border: "1px solid rgba(143,139,182,0.2)",
-  },
-};

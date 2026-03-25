@@ -2,35 +2,34 @@
 // Each track has: id, title, artist, mood, duration (seconds), audioUrl (empty = UI preview only)
 
 export const DUMMY_TRACKS = {
-  focus: [
-    { id: "f1", title: "Deep Focus Flow", artist: "LoFi Study", mood: "focus", duration: 215, audioUrl: "" },
-    { id: "f2", title: "Caffeine & Code", artist: "Study Beats", mood: "focus", duration: 183, audioUrl: "" },
-    { id: "f3", title: "Brain Activator", artist: "Ambient Works", mood: "focus", duration: 264, audioUrl: "" },
-    { id: "f4", title: "Clarity Waves", artist: "ZenSounds", mood: "focus", duration: 197, audioUrl: "" },
+  sad: [
+    { id: "s1", title: "Melancholy Echoes", artist: "LoFi Tears", mood: "sad", duration: 215, audioUrl: "" },
+    { id: "s2", title: "Raindrops", artist: "Soft Tones", mood: "sad", duration: 183, audioUrl: "" },
+    { id: "s3", title: "Fading Light", artist: "Ambient Works", mood: "sad", duration: 264, audioUrl: "" },
   ],
-  chill: [
-    { id: "c1", title: "Midnight Chill", artist: "LoFi Chill", mood: "chill", duration: 240, audioUrl: "" },
-    { id: "c2", title: "Sunday Afternoon", artist: "Soft Tones", mood: "chill", duration: 210, audioUrl: "" },
-    { id: "c3", title: "Rainy Day Study", artist: "Chill Vibes", mood: "chill", duration: 225, audioUrl: "" },
+  low: [
+    { id: "l1", title: "Slow Morning", artist: "Chill Vibes", mood: "low", duration: 240, audioUrl: "" },
+    { id: "l2", title: "Quiet Thoughts", artist: "ZenSounds", mood: "low", duration: 210, audioUrl: "" },
+    { id: "l3", title: "Gray Skies", artist: "Study Beats", mood: "low", duration: 225, audioUrl: "" },
   ],
-  deepwork: [
-    { id: "d1", title: "Dark Hours", artist: "Deep Study", mood: "deepwork", duration: 295, audioUrl: "" },
-    { id: "d2", title: "Iron Concentration", artist: "Focus Engine", mood: "deepwork", duration: 312, audioUrl: "" },
-    { id: "d3", title: "Locked In", artist: "Sigma Study", mood: "deepwork", duration: 270, audioUrl: "" },
+  neutral: [
+    { id: "n1", title: "Deep Focus Flow", artist: "LoFi Study", mood: "neutral", duration: 295, audioUrl: "" },
+    { id: "n2", title: "Caffeine & Code", artist: "Focus Engine", mood: "neutral", duration: 312, audioUrl: "" },
+    { id: "n3", title: "Steady Pace", artist: "Sigma Study", mood: "neutral", duration: 270, audioUrl: "" },
   ],
-  relax: [
-    { id: "r1", title: "Forest Morning", artist: "Nature Sounds", mood: "relax", duration: 360, audioUrl: "" },
-    { id: "r2", title: "Ocean Drift", artist: "Calm Waves", mood: "relax", duration: 320, audioUrl: "" },
+  good: [
+    { id: "g1", title: "Sunny Afternoon", artist: "Nature Sounds", mood: "good", duration: 360, audioUrl: "" },
+    { id: "g2", title: "Light Breeze", artist: "Calm Waves", mood: "good", duration: 320, audioUrl: "" },
   ],
-  night: [
-    { id: "n1", title: "Night Owl Sessions", artist: "Late Study", mood: "night", duration: 248, audioUrl: "" },
-    { id: "n2", title: "3AM Library", artist: "Nocturnal Beats", mood: "night", duration: 233, audioUrl: "" },
-    { id: "n3", title: "Stars & Notes", artist: "Lunar Sounds", mood: "night", duration: 290, audioUrl: "" },
+  happy: [
+    { id: "h1", title: "Upbeat Energy", artist: "Bright Beats", mood: "happy", duration: 248, audioUrl: "" },
+    { id: "h2", title: "Joyful Ride", artist: "Pop Study", mood: "happy", duration: 233, audioUrl: "" },
+    { id: "h3", title: "Golden Hour", artist: "Sunny Sounds", mood: "happy", duration: 290, audioUrl: "" },
   ],
 };
 
 // Default playlist for unknown moods
-export const DEFAULT_PLAYLIST = DUMMY_TRACKS.focus;
+export const DEFAULT_PLAYLIST = DUMMY_TRACKS.neutral;
 
 // Helper: get playlist by mood key (case-insensitive)
 export function getPlaylistByMood(mood) {

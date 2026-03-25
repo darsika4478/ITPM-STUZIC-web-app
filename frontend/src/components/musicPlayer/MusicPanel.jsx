@@ -1,5 +1,4 @@
-// MusicPanel.jsx – Main UI component that groups NowPlayingCard + PlayerControls + SessionTimer
-// This serves as the core music player interface that can be extended by various view components
+// MusicPanel.jsx – styled wrapper that groups NowPlayingCard + PlayerControls + SessionTimer
 import NowPlayingCard from "./NowPlayingCard";
 import PlayerControls from "./PlayerControls";
 import SessionTimer from "./SessionTimer";
@@ -18,34 +17,30 @@ export default function MusicPanel({
   onSessionEnd,
 }) {
   return (
-    <div style={styles.panel}>
-      {/* Now Playing */}
-      <NowPlayingCard track={currentTrack} mood={mood} isPlaying={isPlaying} />
+    <div className="flex flex-col gap-8 w-full h-full justify-center">
+      {/* Now Playing Area */}
+      <div className="flex-1 flex items-center justify-center min-h-[400px]">
+         <NowPlayingCard track={currentTrack} mood={mood} isPlaying={isPlaying} />
+      </div>
 
       {/* Controls */}
-      <PlayerControls
-        isPlaying={isPlaying}
-        isRepeat={isRepeat}
-        volume={volume}
-        onTogglePlay={onTogglePlay}
-        onNext={onNext}
-        onPrev={onPrev}
-        onToggleRepeat={onToggleRepeat}
-        onVolumeChange={onVolumeChange}
-      />
+      <div className="w-full max-w-3xl mx-auto backdrop-blur-md bg-[#3C436B]/40 rounded-3xl p-6 shadow-xl border border-[#8F8BB6]/20">
+        <PlayerControls
+          isPlaying={isPlaying}
+          isRepeat={isRepeat}
+          volume={volume}
+          onTogglePlay={onTogglePlay}
+          onNext={onNext}
+          onPrev={onPrev}
+          onToggleRepeat={onToggleRepeat}
+          onVolumeChange={onVolumeChange}
+        />
+      </div>
 
       {/* Focus Timer */}
-      <SessionTimer onSessionEnd={onSessionEnd} />
+      <div className="w-full max-w-xl mx-auto">
+        <SessionTimer onSessionEnd={onSessionEnd} />
+      </div>
     </div>
   );
 }
-
-const styles = {
-  panel: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 16,
-    width: "100%",
-    maxWidth: 440,
-  },
-};
