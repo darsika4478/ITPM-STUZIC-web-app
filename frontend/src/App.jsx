@@ -12,6 +12,7 @@ import MoodRecommendationPage from "./features/mood_and_music_recommendation/pag
 
 import MoodHistoryPage from "./features/mood_history/pages/MoodHistoryPage.jsx";
 import MoodAnalyticsPage from "./features/mood_analytics/pages/MoodAnalyticsPage.jsx";
+import CalendarUI from "./features/Schedule&Reminder/Calendarpage.jsx";
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
           <Route index element={<DashboardHome />} />
           <Route path="profile" element={<MyProfile />} />
           <Route path="tasks" element={<TasksPlanner />} />
+          <Route path="calendar" element={<CalendarUI />} />
           <Route path="mood" element={<MoodInputPage />} />
           <Route path="mood-recommendation" element={<MoodRecommendationPage />} />
           <Route path="mood-history" element={<MoodHistoryPage />} />
