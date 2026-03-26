@@ -1,72 +1,4 @@
-<<<<<<< HEAD
-import { Link, NavLink } from "react-router-dom";
 
-const linkStyle = ({ isActive }) => ({
-  color: isActive ? "var(--c-text)" : "var(--c-text)",
-  textDecoration: "none",
-  padding: "8px 12px",
-  borderRadius: "10px",
-  background: isActive ? "var(--c-primary)" : "transparent",
-});
-
-export default function Navbar() {
-  return (
-    <header
-      style={{
-        background: "var(--c-surface)",
-        borderBottom: "1px solid rgba(182,180,187,0.2)",
-        position: "sticky",
-        top: 0,
-        zIndex: 50,
-      }}
-    >
-      <div
-        style={{
-          maxWidth: 1100,
-          margin: "0 auto",
-          padding: "12px 16px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
-        }}
-      >
-        {/* Left: Logo */}
-        <Link
-          to="/"
-          style={{
-            color: "var(--c-text)",
-            textDecoration: "none",
-            fontWeight: 800,
-            letterSpacing: 0.5,
-          }}
-        >
-          STUZIC
-          <span style={{ color: "var(--c-accent)", fontWeight: 700 }}>
-            {" "}
-            •
-          </span>
-        </Link>
-
-        {/* Middle: Nav Links */}
-        <nav style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <NavLink to="/" style={linkStyle}>
-            Home
-          </NavLink>
-          <NavLink to="/dashboard" style={linkStyle}>
-            Dashboard
-          </NavLink>
-        </nav>
-
-        {/* Right: Auth Links */}
-        <div style={{ display: "flex", gap: 8 }}>
-          <NavLink to="/login" style={linkStyle}>
-            Login
-          </NavLink>
-          <NavLink to="/register" style={linkStyle}>
-            Register
-          </NavLink>
-=======
 import { useState, useRef, useEffect } from "react";
 import { Link, NavLink } from "react-router-dom";
 
@@ -95,7 +27,7 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 bg-[#3C436B]/80 backdrop-blur-md border-b border-[#8F8BB6]/15 transition-all duration-300">
       <div className="max-w-screen-2xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
-        
+
         {/* Left: Logo */}
         <Link
           to="/dashboard"
@@ -103,7 +35,7 @@ export default function Navbar() {
         >
           {/* Logo replacement */}
           <img
-            src="/stuzic-logo.png" 
+            src="/stuzic-logo.png"
             alt="STUZIC"
             className="h-9 w-auto object-contain"
             onError={(e) => {
@@ -126,10 +58,9 @@ export default function Navbar() {
               key={item.name}
               to={item.path}
               className={({ isActive }) =>
-                `px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ease-in-out ${
-                  isActive
-                    ? "bg-[#585296] text-white shadow-[0_4px_16px_rgba(88,82,150,0.4)]"
-                    : "text-[#B6B4BB] hover:bg-[#585296]/20 hover:text-white"
+                `px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ease-in-out ${isActive
+                  ? "bg-[#585296] text-white shadow-[0_4px_16px_rgba(88,82,150,0.4)]"
+                  : "text-[#B6B4BB] hover:bg-[#585296]/20 hover:text-white"
                 }`
               }
             >
@@ -170,13 +101,8 @@ export default function Navbar() {
               </button>
             </div>
           )}
->>>>>>> Darshikan/feature/firebase-setup
         </div>
       </div>
     </header>
   );
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> Darshikan/feature/firebase-setup

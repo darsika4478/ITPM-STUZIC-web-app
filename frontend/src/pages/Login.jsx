@@ -1,32 +1,4 @@
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-import BaseLayout from "../layout/BaseLayout";
 
-export default function Login() {
-  return (
-<<<<<<< HEAD
-    <BaseLayout>
-      <h1>Login</h1>
-      <p style={{ color: "var(--c-accent)" }}>
-        Temporary login page (Firebase will be added later).
-      </p>
-    </BaseLayout>
-=======
-export default function Login() {
-  return (
-=======
->>>>>>> Darshikan/feature/firebase-setup
-    <div style={{ padding: 24 }}>
-      <h1 style={{ marginBottom: 12 }}>Login</h1>
-      <p>Temporary login page (Firebase will be added later).</p>
-    </div>
-<<<<<<< HEAD
->>>>>>> Stashed changes
-=======
->>>>>>> Darshikan/feature/firebase-setup
-  );
-}
-=======
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { onAuthStateChanged, signInWithEmailAndPassword } from 'firebase/auth';
@@ -90,11 +62,11 @@ const Login = () => {
             </div>
 
             <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-                <span style={{ position: 'absolute', top: '8%',  left: '6%',  fontSize: '1.5rem', opacity: 0.4 }}>🎧</span>
+                <span style={{ position: 'absolute', top: '8%', left: '6%', fontSize: '1.5rem', opacity: 0.4 }}>🎧</span>
                 <span style={{ position: 'absolute', top: '10%', right: '8%', fontSize: '1.5rem', opacity: 0.4 }}>🎵</span>
-                <span style={{ position: 'absolute', bottom: '14%', left: '8%',  fontSize: '1.5rem', opacity: 0.4 }}>📚</span>
+                <span style={{ position: 'absolute', bottom: '14%', left: '8%', fontSize: '1.5rem', opacity: 0.4 }}>📚</span>
                 <span style={{ position: 'absolute', bottom: '10%', right: '6%', fontSize: '1.5rem', opacity: 0.4 }}>☕️</span>
-                <span style={{ position: 'absolute', top: '5%',  left: '42%', fontSize: '1.2rem', opacity: 0.4 }}>✍️</span>
+                <span style={{ position: 'absolute', top: '5%', left: '42%', fontSize: '1.2rem', opacity: 0.4 }}>✍️</span>
             </div>
 
             <div style={{
@@ -165,4 +137,3 @@ const Login = () => {
 };
 
 export default Login;
->>>>>>> f2b9df4100d3acc8891a43b7826cb12eb215dd72

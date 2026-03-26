@@ -1,17 +1,4 @@
-<<<<<<< HEAD
-import BaseLayout from "../layout/BaseLayout";
 
-export default function Home() {
-  return (
-    <BaseLayout>
-      <h1>Home Page</h1>
-      <p style={{ color: "var(--c-accent)" }}>
-        Your theme + header/footer are working.
-      </p>
-    </BaseLayout>
-  );
-}
-=======
 import { Link } from "react-router-dom";
 import logoText from '../assets/logo-text.png';
 
@@ -41,13 +28,13 @@ const features = [
 const stats = [
     { value: "10K+", label: "Active Students" },
     { value: "50K+", label: "Tasks Completed" },
-    { value: "99%",  label: "Uptime" },
+    { value: "99%", label: "Uptime" },
     { value: "4.9★", label: "User Rating" },
 ];
 
 const steps = [
-    { step: "01", title: "Sign Up",         desc: "Create your free account in seconds — no credit card required." },
-    { step: "02", title: "Organize",        desc: "Add your courses, tasks, and notes. STUZIC keeps everything tidy." },
+    { step: "01", title: "Sign Up", desc: "Create your free account in seconds — no credit card required." },
+    { step: "02", title: "Organize", desc: "Add your courses, tasks, and notes. STUZIC keeps everything tidy." },
     { step: "03", title: "Focus & Achieve", desc: "Use the timer & music to study effectively and crush your goals." },
 ];
 
@@ -222,4 +209,3 @@ export default function Home() {
         </div>
     );
 }
->>>>>>> f2b9df4100d3acc8891a43b7826cb12eb215dd72
