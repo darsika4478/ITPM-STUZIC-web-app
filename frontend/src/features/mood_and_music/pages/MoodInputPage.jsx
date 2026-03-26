@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from '../../../config/firebase';
 import MoodSelector from '../components/MoodSelector';
 import MoodSubmitButton from '../components/MoodSubmitButton';
 import { MOOD_CONFIG } from '../components/MoodEmojiOption';
@@ -69,8 +71,25 @@ const MoodInputPage = () => {
         if (showErrors) setShowErrors(false);
     };
 
-    const handleConfirm = () => {
+    const handleConfirm = async () => {
         if (isFormValid) {
+            // Persist mood entry to Firestore
+            try {
+                await addDoc(collection(db, 'moods'), {
+                    userId: auth.currentUser.uid,
+                    mood: selectedMood,
+                    energy: Number(formData.energy),
+                    activity: formData.activity,
+                    genre: formData.genre,
+                    vocals: formData.vocals,
+                    focusTime: Number(formData.focusTime),
+                    artist: formData.artist?.trim() || null,
+                    createdAt: serverTimestamp(),
+                    date: new Date().toISOString().split('T')[0],
+                });
+            } catch (err) {
+                console.error('Failed to save mood:', err);
+            }
             // Pass the entire structured payload to the recommendation engine
             navigate('/dashboard/mood-recommendation', {
                 state: {
