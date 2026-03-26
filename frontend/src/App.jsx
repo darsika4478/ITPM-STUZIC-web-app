@@ -3,8 +3,8 @@ import Home from "./pages/Home.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import AuthGuard from "./components/user-management/AuthGuard";
-import DashboardLayout from "./layout/DashboardLayout";
-import DashboardHome from "./pages/DashboardHome";
+import OverviewLayout from "./layout/OverviewLayout";
+import OverviewHome from "./pages/OverviewHome";
 import MyProfile from "./pages/MyProfile";
 import MoodRecommendationPage from "./features/mood_and_music_recommendation/pages/MoodRecommendationPage.jsx";
 
@@ -18,8 +18,8 @@ export default function App() {
 
       {/* Protected routes - require authentication */}
       <Route element={<AuthGuard />}>
-        <Route path="/dashboard" element={<DashboardLayout />}>
-          <Route index element={<DashboardHome />} />
+        <Route path="/dashboard" element={<OverviewLayout />}>
+          <Route index element={<OverviewHome />} />
           <Route path="profile" element={<MyProfile />} />
         </Route>
       </Route>

@@ -3,7 +3,7 @@ import { collection, onSnapshot, query, where, orderBy } from "firebase/firestor
 import { auth, db } from "../config/firebase";
 import { useNavigate } from "react-router-dom";
 
-export default function DashboardHome() {
+export default function OverviewHome() {
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();

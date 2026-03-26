@@ -19,7 +19,7 @@ import logoText from '../assets/logo-text.png';
  *   /dashboard/tasks    → TasksPlanner
  *   /dashboard/profile  → MyProfile
  */
-const DashboardLayout = () => {
+const OverviewLayout = () => {
     // Sidebar user card state
     const [fullName, setFullName] = useState('');
     const [firstName, setFirstName] = useState('');
@@ -122,7 +122,7 @@ const DashboardLayout = () => {
                         Menu
                     </p>
                     <NavLink to="/dashboard" end style={({ isActive }) => navLinkStyle(isActive)}>
-                        <span style={{ fontSize: '1.125rem' }}>🏠</span> Dashboard
+                        <span style={{ fontSize: '1.125rem' }}>🏠</span> Overview
                     </NavLink>
                     <NavLink to="/dashboard/tasks" style={({ isActive }) => navLinkStyle(isActive)}>
                         <span style={{ fontSize: '1.125rem' }}>📋</span> Task Planner
@@ -175,4 +175,4 @@ const DashboardLayout = () => {
     );
 };
 
-export default DashboardLayout;
+export default OverviewLayout;
