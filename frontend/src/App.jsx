@@ -9,8 +9,11 @@ import AuthGuard from "./components/user-management/AuthGuard";
 import DashboardLayout from "./layout/DashboardLayout";
 import DashboardHome from "./pages/DashboardHome";
 import MyProfile from "./pages/MyProfile";
+<<<<<<< HEAD
+=======
 import TasksPlanner from "./pages/TasksPlanner";
 import MoodInputPage from "./features/mood_and_music/pages/MoodInputPage.jsx";
+>>>>>>> origin/dev
 import MoodRecommendationPage from "./features/mood_and_music_recommendation/pages/MoodRecommendationPage.jsx";
 
 import MoodHistoryPage from "./features/mood_history/pages/MoodHistoryPage.jsx";
@@ -34,11 +37,14 @@ export default function App() {
         <Route path="/dashboard" element={<DashboardLayout />}>
           <Route index element={<DashboardHome />} />
           <Route path="profile" element={<MyProfile />} />
+<<<<<<< HEAD
+=======
           <Route path="tasks" element={<TasksPlanner />} />
           <Route path="mood" element={<MoodInputPage />} />
           <Route path="mood-recommendation" element={<MoodRecommendationPage />} />
           <Route path="mood-history" element={<MoodHistoryPage />} />
           <Route path="mood-analytics" element={<MoodAnalyticsPage />} />
+>>>>>>> origin/dev
         </Route>
       </Route>
 

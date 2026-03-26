@@ -28,12 +28,27 @@ const Register = () => {
         setFormError('');
         if (!validate()) return;
         try {
+<<<<<<< HEAD
+            const normalizedEmail = email.trim().toLowerCase();
+
+            // Step 1: Create Firebase Auth account
+            const result = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
+
+            // Step 2: Set the display name on the auth profile
+=======
             const result = await createUserWithEmailAndPassword(auth, email.trim(), password);
+>>>>>>> origin/dev
             await updateProfile(result.user, { displayName: name.trim() });
             await setDoc(doc(db, 'users', result.user.uid), {
                 name: name.trim(),
+<<<<<<< HEAD
+                email: normalizedEmail,
+                emailLower: normalizedEmail,
+                photoURL: null,           // no avatar yet
+=======
                 email: email.trim(),
                 photoURL: null,
+>>>>>>> origin/dev
                 createdAt: serverTimestamp(),
             });
             navigate('/dashboard');
