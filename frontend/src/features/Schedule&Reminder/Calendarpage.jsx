@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import CalendarEventsPopover from "./CalendarEventspage.jsx";
 
 export default function CalendarUI() {
   const days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -6,6 +7,10 @@ export default function CalendarUI() {
   const today = new Date();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(today);
+  const [eventsPopover, setEventsPopover] = useState({
+    dateKey: null,
+    position: { top: 0, left: 0 },
+  });
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -30,22 +35,29 @@ export default function CalendarUI() {
 
   const events = {
     "2026-03-25": [
-      { time: "09:00", title: "Design Meeting", category: "work" },
-      { time: "14:00", title: "Client Call", category: "work" },
+      { time: "09:00", title: "DS Lecture", category: "Lectures" },
+      { time: "14:00", title: "ITPM Lab", category: "Lectures" },
     ],
     "2026-03-18": [
-      { time: "10:00", title: "Study Session", category: "education" },
+      { time: "10:00", title: "PAFStudy Session", category: "Study Session" },
     ],
     "2026-03-22": [
-      { time: "15:00", title: "Gym", category: "personal" },
+      { time: "15:00", title: "NDM Lab Report Submission", category: "Deadlines" },
     ],
   };
 
-  const goPrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
-  const goNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
+  const goPrevMonth = () => {
+    setCurrentDate(new Date(year, month - 1, 1));
+    setEventsPopover({ dateKey: null, position: { top: 0, left: 0 } });
+  };
+  const goNextMonth = () => {
+    setCurrentDate(new Date(year, month + 1, 1));
+    setEventsPopover({ dateKey: null, position: { top: 0, left: 0 } });
+  };
   const goToday = () => {
     setCurrentDate(today);
     setSelectedDate(today);
+    setEventsPopover({ dateKey: null, position: { top: 0, left: 0 } });
   };
 
   const formatDateKey = (dateObj) => {
@@ -58,13 +70,31 @@ export default function CalendarUI() {
   const selectedKey = formatDateKey(selectedDate);
   const todayKey = formatDateKey(today);
 
+  const openEventsPopover = (e, dateObj) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const key = formatDateKey(dateObj);
+    setEventsPopover({
+      dateKey: key,
+      position: {
+        top: rect.bottom + window.scrollY + 5,
+        left: rect.left + window.scrollX,
+      },
+    });
+    setSelectedDate(dateObj);
+  };
+
+  const closeEventsPopover = () => {
+    setEventsPopover({ dateKey: null, position: { top: 0, left: 0 } });
+  };
+
   const getEventColor = (category) => {
     switch (category) {
-      case "work":
-        return "bg-[#e0f2fe] text-[#0369a1] border-l-[3px] border-[#0ea5e9]";
-      case "personal":
-        return "bg-[#fff3cd] text-[#856404] border-l-[3px] border-[#fbbf24]";
-      case "education":
+      case "Study Session":
+        return "bg-[#FFECC0] text-[#B500B2] border-l-[3px] border-[#B500B2]";
+      case "Lectures":
+        return "bg-[#fff3cd] text-[#856404] border-l-[3px] border-[#f97316]";
+      case "Deadlines":
         return "bg-[#d1fae5] text-[#065f46] border-l-[3px] border-[#10b981]";
       default:
         return "bg-[#ede9fe] text-[#5b21b6] border-l-[3px] border-[#8b5cf6]";
@@ -118,9 +148,9 @@ export default function CalendarUI() {
         </p>
 
         {[
-          { name: "Esther Howard", color: "#B500B2", count: 2 },
-          { name: "Task", color: "#f97316", count: 5 },
-          { name: "Bootcamp", color: "#10b981", count: 3 },
+          { name: "Study Session", color: "#B500B2", count: 2 },
+          { name: "Lectures", color: "#f97316", count: 5 },
+          { name: "Deadlines", color: "#10b981", count: 3 },
         ].map((item, i) => (
           <button
             key={i}
@@ -133,7 +163,7 @@ export default function CalendarUI() {
               hover:bg-white hover:text-[#8F8BB6]
               active:bg-[#8F8BB6]"
           >
-            <div className="w-4 h-4 rounded mr-3 flex-shrink-0" style={{ background: item.color }} />
+            <div className="w-4 h-4 rounded mr-3 shrink-0" style={{ background: item.color }} />
             <span className="flex-1 text-left">{item.name}</span>
             <span className="text-xs">{item.count}</span>
           </button>
@@ -188,7 +218,11 @@ export default function CalendarUI() {
           ))}
 
           {prevMonthDates.map((date, i) => (
-            <div key={i} className="bg-[#f8fafc] opacity-60 p-2 rounded">
+            <div
+              key={i}
+              className="bg-[#f8fafc] opacity-60 p-2 rounded cursor-pointer hover:shadow-sm transition"
+              onClick={(e) => openEventsPopover(e, new Date(year, month - 1, date))}
+            >
               {date}
             </div>
           ))}
@@ -205,7 +239,7 @@ export default function CalendarUI() {
           return (
             <div
               key={date}
-              onClick={() => setSelectedDate(dateObj)}
+              onClick={(e) => openEventsPopover(e, dateObj)}
               className={`bg-[#776ec4] border rounded-xl p-2 min-h-[120px] cursor-pointer
                 hover:shadow-md transition 
                 ${
@@ -239,11 +273,22 @@ export default function CalendarUI() {
         })}
 
           {nextMonthDates.map((date, i) => (
-            <div key={i} className="bg-[#B6B4BB] opacity-60 p-2 rounded-xl">
+            <div
+              key={i}
+              className="bg-[#B6B4BB] opacity-60 p-2 rounded-xl cursor-pointer hover:shadow-sm transition"
+              onClick={(e) => openEventsPopover(e, new Date(year, month + 1, date))}
+            >
               {date}
             </div>
           ))}
         </div>
+
+        <CalendarEventsPopover
+          dateKey={eventsPopover.dateKey}
+          position={eventsPopover.position}
+          eventsByDate={events}
+          onClose={closeEventsPopover}
+        />
       </div>
     </div>
   );
