@@ -7,8 +7,8 @@ const MoodSubmitButton = ({ onClick, disabled, label = "Confirm Mood" }) => {
             onClick={onClick}
             disabled={disabled}
             className={`
-                relative w-52 py-3 px-8 rounded-full font-semibold text-base tracking-wide
-                transition-all duration-300 ease-out z-20
+                relative w-auto min-w-[14rem] py-3 px-8 rounded-full font-semibold text-base tracking-wide
+                transition-all duration-300 ease-out z-20 flex items-center justify-center
                 focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-transparent
                 ${disabled
                     ? 'opacity-40 cursor-not-allowed text-white/60'
