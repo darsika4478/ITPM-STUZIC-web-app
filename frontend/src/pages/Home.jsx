@@ -190,7 +190,7 @@ export default function Home() {
                     <p style={{ position: 'relative', margin: '1rem auto 0', maxWidth: '512px', color: 'rgba(255,255,255,0.8)', lineHeight: 1.6 }}>
                         Join thousands of students who are already studying smarter with STUZIC. It's free, fast, and built for you.
                     </p>
-                    <Link to="/signup" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginTop: '2rem', borderRadius: '16px', background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.4)', padding: '14px 32px', fontWeight: 700, color: '#fff', textDecoration: 'none', backdropFilter: 'blur(10px)' }}>
+                    <Link to="/Register" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginTop: '2rem', borderRadius: '16px', background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.4)', padding: '14px 32px', fontWeight: 700, color: '#fff', textDecoration: 'none', backdropFilter: 'blur(10px)' }}>
                         Create Your Free Account
                         <svg style={{ height: '1.25rem', width: '1.25rem' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
