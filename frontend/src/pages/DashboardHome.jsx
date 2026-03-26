@@ -88,9 +88,11 @@ export default function DashboardHome() {
                 <h1 className="text-3xl font-bold text-white">
                     {greeting}, {userName} 👋
                 </h1>
-                {total === 0 && (
-                    <p className="mt-1 text-[var(--c1)]">Start by adding your first task!</p>
-                )}
+                <p className="mt-1 text-[var(--c1)]">
+                    {total === 0
+                        ? "Start by adding your first task!"
+                        : `You have ${active} active task${active !== 1 ? "s" : ""}${overdue > 0 ? ` and ${overdue} overdue` : ""}. Keep going!`}
+                </p>
             </div>
 
             {/* Stats Cards */}

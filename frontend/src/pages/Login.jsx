@@ -29,9 +29,8 @@ export default function Login() {
 =======
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
-import { collection, getDocs, limit, query, where } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
+import { onAuthStateChanged, signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../config/firebase';
 import AuthHeader from '../components/user-management/AuthHeader';
 
 const Login = () => {
@@ -41,17 +40,6 @@ const Login = () => {
     const [errors, setErrors] = useState({});
     const [formError, setFormError] = useState('');
 
-<<<<<<< HEAD
-    // Forgot password modal state
-    const [showForgotModal, setShowForgotModal] = useState(false);
-    const [resetEmail, setResetEmail] = useState('');
-    const [resetError, setResetError] = useState('');
-    const [resetSuccess, setResetSuccess] = useState(false);
-    const [resettingPassword, setResettingPassword] = useState(false);
-
-    // If already authenticated, skip login and go straight to dashboard
-=======
->>>>>>> origin/dev
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             if (user) navigate('/dashboard');
@@ -79,99 +67,6 @@ const Login = () => {
         }
     };
 
-<<<<<<< HEAD
-    // Handle password reset email submission
-    const handleResetPassword = async (e) => {
-        e.preventDefault();
-        const enteredEmail = resetEmail.trim();
-        const normalizedEmail = enteredEmail.toLowerCase();
-        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-        if (!normalizedEmail) {
-            setResetError('Please enter your email address.');
-            return;
-        }
-        if (!emailPattern.test(normalizedEmail)) {
-            setResetError('Please enter a valid email address.');
-            return;
-        }
-
-        setResettingPassword(true);
-        setResetError('');
-        setResetSuccess(false);
-
-        try {
-            let emailExists = false;
-
-            try {
-                const byLowerQuery = query(
-                    collection(db, 'users'),
-                    where('emailLower', '==', normalizedEmail),
-                    limit(1),
-                );
-                const byLowerSnapshot = await getDocs(byLowerQuery);
-                emailExists = !byLowerSnapshot.empty;
-
-                if (!emailExists) {
-                    const byExactQuery = query(
-                        collection(db, 'users'),
-                        where('email', '==', enteredEmail),
-                        limit(1),
-                    );
-                    const byExactSnapshot = await getDocs(byExactQuery);
-                    emailExists = !byExactSnapshot.empty;
-                }
-
-                if (!emailExists && enteredEmail !== normalizedEmail) {
-                    const byNormalizedLegacyQuery = query(
-                        collection(db, 'users'),
-                        where('email', '==', normalizedEmail),
-                        limit(1),
-                    );
-                    const byNormalizedLegacySnapshot = await getDocs(byNormalizedLegacyQuery);
-                    emailExists = !byNormalizedLegacySnapshot.empty;
-                }
-            } catch (lookupError) {
-                if (lookupError?.code !== 'permission-denied') {
-                    throw lookupError;
-                }
-
-                // If read access to users collection is blocked by Firestore rules,
-                // skip strict existence check and let Firebase Auth handle reset flow.
-                emailExists = true;
-            }
-
-            if (!emailExists) {
-                setResetError('No account found for this email address.');
-                return;
-            }
-
-            await sendPasswordResetEmail(auth, normalizedEmail);
-            setResetSuccess(true);
-            setResetEmail('');
-            setTimeout(() => {
-                setShowForgotModal(false);
-                setResetSuccess(false);
-            }, 3000);
-        } catch (error) {
-            console.error('Password reset failed:', error);
-            if (error?.code === 'auth/invalid-email') {
-                setResetError('Please enter a valid email address.');
-            } else if (error?.code === 'permission-denied') {
-                setResetError('Unable to verify this email at the moment. Please try again.');
-            } else if (error?.code === 'auth/too-many-requests') {
-                setResetError('Too many attempts. Please wait and try again.');
-            } else {
-                setResetError('Failed to send reset email. Please try again.');
-            }
-        } finally {
-            setResettingPassword(false);
-        }
-    };
-
-    // Shared style for all text inputs
-=======
->>>>>>> origin/dev
     const inputStyle = {
         width: '100%', padding: '10px 16px',
         borderRadius: '12px', fontSize: '0.875rem',
@@ -227,33 +122,7 @@ const Login = () => {
                     </div>
 
                     <div>
-<<<<<<< HEAD
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                            <label htmlFor="password" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#c4b5fd', display: 'block' }}>
-                                Password
-                            </label>
-                            <button
-                                type="button"
-                                onClick={() => setShowForgotModal(true)}
-                                style={{
-                                    fontSize: '0.75rem',
-                                    color: '#a78bfa',
-                                    background: 'none',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    textDecoration: 'none',
-                                    fontWeight: 500,
-                                    padding: 0,
-                                }}
-                                onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
-                                onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
-                            >
-                                Forgot password?
-                            </button>
-                        </div>
-=======
                         <label htmlFor="password" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#c4b5fd', display: 'block', marginBottom: '6px' }}>Password</label>
->>>>>>> origin/dev
                         <input
                             id="password" type="password" value={password}
                             onChange={(e) => setPassword(e.target.value)}
@@ -291,117 +160,6 @@ const Login = () => {
                     Built for students • tasks • notes • focus
                 </p>
             </div>
-
-            {/* Forgot Password Modal */}
-            {showForgotModal && (
-                <div style={{
-                    position: 'fixed',
-                    inset: 0,
-                    background: 'rgba(0,0,0,0.5)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 50,
-                }}>
-                    <div style={{
-                        background: 'rgba(30,24,72,0.95)',
-                        borderRadius: '20px',
-                        padding: '2rem',
-                        width: '90%',
-                        maxWidth: '380px',
-                        border: '1px solid rgba(167,139,250,0.22)',
-                        backdropFilter: 'blur(24px)',
-                        boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
-                    }}>
-                        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f0ecff', margin: '0 0 0.5rem' }}>
-                            Reset Password
-                        </h2>
-                        <p style={{ fontSize: '0.875rem', color: '#c4b5fd', margin: '0 0 1.5rem' }}>
-                            Enter your email address and we'll send you a link to reset your password.
-                        </p>
-
-                        <form onSubmit={handleResetPassword} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            <div>
-                                <label htmlFor="reset-email" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#c4b5fd', display: 'block', marginBottom: '6px' }}>
-                                    Email Address
-                                </label>
-                                <input
-                                    id="reset-email"
-                                    type="email"
-                                    value={resetEmail}
-                                    onChange={(e) => setResetEmail(e.target.value)}
-                                    placeholder="name@stuzic.lk"
-                                    style={{
-                                        width: '100%', padding: '10px 16px',
-                                        borderRadius: '12px', fontSize: '0.875rem',
-                                        border: '1.5px solid rgba(167,139,250,0.35)',
-                                        background: 'rgba(255,255,255,0.07)', color: '#f0ecff',
-                                        outline: 'none', boxSizing: 'border-box',
-                                        transition: 'border-color 0.2s',
-                                    }}
-                                    onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
-                                    onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'}
-                                    disabled={resettingPassword}
-                                />
-                            </div>
-
-                            {resetError && <p style={{ fontSize: '0.875rem', color: '#f87171', margin: 0 }}>{resetError}</p>}
-                            {resetSuccess && <p style={{ fontSize: '0.875rem', color: '#34d399', margin: 0 }}>✓ Check your email for the reset link!</p>}
-
-                            <div style={{ display: 'flex', gap: '0.75rem' }}>
-                                <button
-                                    type="submit"
-                                    disabled={resettingPassword}
-                                    style={{
-                                        flex: 1,
-                                        padding: '10px 16px',
-                                        borderRadius: '12px',
-                                        fontSize: '0.875rem',
-                                        fontWeight: 700,
-                                        color: '#fff',
-                                        border: 'none',
-                                        cursor: resettingPassword ? 'not-allowed' : 'pointer',
-                                        background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)',
-                                        boxShadow: '0 4px 16px rgba(109,95,231,0.4)',
-                                        opacity: resettingPassword ? 0.6 : 1,
-                                        transition: 'transform 0.15s, opacity 0.15s',
-                                    }}
-                                    onMouseEnter={(e) => !resettingPassword && (e.target.style.transform = 'scale(1.01)')}
-                                    onMouseLeave={(e) => !resettingPassword && (e.target.style.transform = 'scale(1)')}
-                                >
-                                    {resettingPassword ? 'Sending...' : 'Send Reset Link'}
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setShowForgotModal(false);
-                                        setResetEmail('');
-                                        setResetError('');
-                                        setResetSuccess(false);
-                                    }}
-                                    disabled={resettingPassword}
-                                    style={{
-                                        padding: '10px 16px',
-                                        borderRadius: '12px',
-                                        fontSize: '0.875rem',
-                                        fontWeight: 700,
-                                        color: '#c4b5fd',
-                                        border: '1.5px solid rgba(167,139,250,0.35)',
-                                        background: 'rgba(255,255,255,0.07)',
-                                        cursor: resettingPassword ? 'not-allowed' : 'pointer',
-                                        opacity: resettingPassword ? 0.5 : 1,
-                                        transition: 'border-color 0.2s, opacity 0.15s',
-                                    }}
-                                    onMouseEnter={(e) => !resettingPassword && (e.target.style.borderColor = 'rgba(167,139,250,0.8)')}
-                                    onMouseLeave={(e) => !resettingPassword && (e.target.style.borderColor = 'rgba(167,139,250,0.35)')}
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
         </main>
     );
 };

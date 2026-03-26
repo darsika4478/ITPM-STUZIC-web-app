@@ -371,15 +371,6 @@ const MyProfile = () => {
 
                     {/* Name and email form */}
                     <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        {/* Editable display name */}
-                        <div>
-                            <label style={labelStyle}>Name</label>
-                            <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" style={inputStyle}
-                                onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
-                                onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'} />
-                            {profileError && <p style={{ marginTop: '4px', fontSize: '0.75rem', color: '#f87171' }}>{profileError}</p>}
-                        </div>
-
                         {/* Email — read-only with verification status badge */}
                         <div>
                             <label style={labelStyle}>Email</label>
@@ -400,6 +391,15 @@ const MyProfile = () => {
                             )}
                         </div>
 
+                        {/* Editable display name */}
+                        <div>
+                            <label style={labelStyle}>Name</label>
+                            <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" style={inputStyle}
+                                onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
+                                onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'} />
+                            {profileError && <p style={{ marginTop: '4px', fontSize: '0.75rem', color: '#f87171' }}>{profileError}</p>}
+                        </div>
+
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                             <button type="submit" style={btnPrimaryStyle}>Save Changes</button>
                             {profileSaved && <span style={{ fontSize: '0.75rem', color: '#34d399', fontWeight: 600 }}>✓ Saved!</span>}
@@ -418,6 +418,14 @@ const MyProfile = () => {
                         <div>
                             <p style={{ color: '#c4b5fd', marginBottom: '2px', marginTop: 0 }}>Last Sign-In</p>
                             <p style={{ fontWeight: 600, color: '#f0ecff', margin: 0 }}>{lastLogin}</p>
+                        </div>
+                        <div>
+                            <p style={{ color: '#c4b5fd', marginBottom: '2px', marginTop: 0 }}>User ID</p>
+                            <p style={{ fontFamily: 'monospace', fontSize: '0.72rem', color: '#a78bfa', margin: 0, wordBreak: 'break-all' }}>{user?.uid}</p>
+                        </div>
+                        <div>
+                            <p style={{ color: '#c4b5fd', marginBottom: '2px', marginTop: 0 }}>Auth Provider</p>
+                            <p style={{ fontWeight: 600, color: '#f0ecff', margin: 0 }}>Email / Password</p>
                         </div>
                     </div>
                 </div>
