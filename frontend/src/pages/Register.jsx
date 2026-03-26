@@ -77,11 +77,12 @@ const Register = () => {
             <div style={{
                 position: 'relative', zIndex: 10,
                 width: '100%', maxWidth: '420px',
-                background: 'rgba(30,24,72,0.75)',
+                background: 'rgba(30,24,72,0.35)',
                 borderRadius: '28px', padding: '2.5rem',
-                boxShadow: '0 20px 60px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.05)',
-                backdropFilter: 'blur(24px)',
-                border: '1px solid rgba(167,139,250,0.22)',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.08), inset 0 1px 0 rgba(255,255,255,0.06)',
+                backdropFilter: 'blur(40px)',
+                WebkitBackdropFilter: 'blur(40px)',
+                border: '1px solid rgba(167,139,250,0.18)',
             }}>
                 <AuthHeader variant="signup" />
 
