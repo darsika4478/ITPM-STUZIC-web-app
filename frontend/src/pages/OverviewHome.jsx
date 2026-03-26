@@ -11,7 +11,7 @@ import PulseStrip from "../components/dashboard/PulseStrip";
 import StreakStats from "../components/dashboard/StreakStats";
 import UpcomingSchedule from "../components/dashboard/UpcomingSchedule";
 
-export default function DashboardHome() {
+export default function OverviewHome() {
   const [tasks, setTasks] = useState([]);
   const [moods, setMoods] = useState([]);
   const [todayMood, setTodayMood] = useState(null);

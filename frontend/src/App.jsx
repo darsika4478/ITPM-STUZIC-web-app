@@ -4,8 +4,8 @@ import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import MusicPlayerLayout from "./pages/MusicPlayerLayout.jsx";
 import AuthGuard from "./components/user-management/AuthGuard";
-import DashboardLayout from "./layout/DashboardLayout";
-import DashboardHome from "./pages/DashboardHome";
+import OverviewLayout from "./layout/OverviewLayout";
+import OverviewHome from "./pages/OverviewHome";
 import MyProfile from "./pages/MyProfile";
 import TasksPlanner from "./pages/TasksPlanner";
 import MoodInputPage from "./features/mood_and_music/pages/MoodInputPage.jsx";
@@ -24,8 +24,8 @@ export default function App() {
       <Route path="/music" element={<MusicPlayerLayout />} />
 
       <Route element={<AuthGuard />}>
-        <Route path="/dashboard" element={<DashboardLayout />}>
-          <Route index element={<DashboardHome />} />
+        <Route path="/dashboard" element={<OverviewLayout />}>
+          <Route index element={<OverviewHome />} />
           <Route path="profile" element={<MyProfile />} />
           <Route path="tasks" element={<TasksPlanner />} />
           <Route path="calendar" element={<CalendarUI />} />
