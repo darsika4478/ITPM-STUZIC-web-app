@@ -73,7 +73,7 @@ export default function Home() {
                     <Link to="/login" style={{ borderRadius: '12px', border: '1.5px solid rgba(167,139,250,0.35)', padding: '8px 20px', fontSize: '0.875rem', fontWeight: 500, color: '#c4b5fd', textDecoration: 'none', background: 'rgba(255,255,255,0.05)' }}>
                         Log In
                     </Link>
-                    <Link to="/signup" style={{ borderRadius: '12px', padding: '8px 20px', fontSize: '0.875rem', fontWeight: 700, color: '#fff', textDecoration: 'none', background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)', boxShadow: '0 4px 16px rgba(109,95,231,0.45)' }}>
+                    <Link to="/Register" style={{ borderRadius: '12px', padding: '8px 20px', fontSize: '0.875rem', fontWeight: 700, color: '#fff', textDecoration: 'none', background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)', boxShadow: '0 4px 16px rgba(109,95,231,0.45)' }}>
                         Sign Up Free
                     </Link>
                 </div>
@@ -98,7 +98,7 @@ export default function Home() {
                 </div>
 
                 <div style={{ marginTop: '2.25rem', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
-                    <Link to="/signup" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', borderRadius: '16px', padding: '14px 32px', fontSize: '1rem', fontWeight: 700, color: '#fff', textDecoration: 'none', background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)', boxShadow: '0 8px 32px rgba(109,95,231,0.45)' }}>
+                    <Link to="/Register" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', borderRadius: '16px', padding: '14px 32px', fontSize: '1rem', fontWeight: 700, color: '#fff', textDecoration: 'none', background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)', boxShadow: '0 8px 32px rgba(109,95,231,0.45)' }}>
                         Get Started — It's Free
                         <svg style={{ height: '1.25rem', width: '1.25rem' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />

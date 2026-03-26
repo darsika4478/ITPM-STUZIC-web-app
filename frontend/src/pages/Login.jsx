@@ -123,7 +123,7 @@ const Login = () => {
 
                 <p style={{ marginTop: '1.25rem', textAlign: 'center', fontSize: '0.875rem', color: '#c4b5fd' }}>
                     New to STUZIC?{' '}
-                    <Link to="/signup" style={{ fontWeight: 700, color: '#fff', textDecoration: 'none' }}
+                    <Link to="/Register" style={{ fontWeight: 700, color: '#fff', textDecoration: 'none' }}
                         onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
                         onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
                     >Create account</Link>
