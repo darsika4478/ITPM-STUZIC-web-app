@@ -18,6 +18,12 @@ import CalendarUI from "./features/Schedule&Reminder/Calendarpage.jsx";
 import AboutPage from "./pages/AboutPage.jsx";
 import ReportPage from "./pages/ReportPage.jsx";
 
+// Admin imports
+import AdminLogin from "./admin/pages/AdminLogin.jsx";
+import AdminGuard from "./admin/components/AdminGuard.jsx";
+import AdminLayout from "./admin/layout/AdminLayout.jsx";
+import AdminDashboard from "./admin/pages/AdminDashboard.jsx";
+
 export default function App() {
   return (
     <Routes>
@@ -41,6 +47,14 @@ export default function App() {
           <Route path="music" element={<MusicPlayerFullScreen />} />
         </Route>
       </Route>
+      {/* Admin routes */}
+      <Route path="/admin/login" element={<AdminLogin />} />
+      <Route element={<AdminGuard />}>
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route path="dashboard" element={<AdminDashboard />} />
+        </Route>
+      </Route>
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

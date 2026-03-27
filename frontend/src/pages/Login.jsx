@@ -2,7 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { onAuthStateChanged, signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../config/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../config/firebase';
 import AuthHeader from '../components/user-management/AuthHeader';
 
 const Login = () => {
@@ -13,8 +14,19 @@ const Login = () => {
     const [formError, setFormError] = useState('');
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            if (user) navigate('/dashboard');
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            if (!user) return;
+            // Check if this is an admin — don't let them into user dashboard
+            try {
+                const userDoc = await getDoc(doc(db, 'users', user.uid));
+                if (userDoc.exists() && userDoc.data().role === 'admin') {
+                    await auth.signOut();
+                    return;
+                }
+            } catch {
+                // If check fails, let them through
+            }
+            navigate('/dashboard');
         });
         return () => unsubscribe();
     }, [navigate]);
@@ -32,7 +44,16 @@ const Login = () => {
         setFormError('');
         if (!validate()) return;
         try {
-            await signInWithEmailAndPassword(auth, email.trim(), password);
+            const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
+
+            // Block admin accounts from using the student login
+            const userDoc = await getDoc(doc(db, 'users', cred.user.uid));
+            if (userDoc.exists() && userDoc.data().role === 'admin') {
+                await auth.signOut();
+                setFormError('Invalid email or password.');
+                return;
+            }
+
             navigate('/dashboard');
         } catch (error) {
             setFormError('Invalid email or password.');
