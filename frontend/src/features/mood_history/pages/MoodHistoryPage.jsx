@@ -16,22 +16,19 @@ const MOOD_HISTORY_DATA = [
         id: 1,
         date: 'April 23',
         moodEmoji: '😃',
-        moodValue: 4,
-        secondaryEmoji: '😃'
+        moodValue: 4
     },
     {
         id: 2,
         date: 'April 22',
         moodEmoji: '😄',
-        moodValue: 5,
-        secondaryEmoji: '😥'
+        moodValue: 5
     },
     {
         id: 3,
         date: 'April 21',
         moodEmoji: '🙁',
-        moodValue: 2,
-        secondaryEmoji: '😢'
+        moodValue: 2
     }
 ];
 
@@ -104,15 +101,12 @@ const MoodHistoryPage = () => {
                             </div>
 
                             {/* Description Block */}
-                            <div className="flex items-center justify-between pl-4 pr-2">
+                            <div className="flex items-center justify-start pl-4 pr-2">
                                 <div className="flex flex-col gap-0.5 md:gap-1">
                                     <span className="text-[#f0ecff] font-semibold text-sm md:text-base tracking-wide">
                                         Mood level {item.moodValue} <span className="text-[#c4b5fd] font-normal text-xs md:text-sm">— {getPlaylistName(item.moodValue)}</span>
                                     </span>
                                 </div>
-                                <span className="text-2xl md:text-3xl drop-shadow-sm ml-2 filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]">
-                                    {item.secondaryEmoji}
-                                </span>
                             </div>
                         </div>
                     ))}
