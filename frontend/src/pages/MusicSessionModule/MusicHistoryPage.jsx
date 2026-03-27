@@ -1,8 +1,11 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import BaseLayout from '../../layout/BaseLayout';
 import HistoryCard from '../../components/MusicSessionModule/HistoryCard';
 
 export default function MusicHistoryPage() {
+  const navigate = useNavigate();
+  
   const dummyTracks = [
     { title: "Lofi Study Beats", plays: 15 },
     { title: "Deep Focus Ambient", plays: 12 },
@@ -29,6 +32,22 @@ export default function MusicHistoryPage() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Navigation Buttons */}
+        <div className="flex gap-3">
+          <button 
+            onClick={() => navigate('/player/music')}
+            className="flex-1 py-3 bg-[#3C436B] hover:bg-[#585296] text-white font-bold rounded-2xl transition-colors border border-[#8F8BB6]/20"
+          >
+            ← Back to Music
+          </button>
+          <button 
+            onClick={() => navigate('/player')}
+            className="flex-1 py-3 bg-[#585296] hover:bg-[#8F8BB6] text-white font-bold rounded-2xl transition-colors"
+          >
+            Back to Main Player
+          </button>
         </div>
       </div>
     </BaseLayout>

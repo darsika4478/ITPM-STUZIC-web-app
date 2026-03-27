@@ -11,6 +11,10 @@ export default function MusicPlayerSessionPage() {
   const [isActive, setIsActive] = useState(false);
   const [timeLeft, setTimeLeft] = useState(25 * 60);
 
+  // Validation: Check if duration is valid
+  const error = duration !== '' && (isNaN(duration) || parseInt(duration) < 1 || parseInt(duration) > 120);
+
+  // Update time when duration changes and session is not active
   useEffect(() => {
     if (!isActive) {
       const parsed = parseInt(duration, 10);
@@ -22,6 +26,7 @@ export default function MusicPlayerSessionPage() {
     }
   }, [duration, isActive]);
 
+  // Session timer countdown
   useEffect(() => {
     let interval = null;
     if (isActive && timeLeft > 0) {
@@ -33,8 +38,7 @@ export default function MusicPlayerSessionPage() {
     return () => clearInterval(interval);
   }, [isActive, timeLeft]);
 
-  const error = duration !== '' && (isNaN(duration) || duration < 1 || duration > 120);
-
+  // Start session with validation
   const startSession = () => {
     if (isActive) return; // Prevent multiple active sessions
     if (!error && duration) {
@@ -42,6 +46,7 @@ export default function MusicPlayerSessionPage() {
     }
   };
 
+  // Stop session
   const stopSession = () => {
     setIsActive(false);
   };

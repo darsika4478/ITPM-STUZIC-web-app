@@ -1,8 +1,11 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import BaseLayout from '../../layout/BaseLayout';
 import HistoryCard from '../../components/MusicSessionModule/HistoryCard';
 
 export default function SessionAnalyticsPage() {
+  const navigate = useNavigate();
+  
   const dummySessions = [
     { date: "2023-10-01", duration: 25, status: "Completed" },
     { date: "2023-10-02", duration: 40, status: "Completed" },
@@ -45,6 +48,22 @@ export default function SessionAnalyticsPage() {
               </tbody>
             </table>
           </div>
+        </div>
+
+        {/* Navigation Buttons */}
+        <div className="flex gap-3">
+          <button 
+            onClick={() => navigate('/player/session')}
+            className="flex-1 py-3 bg-[#3C436B] hover:bg-[#585296] text-white font-bold rounded-2xl transition-colors border border-[#8F8BB6]/20"
+          >
+            ← Back to Session
+          </button>
+          <button 
+            onClick={() => navigate('/player')}
+            className="flex-1 py-3 bg-[#585296] hover:bg-[#8F8BB6] text-white font-bold rounded-2xl transition-colors"
+          >
+            Back to Main Player
+          </button>
         </div>
       </div>
     </BaseLayout>

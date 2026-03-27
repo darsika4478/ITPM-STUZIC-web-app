@@ -17,14 +17,21 @@ export default function SessionTimer({
   return (
     <div className="bg-[#3C436B] border border-[#8F8BB6]/20 shadow-lg rounded-2xl p-6 text-center">
       <h2 className="text-xl font-bold text-white mb-4">Focus Session</h2>
+      
+      {/* Timer Display */}
       <div className="text-5xl font-extrabold text-[#585296] bg-white/5 rounded-2xl py-6 mb-6">
         {formatTime(timeLeft)}
       </div>
       
+      {/* Status Messages */}
       {isActive && (
-        <p className="text-red-400 text-sm mb-4 font-semibold">Session already in progress</p>
+        <p className="text-red-400 text-sm mb-4 font-semibold">⏱️ Session already in progress</p>
+      )}
+      {error && !isActive && (
+        <p className="text-red-400 text-sm mb-4 font-semibold">❌ Invalid duration (1-120 minutes)</p>
       )}
 
+      {/* Action Buttons */}
       <div className="flex justify-center gap-4">
         <button
           onClick={startSession}

@@ -1,5 +1,4 @@
 import { useMusicPlayer } from '../context/useMusicPlayer';
-import './HistoryPage.css';
 
 const MOTIVATIONAL_MESSAGES = {
   milestone_1: {

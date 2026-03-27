@@ -57,6 +57,14 @@ export default function MusicExpandedPage() {
             </div>
           </div>
         </div>
+
+        {/* Back Button */}
+        <button 
+          onClick={() => navigate('/player')}
+          className="w-full py-3 bg-[#3C436B] hover:bg-[#585296] text-white font-bold rounded-2xl transition-colors border border-[#8F8BB6]/20"
+        >
+          ← Back to Main Player
+        </button>
       </div>
     </BaseLayout>
   );
