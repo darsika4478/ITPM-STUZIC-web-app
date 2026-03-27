@@ -9,6 +9,7 @@ export const MusicPlayerProvider = ({ children, initialMood = 'focus' }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(0.7);
   const [isRepeat, setIsRepeat] = useState(false);
+  const [isPlayerActive, setIsPlayerActive] = useState(false);
   
   // Session tracking
   const [sessions, setSessions] = useState(DUMMY_SESSIONS);
@@ -25,6 +26,7 @@ export const MusicPlayerProvider = ({ children, initialMood = 'focus' }) => {
   // Player controls
   const togglePlay = useCallback(() => {
     setIsPlaying(prev => !prev);
+    setIsPlayerActive(true);
   }, []);
 
   const playNext = useCallback(() => {
@@ -38,6 +40,7 @@ export const MusicPlayerProvider = ({ children, initialMood = 'focus' }) => {
   const selectTrack = useCallback((index) => {
     setCurrentIndex(index);
     setIsPlaying(true);
+    setIsPlayerActive(true);
   }, []);
 
   const toggleRepeat = useCallback(() => {
@@ -76,6 +79,7 @@ export const MusicPlayerProvider = ({ children, initialMood = 'focus' }) => {
     setVolume,
     isRepeat,
     toggleRepeat,
+    isPlayerActive,
     
     // Sessions
     sessions,

@@ -30,30 +30,7 @@ const PlaylistPage = ({ currentMood, onMoodChange }) => {
 
   return (
     <div className="flex flex-col gap-6 md:gap-4 sm:gap-3 w-full h-full overflow-y-auto p-1">
-      {/* Mood Selector */}
-      <div className="flex flex-col gap-4">
-        <h2 className="text-xs font-semibold text-purple-200/80 m-0 uppercase tracking-wider">Select Mood</h2>
-        <div className="flex flex-col gap-2">
-          {MOOD_OPTIONS.map((mood) => (
-            <button
-              key={mood.value}
-              className={`flex items-center justify-center gap-2 px-4 py-3 border-2 rounded-xl cursor-pointer transition-all duration-200 text-xs font-semibold text-purple-100 backdrop-blur-lg relative overflow-hidden ${
-                currentMood === mood.value
-                  ? 'bg-purple-900/25 text-white shadow-lg'
-                  : 'border-purple-400/20 bg-purple-950/20 hover:border-purple-400/40 hover:bg-purple-900/15'
-              }`}
-              onClick={() => handleMoodSelect(mood.value)}
-              title={mood.label}
-              style={{
-                borderColor: currentMood === mood.value ? mood.color : 'rgba(143, 139, 182, 0.2)',
-              }}
-            >
-              <span className="text-4xl">{mood.emoji}</span>
-              <span className="flex-1 text-left">{mood.label.split(' ')[0]}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Playlist Tracks - Expanded view without mood selection */}
 
       {/* Sort & Filter Options */}
       <div className="flex gap-3 items-center px-3.5 py-3 bg-purple-950/20 rounded-xl border border-purple-400/10 backdrop-blur-lg sm:gap-2">

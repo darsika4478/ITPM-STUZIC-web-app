@@ -4,6 +4,7 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import logoText from '../assets/logo-text.png';
+import MusicPlayerBar from '../components/musicPlayer/MusicPlayerBar';
 
 /**
  * DashboardLayout — Persistent sidebar shell for all dashboard pages
@@ -120,11 +121,11 @@ const OverviewLayout = () => {
                     <NavLink to="/dashboard/mood-history" style={({ isActive }) => navLinkStyle(isActive)}>
                         <span style={{ fontSize: '1.125rem' }}>🕰️</span> Mood History
                     </NavLink>
-                    <NavLink to="/dashboard/study-session" style={({ isActive }) => navLinkStyle(isActive)}>
-                        <span style={{ fontSize: '1.125rem' }}>⏱️</span> Study Session
-                    </NavLink>
                     <NavLink to="/dashboard/mood-analytics" style={({ isActive }) => navLinkStyle(isActive)}>
                         <span style={{ fontSize: '1.125rem' }}>📊</span> Mood Analytics
+                    </NavLink>
+                    <NavLink to="/dashboard/study-session" style={({ isActive }) => navLinkStyle(isActive)}>
+                        <span style={{ fontSize: '1.125rem' }}>⏱️</span> Study Session
                     </NavLink>
                     <NavLink to="/dashboard/calendar" style={({ isActive }) => navLinkStyle(isActive)}>
                     <span style={{ fontSize: '1.125rem' }}>📅</span> Schedule & Reminder
@@ -166,11 +167,14 @@ const OverviewLayout = () => {
             </aside>
 
             {/* ── Main content area ── offset by sidebar width */}
-            <main style={{ marginLeft: '256px', flex: 1, minHeight: '100vh' }}>
+            <main style={{ marginLeft: '256px', flex: 1, minHeight: '100vh', paddingBottom: '100px' }}>
                 <div style={{ padding: '2rem' }}>
                     <Outlet />
                 </div>
             </main>
+
+            {/* Global Music Player Bar */}
+            <MusicPlayerBar />
         </div>
     );
 };

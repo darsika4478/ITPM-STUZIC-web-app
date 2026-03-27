@@ -1,6 +1,7 @@
 
 import { Link } from "react-router-dom";
-import logoText from '../assets/logo-text.png';
+import LandingHeader from "../components/landing/LandingHeader";
+import LandingFooter from "../components/landing/LandingFooter";
 
 /**
  * Home — Public landing page
@@ -54,6 +55,7 @@ export default function Home() {
             position: 'relative', minHeight: '100vh',
             background: 'linear-gradient(135deg, #1c1848 0%, #231f5c 50%, #2b2570 100%)',
             color: '#f0ecff', overflowX: 'hidden',
+            paddingTop: '100px',
         }}>
             {/* ── Ambient background blobs ── */}
             <div style={{ pointerEvents: 'none', position: 'fixed', inset: 0, zIndex: 0 }}>
@@ -62,22 +64,8 @@ export default function Home() {
                 <div style={{ position: 'absolute', bottom: 0, left: '25%', height: '350px', width: '350px', borderRadius: '50%', background: 'rgba(140,100,240,0.15)', filter: 'blur(100px)' }} />
             </div>
 
-            {/* ── Navbar ── */}
-            <nav style={{
-                position: 'relative', zIndex: 20,
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '0.5rem 4rem',
-            }}>
-                <img src={logoText} alt="STUZIC" style={{ height: '180px', width: 'auto', objectFit: 'contain' }} />
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <Link to="/login" style={{ borderRadius: '12px', border: '1.5px solid rgba(167,139,250,0.35)', padding: '8px 20px', fontSize: '0.875rem', fontWeight: 500, color: '#c4b5fd', textDecoration: 'none', background: 'rgba(255,255,255,0.05)' }}>
-                        Log In
-                    </Link>
-                    <Link to="/Register" style={{ borderRadius: '12px', padding: '8px 20px', fontSize: '0.875rem', fontWeight: 700, color: '#fff', textDecoration: 'none', background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)', boxShadow: '0 4px 16px rgba(109,95,231,0.45)' }}>
-                        Sign Up Free
-                    </Link>
-                </div>
-            </nav>
+            {/* ── Landing Header ── */}
+            <LandingHeader />
 
             {/* ── Hero section ── */}
             <section style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4rem 1.5rem 6rem', textAlign: 'center' }}>
@@ -199,13 +187,8 @@ export default function Home() {
                 </div>
             </section>
 
-            {/* ── Footer ── */}
-            <footer style={{ position: 'relative', zIndex: 10, borderTop: '1px solid rgba(109,95,231,0.2)', padding: '2rem', textAlign: 'center', fontSize: '0.875rem', color: '#c4b5fd' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                    <img src={logoText} alt="STUZIC" style={{ height: '24px', width: 'auto', opacity: 0.6 }} />
-                    <span>© {new Date().getFullYear()} STUZIC. Built for students, by students.</span>
-                </div>
-            </footer>
+            {/* ── Landing Footer ── */}
+            <LandingFooter />
         </div>
     );
 }

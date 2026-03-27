@@ -15,11 +15,15 @@ import MoodRecommendationPage from "./features/mood_and_music_recommendation/pag
 import MoodHistoryPage from "./features/mood_history/pages/MoodHistoryPage.jsx";
 import MoodAnalyticsPage from "./features/mood_analytics/pages/MoodAnalyticsPage.jsx";
 import CalendarUI from "./features/Schedule&Reminder/Calendarpage.jsx";
+import AboutPage from "./pages/AboutPage.jsx";
+import ReportPage from "./pages/ReportPage.jsx";
 
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
+      <Route path="/about" element={<AboutPage />} />
+      <Route path="/report" element={<ReportPage />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
 
