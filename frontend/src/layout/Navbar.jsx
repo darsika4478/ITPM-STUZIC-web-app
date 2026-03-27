@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { Link, NavLink } from "react-router-dom";
 
@@ -26,7 +27,7 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 bg-[#3C436B]/80 backdrop-blur-md border-b border-[#8F8BB6]/15 transition-all duration-300">
       <div className="max-w-screen-2xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
-        
+
         {/* Left: Logo */}
         <Link
           to="/dashboard"
@@ -34,7 +35,7 @@ export default function Navbar() {
         >
           {/* Logo replacement */}
           <img
-            src="/stuzic-logo.png" 
+            src="/stuzic-logo.png"
             alt="STUZIC"
             className="h-9 w-auto object-contain"
             onError={(e) => {
@@ -57,10 +58,9 @@ export default function Navbar() {
               key={item.name}
               to={item.path}
               className={({ isActive }) =>
-                `px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ease-in-out ${
-                  isActive
-                    ? "bg-[#585296] text-white shadow-[0_4px_16px_rgba(88,82,150,0.4)]"
-                    : "text-[#B6B4BB] hover:bg-[#585296]/20 hover:text-white"
+                `px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ease-in-out ${isActive
+                  ? "bg-[#585296] text-white shadow-[0_4px_16px_rgba(88,82,150,0.4)]"
+                  : "text-[#B6B4BB] hover:bg-[#585296]/20 hover:text-white"
                 }`
               }
             >
