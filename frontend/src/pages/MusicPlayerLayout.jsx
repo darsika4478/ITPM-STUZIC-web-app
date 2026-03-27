@@ -1,26 +1,22 @@
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import BaseLayout from '../layout/BaseLayout';
+import { useState } from 'react';
 import { MusicPlayerProvider } from '../context/MusicPlayerContext.jsx';
 import PlayerPage from './PlayerPage';
 import PlaylistPage from './PlaylistPage';
 import HistoryPage from './HistoryPage';
 
 const MusicPlayerLayoutContent = () => {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const page = searchParams.get('page') || 'player';
-  const mood = searchParams.get('mood') || 'neutral';
+  const [page, setPage] = useState('player');
+  const [mood, setMood] = useState('neutral');
 
   const handlePageChange = (newPage) => {
-    navigate(`/music?page=${newPage}&mood=${mood}`);
+    setPage(newPage);
   };
 
   const handleMoodChange = (newMood) => {
-    navigate(`/music?page=${page}&mood=${newMood}`);
+    setMood(newMood);
   };
 
   return (
-    <BaseLayout>
       <div className="flex flex-col gap-6 w-full h-full px-6 md:px-4 sm:px-4 py-6 md:py-4 sm:py-4">
         {/* Main Content Grid */}
         <div className="grid grid-cols-[1fr_0.5fr] md:grid-cols-1 gap-6 md:gap-4 flex-1 w-full">
@@ -59,16 +55,12 @@ const MusicPlayerLayoutContent = () => {
           </div>
         </div>
       </div>
-    </BaseLayout>
   );
 };
 
 const MusicPlayerLayout = () => {
-  const [searchParams] = useSearchParams();
-  const initialMood = searchParams.get('mood') || 'neutral';
-
   return (
-    <MusicPlayerProvider initialMood={initialMood}>
+    <MusicPlayerProvider>
       <MusicPlayerLayoutContent />
     </MusicPlayerProvider>
   );
