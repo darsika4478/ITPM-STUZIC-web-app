@@ -1,13 +1,17 @@
 // CalendarEventsPopover.jsx
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import CalendarAddEventForm from "./CalendarAddEventForm.jsx";
 
 export default function CalendarEventsPopover({
   dateKey,
   position,
   eventsByDate,
   onClose,
+  onEditEvent,     
+  onDeleteEvent, 
 }) {
   const popRef = useRef(null);
+  const [showAddEventForm, setShowAddEventForm] = useState(false);
 
   useEffect(() => {
     if (!dateKey) return;
@@ -20,9 +24,26 @@ export default function CalendarEventsPopover({
     return () => document.removeEventListener("click", handleClickOutside);
   }, [dateKey, onClose]);
 
+  useEffect(() => {
+    if (!dateKey) setShowAddEventForm(false);
+  }, [dateKey]);
+
   if (!dateKey) return null;
 
   const items = eventsByDate?.[dateKey] || [];
+  const selectedDate = dateKey ? new Date(`${dateKey}T00:00:00`) : null;
+
+  const isPastDate = (() => {
+    if (!selectedDate) return false;
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const dateStart = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth(),
+      selectedDate.getDate()
+    );
+    return dateStart < todayStart;
+  })();
 
   const getEventAccent = (category) => {
     switch (category) {
@@ -68,9 +89,43 @@ export default function CalendarEventsPopover({
               }
 
               return (
-                <li key={idx} className={`text-xs p-2 rounded ${getEventAccent(ev.category)}`}>
-                  {ev.time ? <span className="font-semibold mr-2">{ev.time}</span> : null}
-                  {ev.title || "Event"}
+                <li
+                  key={idx}
+                  className={`text-xs p-2 rounded ${getEventAccent(ev.category)} flex justify-between items-start`}
+                >
+                  <div>
+                    {ev.time ? (
+                      <span className="font-semibold mr-2">{ev.time}</span>
+                    ) : null}
+                    {ev.title || "Event"}
+                  </div>
+
+                  {/* Buttons */}
+                  <div className="flex gap-1 ml-2">
+                    <button
+                      type="button"
+                      disabled={isPastDate}
+                      onClick={() => !isPastDate && onEditEvent?.(dateKey, idx, ev)}
+                      className={`px-2 py-0.5 rounded text-[10px]
+                        ${isPastDate
+                          ? "bg-gray-500 text-gray-300 cursor-not-allowed"
+                          : "bg-blue-500 hover:bg-blue-600 text-white"}`}
+                    >
+                      Edit
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isPastDate}
+                      onClick={() => !isPastDate && onDeleteEvent?.(dateKey, idx)}
+                      className={`px-2 py-0.5 rounded text-[10px]
+                        ${isPastDate
+                          ? "bg-gray-500 text-gray-300 cursor-not-allowed"
+                          : "bg-red-500 hover:bg-red-600 text-white"}`}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </li>
               );
             })}
@@ -80,11 +135,35 @@ export default function CalendarEventsPopover({
         )}
       </div>
 
-      {/* UI-only button for future event creation */}
+      {showAddEventForm ? (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/40 p-4">
+          <div className="relative w-full max-w-md">
+            <button
+              type="button"
+              className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-white text-black shadow"
+              onClick={() => setShowAddEventForm(false)}
+            >
+              ✕
+            </button>
+            <CalendarAddEventForm
+              selectedDate={selectedDate}
+              onSave={() => setShowAddEventForm(false)}
+            />
+          </div>
+        </div>
+      ) : null}
+
       <button
         type="button"
-        className="w-full bg-[#696FC7] text-white px-4 py-2 rounded hover:bg-[#8F8BB6] text-sm font-semibold"
-        onClick={() => {}}
+        disabled={isPastDate}
+        className={`w-full px-4 py-2 rounded text-sm font-semibold transition
+          ${isPastDate
+            ? "bg-gray-500 text-gray-300 cursor-not-allowed opacity-60"
+            : "bg-[#696FC7] text-white hover:bg-[#8F8BB6]"}`}
+        onClick={() => {
+          if (isPastDate) return;
+          setShowAddEventForm(true);
+        }}
       >
         Add Event
       </button>
