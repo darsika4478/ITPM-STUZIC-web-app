@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 // Palette mapping for the card:
 // Card Border / Sub-background: #8F8BB6 (Secondary highlight - used selectively)
@@ -7,6 +8,7 @@ import React from 'react';
 // Text: #B6B4BB (Light text)
 
 const PlaylistCard = ({ title, bgImageClass, defaultIcon = "🎵" }) => {
+    const navigate = useNavigate();
     return (
         <div
             className={`
@@ -45,6 +47,7 @@ const PlaylistCard = ({ title, bgImageClass, defaultIcon = "🎵" }) => {
                 </h3>
 
                 <button
+                    onClick={() => navigate('/dashboard/music')}
                     className="
                         w-11/12 py-1.5 px-3 rounded-full text-xs font-semibold tracking-wide
                         transition-all duration-300 shadow-md backdrop-blur-sm
