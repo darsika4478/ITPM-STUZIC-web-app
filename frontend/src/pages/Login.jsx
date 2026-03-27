@@ -79,6 +79,34 @@ const Login = () => {
                 WebkitBackdropFilter: 'blur(40px)',
                 border: '1px solid rgba(167,139,250,0.18)',
             }}>
+                <Link 
+                    to="/" 
+                    title="Back to Home"
+                    style={{
+                        position: 'absolute',
+                        top: '1.25rem',
+                        right: '1.25rem',
+                        width: '32px',
+                        height: '32px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '50%',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        color: '#c4b5fd',
+                        textDecoration: 'none',
+                        fontSize: '1.5rem',
+                        lineHeight: 1,
+                        transition: 'all 0.2s',
+                        zIndex: 20,
+                        cursor: 'pointer'
+                    }}
+                    onMouseEnter={(e) => { e.target.style.background = 'rgba(255, 255, 255, 0.1)'; e.target.style.color = '#fff'; }}
+                    onMouseLeave={(e) => { e.target.style.background = 'rgba(255, 255, 255, 0.05)'; e.target.style.color = '#c4b5fd'; }}
+                >
+                    &times;
+                </Link>
                 <AuthHeader variant="login" />
 
                 <form style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.9rem' }} onSubmit={handleSubmit}>
