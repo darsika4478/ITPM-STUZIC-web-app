@@ -44,6 +44,10 @@ export default function CalendarUI() {
     "2026-03-22": [
       { time: "15:00", title: "NDM Lab Report Submission", category: "Deadlines" },
     ],
+     "2026-03-30": [
+      { time: "13:00", title: "NDM Lectures", category: "Lectures" },
+      { time: "22:00", title: "PAF Report Submission", category: "Deadlines" },
+    ],
   };
 
   const goPrevMonth = () => {
