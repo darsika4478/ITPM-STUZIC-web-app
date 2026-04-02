@@ -4,6 +4,7 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import logoText from '../assets/logo-text.png';
+import MusicPlayerBar from '../components/musicPlayer/MusicPlayerBar';
 
 /**
  * DashboardLayout — Persistent sidebar shell for all dashboard pages
@@ -20,7 +21,6 @@ import logoText from '../assets/logo-text.png';
  *   /dashboard/profile  → MyProfile
  */
 const OverviewLayout = () => {
-    // Sidebar user card state
     const [fullName, setFullName] = useState('');
     const [firstName, setFirstName] = useState('');
     const [initials, setInitials] = useState('');
@@ -34,7 +34,6 @@ const OverviewLayout = () => {
         const first = name.split(' ')[0];
         setFirstName(first);
         const parts = name.split(/\s+/);
-        // Two or more words → first + last initial; single word → first two chars
         const ini = parts.length >= 2
             ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
             : name.slice(0, 2).toUpperCase();
@@ -42,44 +41,34 @@ const OverviewLayout = () => {
     };
 
     useEffect(() => {
-        let unsubFirestore = null; // holds the Firestore snapshot unsubscribe fn
+        let unsubFirestore = null;
 
-        // ── Auth state listener ──
-        // Fires immediately with the current user, then on every auth change
         const unsubAuth = onAuthStateChanged(auth, (user) => {
-            // Clean up any previous Firestore subscription on user change
             if (unsubFirestore) { unsubFirestore(); unsubFirestore = null; }
 
             if (!user) {
-                // User logged out — clear sidebar data
                 setFullName(''); setFirstName(''); setInitials(''); setAvatarURL('');
                 return;
             }
 
-            // Seed from auth profile immediately (fast, no Firestore round-trip)
             const authName = user.displayName || user.email?.split('@')[0] || '';
             if (authName) applyName(authName.charAt(0).toUpperCase() + authName.slice(1));
             if (user.photoURL) setAvatarURL(user.photoURL);
 
-            // ── Firestore real-time listener ──
-            // Keeps sidebar in sync with name/avatar changes from MyProfile page
             unsubFirestore = onSnapshot(doc(db, 'users', user.uid), (snap) => {
                 if (!snap.exists()) return;
                 const data = snap.data();
 
-                // Resolve name: Firestore → auth display name → email prefix
                 let resolvedName = data.name || user.displayName || '';
                 if (!resolvedName && user.email) {
                     const prefix = user.email.split('@')[0];
                     resolvedName = prefix.charAt(0).toUpperCase() + prefix.slice(1);
                 }
-                applyName(resolvedName || '');
-                // Firestore photoURL takes priority (Base64 avatar from MyProfile)
+                applyName(resolvedName);
                 setAvatarURL(data.photoURL || user.photoURL || '');
             });
         });
 
-        // Clean up both listeners on unmount
         return () => { unsubAuth(); if (unsubFirestore) unsubFirestore(); };
     }, []);
 
@@ -88,7 +77,6 @@ const OverviewLayout = () => {
         navigate('/login');
     };
 
-    // Returns inline style object for sidebar nav links based on active state
     const navLinkStyle = (isActive) => ({
         display: 'flex', alignItems: 'center', gap: '0.75rem',
         borderRadius: '12px', padding: '10px 16px',
@@ -111,12 +99,12 @@ const OverviewLayout = () => {
                 backdropFilter: 'blur(20px)',
                 boxShadow: '4px 0 24px rgba(0,0,0,0.3)',
             }}>
-                {/* Logo text image */}
+                {/* Logo */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.35rem 0.5rem 0' }}>
                     <img src={logoText} alt="STUZIC" style={{ width: '190px', height: 'auto', objectFit: 'contain', maxWidth: '100%' }} />
                 </div>
 
-                {/* Navigation links — NavLink applies active style automatically */}
+                {/* Navigation links */}
                 <nav style={{ marginTop: 0, display: 'flex', flex: 1, flexDirection: 'column', gap: '0.25rem', padding: '0 0.75rem' }}>
                     <p style={{ marginBottom: '0.5rem', paddingLeft: '1rem', fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#a78bfa' }}>
                         Menu
@@ -127,9 +115,24 @@ const OverviewLayout = () => {
                     <NavLink to="/dashboard/tasks" style={({ isActive }) => navLinkStyle(isActive)}>
                         <span style={{ fontSize: '1.125rem' }}>📋</span> Task Planner
                     </NavLink>
+                    <NavLink to="/dashboard/mood" style={({ isActive }) => navLinkStyle(isActive)}>
+                        <span style={{ fontSize: '1.125rem' }}>🎵</span> Mood & Music
+                    </NavLink>
+                    <NavLink to="/dashboard/mood-history" style={({ isActive }) => navLinkStyle(isActive)}>
+                        <span style={{ fontSize: '1.125rem' }}>🕰️</span> Mood History
+                    </NavLink>
+                    <NavLink to="/dashboard/mood-analytics" style={({ isActive }) => navLinkStyle(isActive)}>
+                        <span style={{ fontSize: '1.125rem' }}>📊</span> Mood Analytics
+                    </NavLink>
+                    <NavLink to="/dashboard/study-session" style={({ isActive }) => navLinkStyle(isActive)}>
+                        <span style={{ fontSize: '1.125rem' }}>⏱️</span> Study Session
+                    </NavLink>
+                    <NavLink to="/dashboard/calendar" style={({ isActive }) => navLinkStyle(isActive)}>
+                    <span style={{ fontSize: '1.125rem' }}>📅</span> Schedule & Reminder
+                    </NavLink>
                 </nav>
 
-                {/* User card + logout — bottom of sidebar */}
+                {/* User card + logout */}
                 <div style={{ borderTop: '1px solid rgba(109,95,231,0.18)', padding: '1rem 0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
                     <NavLink
                         to="/dashboard/profile"
@@ -152,7 +155,6 @@ const OverviewLayout = () => {
                         </div>
                     </NavLink>
 
-                    {/* Logout button */}
                     <button
                         onClick={handleLogout}
                         style={{ marginTop: '0.1rem', display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', borderRadius: '12px', padding: '10px 16px', fontSize: '0.9rem', fontWeight: 600, color: '#f87171', background: 'rgba(248,113,113,0.12)', border: '1px solid rgba(248,113,113,0.25)', cursor: 'pointer', transition: 'transform 0.12s, box-shadow 0.12s, background 0.15s' }}
@@ -165,12 +167,14 @@ const OverviewLayout = () => {
             </aside>
 
             {/* ── Main content area ── offset by sidebar width */}
-            <main style={{ marginLeft: '256px', flex: 1, minHeight: '100vh' }}>
+            <main style={{ marginLeft: '256px', flex: 1, minHeight: '100vh', paddingBottom: '100px' }}>
                 <div style={{ padding: '2rem' }}>
-                    {/* Child route (DashboardHome / TasksPlanner / MyProfile) renders here */}
                     <Outlet />
                 </div>
             </main>
+
+            {/* Global Music Player Bar */}
+            <MusicPlayerBar />
         </div>
     );
 };
