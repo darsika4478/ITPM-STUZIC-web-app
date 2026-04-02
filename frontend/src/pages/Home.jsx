@@ -86,7 +86,7 @@ export default function Home() {
                 </div>
 
                 <div style={{ marginTop: '2.25rem', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
-                    <Link to="/Register" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', borderRadius: '16px', padding: '14px 32px', fontSize: '1rem', fontWeight: 700, color: '#fff', textDecoration: 'none', background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)', boxShadow: '0 8px 32px rgba(109,95,231,0.45)' }}>
+                    <Link to="/register" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', borderRadius: '16px', padding: '14px 32px', fontSize: '1rem', fontWeight: 700, color: '#fff', textDecoration: 'none', background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)', boxShadow: '0 8px 32px rgba(109,95,231,0.45)' }}>
                         Get Started — It's Free
                         <svg style={{ height: '1.25rem', width: '1.25rem' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
@@ -178,7 +178,7 @@ export default function Home() {
                     <p style={{ position: 'relative', margin: '1rem auto 0', maxWidth: '512px', color: 'rgba(255,255,255,0.8)', lineHeight: 1.6 }}>
                         Join thousands of students who are already studying smarter with STUZIC. It's free, fast, and built for you.
                     </p>
-                    <Link to="/Register" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginTop: '2rem', borderRadius: '16px', background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.4)', padding: '14px 32px', fontWeight: 700, color: '#fff', textDecoration: 'none', backdropFilter: 'blur(10px)' }}>
+                    <Link to="/register" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginTop: '2rem', borderRadius: '16px', background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.4)', padding: '14px 32px', fontWeight: 700, color: '#fff', textDecoration: 'none', backdropFilter: 'blur(10px)' }}>
                         Create Your Free Account
                         <svg style={{ height: '1.25rem', width: '1.25rem' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />

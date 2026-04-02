@@ -14,21 +14,20 @@ const AuthHeader = ({ variant = 'login' }) => (
         <img
             src={logoIcon}
             alt="STUZIC Logo"
-            style={{ display: 'block', height: '200px', width: 'auto', objectFit: 'contain', margin: '0 auto' }}
+            style={{ display: 'block', height: '185px', width: 'auto', objectFit: 'contain', margin: '0 auto' }}
         />
 
         {/* Login variant: just a tagline below the logo */}
         {variant === 'login' && (
-            <p style={{ marginTop: '-35px', fontSize: '0.875rem', color: '#c4b5fd' }}>Study. Organize. Focus.</p>
+            <p style={{ marginTop: '-26px', fontSize: '0.875rem', color: '#c4b5fd' }}>Study. Organize. Focus.</p>
         )}
 
         {/* Signup variant: heading + tagline */}
         {variant === 'signup' && (
             <>
-                <h1 style={{ marginTop: '-35px', fontSize: '1.875rem', fontWeight: 600, letterSpacing: '0.025em', color: '#f0ecff', margin: '-35px 0 0' }}>
+                <h1 style={{ marginTop: '-34px', fontSize: '1.875rem', fontWeight: 600, letterSpacing: '0.025em', color: '#f0ecff', margin: '-34px 0 0' }}>
                     Create Account
                 </h1>
-                <p style={{ marginTop: '4px', fontSize: '0.875rem', color: '#c4b5fd' }}>Join STUZIC to manage tasks.</p>
             </>
         )}
     </div>
