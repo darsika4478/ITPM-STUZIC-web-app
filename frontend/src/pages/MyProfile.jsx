@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import {
     deleteUser,
     EmailAuthProvider,
+    GoogleAuthProvider,
     onAuthStateChanged,
     reauthenticateWithCredential,
+    reauthenticateWithPopup,
     sendEmailVerification,
     updatePassword,
     updateProfile,
@@ -247,16 +249,23 @@ const MyProfile = () => {
     // deleteUser() must be last — it signs the user out automatically
     const handleDeleteAccount = async () => {
         if (deleteConfirmText !== 'DELETE') { setDeleteError('Type DELETE to confirm.'); return; }
-        if (!deletePassword) { setDeleteError('Password is required for verification.'); return; }
         const currentUser = auth.currentUser;
         if (!currentUser) { setDeleteError('No authenticated user found. Please log in again.'); return; }
+        const providerIds = currentUser.providerData?.map((provider) => provider.providerId) || [];
+        const isGoogleOnlyUser = providerIds.includes('google.com') && !providerIds.includes('password');
+        if (!isGoogleOnlyUser && !deletePassword) { setDeleteError('Password is required for verification.'); return; }
 
         setDeleting(true);
         setDeleteError('');
         try {
             // Re-authenticate before destructive operation
-            const credential = EmailAuthProvider.credential(currentUser.email, deletePassword);
-            await reauthenticateWithCredential(currentUser, credential);
+            if (isGoogleOnlyUser) {
+                const googleProvider = new GoogleAuthProvider();
+                await reauthenticateWithPopup(currentUser, googleProvider);
+            } else {
+                const credential = EmailAuthProvider.credential(currentUser.email, deletePassword);
+                await reauthenticateWithCredential(currentUser, credential);
+            }
 
             // Delete all tasks belonging to this user
             try {
@@ -277,6 +286,10 @@ const MyProfile = () => {
             console.error('Delete account failed:', error);
             if (error?.code === 'auth/wrong-password' || error?.code === 'auth/invalid-credential') {
                 setDeleteError('Password is incorrect.');
+            } else if (error?.code === 'auth/popup-closed-by-user') {
+                setDeleteError('Google re-authentication was canceled. Please try again.');
+            } else if (error?.code === 'auth/popup-blocked') {
+                setDeleteError('Popup was blocked by your browser. Please allow popups and try again.');
             } else if (error?.code === 'auth/requires-recent-login') {
                 setDeleteError('Session expired. Please log out, log back in, and try again.');
             } else {
@@ -293,6 +306,8 @@ const MyProfile = () => {
     const lastLogin = user?.metadata?.lastSignInTime
         ? new Date(user.metadata.lastSignInTime).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
         : '—';
+    const providerIds = user?.providerData?.map((provider) => provider.providerId) || [];
+    const isGoogleOnlyUser = providerIds.includes('google.com') && !providerIds.includes('password');
 
     // ── Shared style objects ──
     const inputStyle = {
@@ -477,6 +492,11 @@ const MyProfile = () => {
                     <p style={{ margin: '0 0 1rem', fontSize: '0.875rem', color: 'rgba(248,113,113,0.8)' }}>
                         Permanently delete your account, all tasks, and profile data. This action cannot be undone.
                     </p>
+                    {isGoogleOnlyUser && (
+                        <p style={{ margin: '0 0 1rem', fontSize: '0.8rem', color: '#c4b5fd' }}>
+                            Since this is a Google account, you will be asked to re-authenticate with Google before deletion.
+                        </p>
+                    )}
                     <button type="button" onClick={() => setShowDeleteModal(true)} style={{ padding: '10px 22px', borderRadius: '12px', fontSize: '0.875rem', fontWeight: 700, color: '#fff', border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)', boxShadow: '0 4px 16px rgba(220,38,38,0.4)' }}>
                         Delete My Account
                     </button>
@@ -490,6 +510,9 @@ const MyProfile = () => {
                             <p style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#c4b5fd' }}>
                                 This will permanently delete your account, all tasks, and uploaded data.
                                 Type <strong style={{ color: '#f0ecff' }}>DELETE</strong> below to confirm.
+                                {isGoogleOnlyUser
+                                    ? ' Then continue with Google verification.'
+                                    : ' Then enter your current password.'}
                             </p>
                             <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                 {/* Must type "DELETE" exactly to enable the confirm button */}
@@ -499,12 +522,14 @@ const MyProfile = () => {
                                         onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
                                         onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'} />
                                 </div>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#c4b5fd' }}>Current Password</label>
-                                    <input type="password" value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} placeholder="Enter your password" style={inputStyle}
-                                        onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
-                                        onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'} />
-                                </div>
+                                {!isGoogleOnlyUser && (
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#c4b5fd' }}>Current Password</label>
+                                        <input type="password" value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} placeholder="Enter your password" style={inputStyle}
+                                            onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
+                                            onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'} />
+                                    </div>
+                                )}
                                 {deleteError && <p style={{ fontSize: '0.75rem', color: '#f87171', margin: 0 }}>{deleteError}</p>}
                             </div>
                             <div style={{ marginTop: '1.25rem', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
