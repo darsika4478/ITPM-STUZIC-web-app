@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isMoodOwner(entryId) {
+      return isAuthenticated() && entryId.startsWith(request.auth.uid + '_');
+    }
+
+    match /moodEntries/{entryId} {
+      allow read: if isMoodOwner(entryId);
+      allow create: if isMoodOwner(entryId) && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isMoodOwner(entryId)
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.userId == request.auth.uid;
+    }
+
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /tasks/{taskId} {
+      allow read, write: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+  }
+}
