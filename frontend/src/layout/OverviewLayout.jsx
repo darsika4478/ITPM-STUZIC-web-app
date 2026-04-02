@@ -3,7 +3,8 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
-import logoIcon from '../assets/logo-icon.png';
+import logoText from '../assets/logo-text.png';
+import MusicPlayerBar from '../components/musicPlayer/MusicPlayerBar';
 
 /**
  * DashboardLayout — Persistent sidebar shell for all dashboard pages
@@ -19,8 +20,8 @@ import logoIcon from '../assets/logo-icon.png';
  *   /dashboard/tasks    → TasksPlanner
  *   /dashboard/profile  → MyProfile
  */
-const DashboardLayout = () => {
-    const [email, setEmail] = useState('');
+const OverviewLayout = () => {
+    const [fullName, setFullName] = useState('');
     const [firstName, setFirstName] = useState('');
     const [initials, setInitials] = useState('');
     const [avatarURL, setAvatarURL] = useState('');
@@ -28,12 +29,14 @@ const DashboardLayout = () => {
 
     // Derives first name and initials from a full name string
     const applyName = (resolvedName) => {
-        const first = resolvedName.split(' ')[0];
+        const name = resolvedName.trim();
+        setFullName(name);
+        const first = name.split(' ')[0];
         setFirstName(first);
-        const parts = resolvedName.trim().split(/\s+/);
+        const parts = name.split(/\s+/);
         const ini = parts.length >= 2
             ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-            : resolvedName.slice(0, 2).toUpperCase();
+            : name.slice(0, 2).toUpperCase();
         setInitials(ini);
     };
 
@@ -44,11 +47,10 @@ const DashboardLayout = () => {
             if (unsubFirestore) { unsubFirestore(); unsubFirestore = null; }
 
             if (!user) {
-                setEmail(''); setFirstName(''); setInitials(''); setAvatarURL('');
+                setFullName(''); setFirstName(''); setInitials(''); setAvatarURL('');
                 return;
             }
 
-            setEmail(user.email || '');
             const authName = user.displayName || user.email?.split('@')[0] || '';
             if (authName) applyName(authName.charAt(0).toUpperCase() + authName.slice(1));
             if (user.photoURL) setAvatarURL(user.photoURL);
@@ -97,24 +99,18 @@ const DashboardLayout = () => {
                 backdropFilter: 'blur(20px)',
                 boxShadow: '4px 0 24px rgba(0,0,0,0.3)',
             }}>
-                {/* Logo + brand name */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1.25rem', borderBottom: '1px solid rgba(109,95,231,0.18)' }}>
-                    <div style={{ display: 'flex', height: '40px', width: '40px', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: 'rgba(109,95,231,0.15)', border: '1px solid rgba(167,139,250,0.25)' }}>
-                        <img src={logoIcon} alt="STUZIC" style={{ height: '36px', width: '36px', objectFit: 'contain' }} />
-                    </div>
-                    <div>
-                        <p style={{ fontSize: '0.875rem', fontWeight: 700, color: '#f0ecff', margin: 0 }}>STUZIC</p>
-                        <p style={{ fontSize: '0.625rem', color: '#c4b5fd', margin: 0 }}>Study Dashboard</p>
-                    </div>
+                {/* Logo */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.35rem 0.5rem 0' }}>
+                    <img src={logoText} alt="STUZIC" style={{ width: '190px', height: 'auto', objectFit: 'contain', maxWidth: '100%' }} />
                 </div>
 
                 {/* Navigation links */}
-                <nav style={{ marginTop: '1rem', display: 'flex', flex: 1, flexDirection: 'column', gap: '0.25rem', padding: '0 0.75rem' }}>
+                <nav style={{ marginTop: 0, display: 'flex', flex: 1, flexDirection: 'column', gap: '0.25rem', padding: '0 0.75rem' }}>
                     <p style={{ marginBottom: '0.5rem', paddingLeft: '1rem', fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#a78bfa' }}>
                         Menu
                     </p>
                     <NavLink to="/dashboard" end style={({ isActive }) => navLinkStyle(isActive)}>
-                        <span style={{ fontSize: '1.125rem' }}>🏠</span> Dashboard
+                        <span style={{ fontSize: '1.125rem' }}>🏠</span> Overview
                     </NavLink>
                     <NavLink to="/dashboard/tasks" style={({ isActive }) => navLinkStyle(isActive)}>
                         <span style={{ fontSize: '1.125rem' }}>📋</span> Task Planner
@@ -122,34 +118,48 @@ const DashboardLayout = () => {
                     <NavLink to="/dashboard/mood" style={({ isActive }) => navLinkStyle(isActive)}>
                         <span style={{ fontSize: '1.125rem' }}>🎵</span> Mood & Music
                     </NavLink>
+                    <NavLink to="/dashboard/mood-history" style={({ isActive }) => navLinkStyle(isActive)}>
+                        <span style={{ fontSize: '1.125rem' }}>🕰️</span> Mood History
+                    </NavLink>
+                    <NavLink to="/dashboard/mood-analytics" style={({ isActive }) => navLinkStyle(isActive)}>
+                        <span style={{ fontSize: '1.125rem' }}>📊</span> Mood Analytics
+                    </NavLink>
+                    <NavLink to="/dashboard/study-session" style={({ isActive }) => navLinkStyle(isActive)}>
+                        <span style={{ fontSize: '1.125rem' }}>⏱️</span> Study Session
+                    </NavLink>
+                    <NavLink to="/dashboard/calendar" style={({ isActive }) => navLinkStyle(isActive)}>
+                    <span style={{ fontSize: '1.125rem' }}>📅</span> Schedule & Reminder
+                    </NavLink>
                 </nav>
 
                 {/* User card + logout */}
-                <div style={{ borderTop: '1px solid rgba(109,95,231,0.18)', padding: '0.75rem' }}>
-                    <button
-                        type="button"
-                        onClick={() => navigate('/dashboard/profile')}
-                        style={{ display: 'flex', width: '100%', alignItems: 'center', gap: '0.75rem', borderRadius: '12px', padding: '10px 12px', background: 'none', border: 'none', cursor: 'pointer', transition: 'background 0.15s' }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(109,95,231,0.15)'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                <div style={{ borderTop: '1px solid rgba(109,95,231,0.18)', padding: '1rem 0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                    <NavLink
+                        to="/dashboard/profile"
+                        style={({ isActive }) => ({
+                            display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'center', gap: '0.75rem',
+                            borderRadius: '14px', padding: '12px 14px', textDecoration: 'none',
+                            transition: 'all 0.15s',
+                            background: isActive ? 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)' : 'linear-gradient(135deg, rgba(109,95,231,0.1), rgba(155,126,248,0.08))',
+                            boxShadow: isActive ? '0 6px 22px rgba(109,95,231,0.45)' : '0 6px 22px rgba(0,0,0,0.35)',
+                        })}
                     >
-                        <div style={{ display: 'flex', height: '36px', width: '36px', flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)', fontSize: '0.875rem', fontWeight: 700, color: '#fff', border: '2px solid rgba(167,139,250,0.3)', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', height: '42px', width: '42px', flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)', fontSize: '0.9rem', fontWeight: 700, color: '#fff', border: '2px solid rgba(167,139,250,0.35)', overflow: 'hidden' }}>
                             {avatarURL
                                 ? <img src={avatarURL} alt="Avatar" style={{ height: '100%', width: '100%', objectFit: 'cover' }} />
                                 : (initials || '??')
                             }
                         </div>
-                        <div style={{ minWidth: 0, textAlign: 'left' }}>
-                            <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600, color: '#f0ecff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{firstName || 'User'}</p>
-                            <p style={{ margin: 0, fontSize: '0.6875rem', color: '#c4b5fd', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{email}</p>
+                        <div style={{ minWidth: 0, textAlign: 'center' }}>
+                            <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#f0ecff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fullName || firstName || 'User'}</p>
                         </div>
-                    </button>
+                    </NavLink>
 
                     <button
                         onClick={handleLogout}
-                        style={{ marginTop: '0.25rem', display: 'flex', width: '100%', alignItems: 'center', gap: '0.75rem', borderRadius: '12px', padding: '10px 16px', fontSize: '0.875rem', fontWeight: 500, color: '#f87171', background: 'none', border: 'none', cursor: 'pointer', transition: 'background 0.15s' }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(248,113,113,0.1)'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                        style={{ marginTop: '0.1rem', display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', borderRadius: '12px', padding: '10px 16px', fontSize: '0.9rem', fontWeight: 600, color: '#f87171', background: 'rgba(248,113,113,0.12)', border: '1px solid rgba(248,113,113,0.25)', cursor: 'pointer', transition: 'transform 0.12s, box-shadow 0.12s, background 0.15s' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(248,113,113,0.2)'; e.currentTarget.style.boxShadow = '0 8px 18px rgba(248,113,113,0.25)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(248,113,113,0.12)'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'translateY(0)'; }}
                     >
                         <span style={{ fontSize: '1.125rem' }}>🚪</span> Log Out
                     </button>
@@ -157,13 +167,16 @@ const DashboardLayout = () => {
             </aside>
 
             {/* ── Main content area ── offset by sidebar width */}
-            <main style={{ marginLeft: '256px', flex: 1, minHeight: '100vh' }}>
+            <main style={{ marginLeft: '256px', flex: 1, minHeight: '100vh', paddingBottom: '100px' }}>
                 <div style={{ padding: '2rem' }}>
                     <Outlet />
                 </div>
             </main>
+
+            {/* Global Music Player Bar */}
+            <MusicPlayerBar />
         </div>
     );
 };
 
-export default DashboardLayout;
+export default OverviewLayout;
