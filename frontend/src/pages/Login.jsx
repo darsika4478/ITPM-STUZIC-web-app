@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
-import { collection, getDocs, limit, query, where } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
+import { onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signInWithPopup } from 'firebase/auth';
+import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { auth, db, googleProvider } from '../config/firebase';
 import AuthHeader from '../components/user-management/AuthHeader';
+import { validateEmailDomain } from '../utils/emailValidation';
 
 /**
  * Login — Email/password sign-in page
@@ -46,8 +47,19 @@ const Login = () => {
     // Client-side validation before calling Firebase
     const validate = () => {
         const nextErrors = {};
-        if (!email.trim()) nextErrors.email = 'Email is required.';
-        if (!password.trim()) nextErrors.password = 'Password is required.';
+        if (!email.trim()) {
+            nextErrors.email = 'Email is required.';
+        } else if (!/^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$/.test(email)) {
+            nextErrors.email = 'Please enter a valid lowercase email address.';
+        } else {
+            const domainCheck = validateEmailDomain(email);
+            if (!domainCheck.valid) {
+                nextErrors.email = domainCheck.message;
+            }
+        }
+        if (!password.trim()) {
+            nextErrors.password = 'Password is required.';
+        }
         setErrors(nextErrors);
         return Object.keys(nextErrors).length === 0; // true = valid
     };
@@ -67,6 +79,38 @@ const Login = () => {
         }
     };
 
+    // Handle Google Sign-In
+    const handleGoogleSignIn = async () => {
+        setFormError('');
+        try {
+            const result = await signInWithPopup(auth, googleProvider);
+            const user = result.user;
+
+            // Check if this Google user already has a Firestore doc
+            const userDocRef = doc(db, 'users', user.uid);
+            const userDoc = await getDoc(userDocRef);
+
+            // If first-time Google login, create the Firestore user doc
+            if (!userDoc.exists()) {
+                await setDoc(userDocRef, {
+                    name: user.displayName || '',
+                    email: user.email?.toLowerCase() || '',
+                    emailLower: user.email?.toLowerCase() || '',
+                    photoURL: user.photoURL || null,
+                    createdAt: serverTimestamp(),
+                });
+            }
+
+            navigate('/dashboard');
+        } catch (error) {
+            console.error('Google sign-in failed:', error);
+            if (error?.code === 'auth/popup-closed-by-user') {
+                return; // User closed the popup — no error needed
+            }
+            setFormError('Google sign-in failed. Please try again.');
+        }
+    };
+
     // Handle password reset email submission
     const handleResetPassword = async (e) => {
         e.preventDefault();
@@ -83,56 +127,21 @@ const Login = () => {
             return;
         }
 
+        // Validate email domain is real (prevent gmail.lk, hf.lk, etc.)
+        const domainCheck = validateEmailDomain(normalizedEmail);
+        if (!domainCheck.valid) {
+            setResetError(domainCheck.message);
+            return;
+        }
+
         setResettingPassword(true);
         setResetError('');
         setResetSuccess(false);
 
         try {
-            let emailExists = false;
-
-            try {
-                const byLowerQuery = query(
-                    collection(db, 'users'),
-                    where('emailLower', '==', normalizedEmail),
-                    limit(1),
-                );
-                const byLowerSnapshot = await getDocs(byLowerQuery);
-                emailExists = !byLowerSnapshot.empty;
-
-                if (!emailExists) {
-                    const byExactQuery = query(
-                        collection(db, 'users'),
-                        where('email', '==', enteredEmail),
-                        limit(1),
-                    );
-                    const byExactSnapshot = await getDocs(byExactQuery);
-                    emailExists = !byExactSnapshot.empty;
-                }
-
-                if (!emailExists && enteredEmail !== normalizedEmail) {
-                    const byNormalizedLegacyQuery = query(
-                        collection(db, 'users'),
-                        where('email', '==', normalizedEmail),
-                        limit(1),
-                    );
-                    const byNormalizedLegacySnapshot = await getDocs(byNormalizedLegacyQuery);
-                    emailExists = !byNormalizedLegacySnapshot.empty;
-                }
-            } catch (lookupError) {
-                if (lookupError?.code !== 'permission-denied') {
-                    throw lookupError;
-                }
-
-                // If read access to users collection is blocked by Firestore rules,
-                // skip strict existence check and let Firebase Auth handle reset flow.
-                emailExists = true;
-            }
-
-            if (!emailExists) {
-                setResetError('No account found for this email address.');
-                return;
-            }
-
+            // Send password reset email via Firebase Auth.
+            // Firebase only delivers the email if the account actually exists —
+            // no email is sent for unregistered addresses.
             await sendPasswordResetEmail(auth, normalizedEmail);
             setResetSuccess(true);
             setResetEmail('');
@@ -144,12 +153,18 @@ const Login = () => {
             console.error('Password reset failed:', error);
             if (error?.code === 'auth/invalid-email') {
                 setResetError('Please enter a valid email address.');
-            } else if (error?.code === 'permission-denied') {
-                setResetError('Unable to verify this email at the moment. Please try again.');
+            } else if (error?.code === 'auth/user-not-found') {
+                setResetError('No account found for this email address.');
             } else if (error?.code === 'auth/too-many-requests') {
                 setResetError('Too many attempts. Please wait and try again.');
             } else {
-                setResetError('Failed to send reset email. Please try again.');
+                // Show generic success even on unknown errors to avoid email enumeration
+                setResetSuccess(true);
+                setResetEmail('');
+                setTimeout(() => {
+                    setShowForgotModal(false);
+                    setResetSuccess(false);
+                }, 3000);
             }
         } finally {
             setResettingPassword(false);
@@ -213,8 +228,11 @@ const Login = () => {
                         <input
                             id="email"
                             type="email"
+                            required
+                            pattern="^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$"
+                            title="Please enter a valid lowercase email address"
                             value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            onChange={(e) => setEmail(e.target.value.toLowerCase())}
                             placeholder="name@stuzic.lk"
                             style={inputStyle}
                             onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
@@ -251,6 +269,7 @@ const Login = () => {
                         <input
                             id="password"
                             type="password"
+                            required
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="Your password"
@@ -282,6 +301,39 @@ const Login = () => {
                         Log In
                     </button>
                 </form>
+
+                {/* Divider */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', margin: '1.25rem 0' }}>
+                    <div style={{ flex: 1, height: '1px', background: 'rgba(167,139,250,0.25)' }} />
+                    <span style={{ fontSize: '0.8rem', color: '#a78bfa', fontWeight: 500 }}>or</span>
+                    <div style={{ flex: 1, height: '1px', background: 'rgba(167,139,250,0.25)' }} />
+                </div>
+
+                {/* Google Sign-In Button */}
+                <button
+                    type="button"
+                    onClick={handleGoogleSignIn}
+                    style={{
+                        width: '100%', padding: '12px',
+                        borderRadius: '14px', fontSize: '0.9rem', fontWeight: 600,
+                        color: '#f0ecff', border: '1.5px solid rgba(167,139,250,0.3)',
+                        cursor: 'pointer',
+                        background: 'rgba(255,255,255,0.07)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem',
+                        transition: 'background 0.2s, border-color 0.2s, transform 0.15s',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.borderColor = 'rgba(167,139,250,0.6)'; e.currentTarget.style.transform = 'scale(1.01)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; e.currentTarget.style.borderColor = 'rgba(167,139,250,0.3)'; e.currentTarget.style.transform = 'scale(1)'; }}
+                >
+                    {/* Google "G" logo */}
+                    <svg width="18" height="18" viewBox="0 0 48 48">
+                        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+                        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+                        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+                        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+                    </svg>
+                    Continue with Google
+                </button>
 
                 {/* Link to registration page */}
                 <p style={{ marginTop: '1.25rem', textAlign: 'center', fontSize: '0.875rem', color: '#c4b5fd' }}>
