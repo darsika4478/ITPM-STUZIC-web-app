@@ -23,6 +23,7 @@ const Register = () => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
 
     // Field-level validation errors shown under each input
     const [errors, setErrors] = useState({});
@@ -48,6 +49,11 @@ const Register = () => {
             nextErrors.password = 'Password is required.';
         } else if (password.length < 6) {
             nextErrors.password = 'Minimum 6 characters.';
+        }
+        if (!confirmPassword.trim()) {
+            nextErrors.confirmPassword = 'Confirm password is required.';
+        } else if (confirmPassword !== password) {
+            nextErrors.confirmPassword = 'Passwords do not match.';
         }
         setErrors(nextErrors);
         return Object.keys(nextErrors).length === 0; // true = valid
@@ -259,29 +265,46 @@ const Register = () => {
                 {/* ─── EMAIL REGISTRATION FORM VIEW ─── */}
                 {signupMethod === 'email' && (
                     <>
-                        {/* Back button to return to method selection */}
+                        {/* Close button to return to method selection */}
                         <button
                             type="button"
+                            aria-label="Back to sign-up options"
                             onClick={() => { setSignupMethod('choose'); setFormError(''); setErrors({}); }}
                             style={{
-                                display: 'flex', alignItems: 'center', gap: '0.4rem',
-                                marginTop: '1.25rem', marginBottom: '-0.25rem',
-                                background: 'none', border: 'none', cursor: 'pointer',
-                                color: '#a78bfa', fontSize: '0.8rem', fontWeight: 500, padding: 0,
-                                transition: 'color 0.2s',
+                                position: 'absolute',
+                                top: '1.35rem',
+                                right: '1.35rem',
+                                width: '32px',
+                                height: '32px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                background: 'rgba(109,95,231,0.2)',
+                                border: '1px solid rgba(167,139,250,0.45)',
+                                borderRadius: '999px',
+                                cursor: 'pointer',
+                                color: '#c4b5fd',
+                                fontSize: '1.25rem',
+                                lineHeight: 1,
+                                padding: 0,
+                                transition: 'background 0.2s, color 0.2s, border-color 0.2s',
                             }}
-                            onMouseEnter={(e) => e.currentTarget.style.color = '#c4b5fd'}
-                            onMouseLeave={(e) => e.currentTarget.style.color = '#a78bfa'}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'rgba(109,95,231,0.35)';
+                                e.currentTarget.style.borderColor = 'rgba(167,139,250,0.7)';
+                                e.currentTarget.style.color = '#f0ecff';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'rgba(109,95,231,0.2)';
+                                e.currentTarget.style.borderColor = 'rgba(167,139,250,0.45)';
+                                e.currentTarget.style.color = '#c4b5fd';
+                            }}
                         >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M19 12H5" />
-                                <path d="M12 19l-7-7 7-7" />
-                            </svg>
-                            Back to sign-up options
+                            ×
                         </button>
 
                         {/* Registration form */}
-                        <form style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.9rem' }} onSubmit={handleSubmit}>
+                        <form style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.9rem' }} onSubmit={handleSubmit}>
 
                             {/* Name field */}
                             <div>
@@ -350,6 +373,25 @@ const Register = () => {
                                     </div>
                                 )}
                                 {errors.password && <p style={{ marginTop: '4px', fontSize: '0.75rem', color: '#f87171' }}>{errors.password}</p>}
+                            </div>
+
+                            {/* Confirm password field */}
+                            <div>
+                                <label htmlFor="confirmPassword" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#c4b5fd', display: 'block', marginBottom: '6px' }}>
+                                    Confirm Password
+                                </label>
+                                <input
+                                    id="confirmPassword"
+                                    type="password"
+                                    required
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    placeholder="Re-enter your password"
+                                    style={inputStyle}
+                                    onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
+                                    onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'}
+                                />
+                                {errors.confirmPassword && <p style={{ marginTop: '4px', fontSize: '0.75rem', color: '#f87171' }}>{errors.confirmPassword}</p>}
                             </div>
 
                             {/* Firebase-level error (email taken, weak password, etc.) */}

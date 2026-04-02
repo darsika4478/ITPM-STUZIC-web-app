@@ -28,7 +28,6 @@ const AuthHeader = ({ variant = 'login' }) => (
                 <h1 style={{ marginTop: '-34px', fontSize: '1.875rem', fontWeight: 600, letterSpacing: '0.025em', color: '#f0ecff', margin: '-34px 0 0' }}>
                     Create Account
                 </h1>
-                <p style={{ marginTop: '-6px', fontSize: '0.875rem', color: '#c4b5fd' }}>Join STUZIC to manage tasks.</p>
             </>
         )}
     </div>
