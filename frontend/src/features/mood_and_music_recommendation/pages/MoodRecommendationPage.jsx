@@ -45,7 +45,8 @@ const MoodRecommendationPage = () => {
 
     return (
         <div
-            className="h-full min-h-[calc(100vh-4rem)] rounded-3xl flex flex-col p-4 md:p-8 lg:p-12 relative overflow-hidden bg-transparent"
+            className="min-h-screen flex flex-col p-4 md:p-8 lg:p-12 relative overflow-hidden"
+            style={{ backgroundColor: '#272D3E' }}
         >
 
             {/* Decorative blobs for depth */}
