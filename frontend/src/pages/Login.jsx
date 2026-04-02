@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { onAuthStateChanged, signInWithEmailAndPassword } from 'firebase/auth';
@@ -61,22 +62,51 @@ const Login = () => {
             </div>
 
             <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-                <span style={{ position: 'absolute', top: '8%',  left: '6%',  fontSize: '1.5rem', opacity: 0.4 }}>🎧</span>
+                <span style={{ position: 'absolute', top: '8%', left: '6%', fontSize: '1.5rem', opacity: 0.4 }}>🎧</span>
                 <span style={{ position: 'absolute', top: '10%', right: '8%', fontSize: '1.5rem', opacity: 0.4 }}>🎵</span>
-                <span style={{ position: 'absolute', bottom: '14%', left: '8%',  fontSize: '1.5rem', opacity: 0.4 }}>📚</span>
+                <span style={{ position: 'absolute', bottom: '14%', left: '8%', fontSize: '1.5rem', opacity: 0.4 }}>📚</span>
                 <span style={{ position: 'absolute', bottom: '10%', right: '6%', fontSize: '1.5rem', opacity: 0.4 }}>☕️</span>
-                <span style={{ position: 'absolute', top: '5%',  left: '42%', fontSize: '1.2rem', opacity: 0.4 }}>✍️</span>
+                <span style={{ position: 'absolute', top: '5%', left: '42%', fontSize: '1.2rem', opacity: 0.4 }}>✍️</span>
             </div>
 
             <div style={{
                 position: 'relative', zIndex: 10,
                 width: '100%', maxWidth: '420px',
-                background: 'rgba(30,24,72,0.75)',
+                background: 'rgba(30,24,72,0.35)',
                 borderRadius: '28px', padding: '2.5rem',
-                boxShadow: '0 20px 60px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.05)',
-                backdropFilter: 'blur(24px)',
-                border: '1px solid rgba(167,139,250,0.22)',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.08), inset 0 1px 0 rgba(255,255,255,0.06)',
+                backdropFilter: 'blur(40px)',
+                WebkitBackdropFilter: 'blur(40px)',
+                border: '1px solid rgba(167,139,250,0.18)',
             }}>
+                <Link 
+                    to="/" 
+                    title="Back to Home"
+                    style={{
+                        position: 'absolute',
+                        top: '1.25rem',
+                        right: '1.25rem',
+                        width: '32px',
+                        height: '32px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '50%',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        color: '#c4b5fd',
+                        textDecoration: 'none',
+                        fontSize: '1.5rem',
+                        lineHeight: 1,
+                        transition: 'all 0.2s',
+                        zIndex: 20,
+                        cursor: 'pointer'
+                    }}
+                    onMouseEnter={(e) => { e.target.style.background = 'rgba(255, 255, 255, 0.1)'; e.target.style.color = '#fff'; }}
+                    onMouseLeave={(e) => { e.target.style.background = 'rgba(255, 255, 255, 0.05)'; e.target.style.color = '#c4b5fd'; }}
+                >
+                    &times;
+                </Link>
                 <AuthHeader variant="login" />
 
                 <form style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.9rem' }} onSubmit={handleSubmit}>
@@ -122,7 +152,7 @@ const Login = () => {
 
                 <p style={{ marginTop: '1.25rem', textAlign: 'center', fontSize: '0.875rem', color: '#c4b5fd' }}>
                     New to STUZIC?{' '}
-                    <Link to="/signup" style={{ fontWeight: 700, color: '#fff', textDecoration: 'none' }}
+                    <Link to="/Register" style={{ fontWeight: 700, color: '#fff', textDecoration: 'none' }}
                         onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
                         onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
                     >Create account</Link>

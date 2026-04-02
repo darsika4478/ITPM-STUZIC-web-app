@@ -77,12 +77,41 @@ const Register = () => {
             <div style={{
                 position: 'relative', zIndex: 10,
                 width: '100%', maxWidth: '420px',
-                background: 'rgba(30,24,72,0.75)',
+                background: 'rgba(30,24,72,0.35)',
                 borderRadius: '28px', padding: '2.5rem',
-                boxShadow: '0 20px 60px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.05)',
-                backdropFilter: 'blur(24px)',
-                border: '1px solid rgba(167,139,250,0.22)',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.08), inset 0 1px 0 rgba(255,255,255,0.06)',
+                backdropFilter: 'blur(40px)',
+                WebkitBackdropFilter: 'blur(40px)',
+                border: '1px solid rgba(167,139,250,0.18)',
             }}>
+                <Link 
+                    to="/" 
+                    title="Back to Home"
+                    style={{
+                        position: 'absolute',
+                        top: '1.25rem',
+                        right: '1.25rem',
+                        width: '32px',
+                        height: '32px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '50%',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        color: '#c4b5fd',
+                        textDecoration: 'none',
+                        fontSize: '1.5rem',
+                        lineHeight: 1,
+                        transition: 'all 0.2s',
+                        zIndex: 20,
+                        cursor: 'pointer'
+                    }}
+                    onMouseEnter={(e) => { e.target.style.background = 'rgba(255, 255, 255, 0.1)'; e.target.style.color = '#fff'; }}
+                    onMouseLeave={(e) => { e.target.style.background = 'rgba(255, 255, 255, 0.05)'; e.target.style.color = '#c4b5fd'; }}
+                >
+                    &times;
+                </Link>
                 <AuthHeader variant="signup" />
 
                 <form style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.9rem' }} onSubmit={handleSubmit}>
