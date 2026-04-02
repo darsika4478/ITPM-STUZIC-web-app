@@ -6,7 +6,7 @@ service cloud.firestore {
     }
 
     function isMoodOwner(entryId) {
-      return isAuthenticated() && entryId.startsWith(request.auth.uid + '_');
+      return isAuthenticated() && entryId.matches('^' + request.auth.uid + '_.*$');
     }
 
     match /moodEntries/{entryId} {
