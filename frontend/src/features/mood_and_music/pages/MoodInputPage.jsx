@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../../../config/firebase';
 import MoodSelector from '../components/MoodSelector';
 import MoodSubmitButton from '../components/MoodSubmitButton';
 import { MOOD_CONFIG } from '../components/MoodEmojiOption';
-import { auth, db } from '../../../config/firebase';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 
 // ── Professional Palette ─────────────────────────────────────────
