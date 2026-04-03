@@ -100,18 +100,6 @@ const AdminLayout = () => {
                     <NavLink to="/admin/dashboard" end style={({ isActive }) => navLinkStyle(isActive)}>
                         <span style={{ fontSize: '1.125rem' }}>📊</span> Dashboard
                     </NavLink>
-                    <NavLink to="/admin/users" style={({ isActive }) => navLinkStyle(isActive)}>
-                        <span style={{ fontSize: '1.125rem' }}>👥</span> User Management
-                    </NavLink>
-                    <NavLink to="/admin/tasks" style={({ isActive }) => navLinkStyle(isActive)}>
-                        <span style={{ fontSize: '1.125rem' }}>📋</span> Task Reports
-                    </NavLink>
-                    <NavLink to="/admin/mood-reports" style={({ isActive }) => navLinkStyle(isActive)}>
-                        <span style={{ fontSize: '1.125rem' }}>🎭</span> Mood Reports
-                    </NavLink>
-                    <NavLink to="/admin/sessions" style={({ isActive }) => navLinkStyle(isActive)}>
-                        <span style={{ fontSize: '1.125rem' }}>⏱️</span> Session Reports
-                    </NavLink>
                 </nav>
 
                 {/* Admin user card + logout */}
