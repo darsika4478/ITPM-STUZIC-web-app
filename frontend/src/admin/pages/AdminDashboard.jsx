@@ -1,22 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 
 const AdminDashboard = () => {
-    const [stats, setStats] = useState({
-        totalUsers: 0,
-        totalTasks: 0,
-        completedTasks: 0,
-        totalMoodEntries: 0,
-        totalSessions: 0,
-        recentUsers: [],
+    const [rawData, setRawData] = useState({
+        users: [],
+        tasks: [],
+        moods: [],
+        sessions: []
     });
     const [loading, setLoading] = useState(true);
+    const [period, setPeriod] = useState('This Week');
 
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                // Fetch all collections in parallel
                 const [usersSnap, tasksSnap, moodsSnap, sessionsSnap] = await Promise.all([
                     getDocs(collection(db, 'users')),
                     getDocs(collection(db, 'tasks')),
@@ -24,9 +22,6 @@ const AdminDashboard = () => {
                     getDocs(collection(db, 'sessions')),
                 ]);
 
-                const completedTasks = tasksSnap.docs.filter(d => d.data().completed).length;
-
-                // Get 5 most recent users
                 const users = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
                 users.sort((a, b) => {
                     const aTime = a.createdAt?.toMillis?.() || 0;
@@ -34,14 +29,11 @@ const AdminDashboard = () => {
                     return bTime - aTime;
                 });
 
-                setStats({
-                    totalUsers: usersSnap.size,
-                    totalTasks: tasksSnap.size,
-                    completedTasks,
-                    totalMoodEntries: moodsSnap.size,
-                    totalSessions: sessionsSnap.size,
-                    recentUsers: users.slice(0, 5),
-                });
+                const tasks = tasksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+                const moods = moodsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+                const sessions = sessionsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+                setRawData({ users, tasks, moods, sessions });
             } catch (err) {
                 console.error('Failed to fetch admin stats:', err);
             }
@@ -51,8 +43,86 @@ const AdminDashboard = () => {
         fetchStats();
     }, []);
 
+    const filterByDate = (items, startDate) => {
+        if (!startDate) return items;
+        return items.filter(item => {
+            const time = item.createdAt?.toMillis?.();
+            if (!time) return false;
+            return time >= startDate.getTime();
+        });
+    };
+
+    const periodDate = useMemo(() => {
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        switch (period) {
+            case 'Today': return now;
+            case 'This Week': {
+                const startOfWeek = new Date(now);
+                startOfWeek.setDate(now.getDate() - now.getDay());
+                return startOfWeek;
+            }
+            case 'This Month': {
+                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                return startOfMonth;
+            }
+            case 'All Time': return null;
+            default: return null;
+        }
+    }, [period]);
+
+    const stats = useMemo(() => {
+        const filteredTasks = filterByDate(rawData.tasks, periodDate);
+        const filteredMoods = filterByDate(rawData.moods, periodDate);
+        const filteredSessions = filterByDate(rawData.sessions, periodDate);
+
+        return {
+            totalUsers: rawData.users.length,
+            totalTasks: filteredTasks.length,
+            completedTasks: filteredTasks.filter(t => t.completed).length,
+            totalMoodEntries: filteredMoods.length,
+            totalSessions: filteredSessions.length,
+            recentUsers: rawData.users.slice(0, 5)
+        };
+    }, [rawData, periodDate]);
+
+    const userActivity = useMemo(() => {
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const startOfThisWeek = startOfToday - 7 * 24 * 60 * 60 * 1000;
+        const startOfInactive = startOfToday - 14 * 24 * 60 * 60 * 1000;
+
+        const activityMap = {};
+        rawData.users.forEach(u => activityMap[u.id] = 0);
+
+        [...rawData.moods, ...rawData.sessions].forEach(item => {
+            const userId = item.userId;
+            const time = item.createdAt?.toMillis?.();
+            if (userId && time && time > (activityMap[userId] || 0)) {
+                activityMap[userId] = time;
+            }
+        });
+
+        let activeToday = 0;
+        let activeThisWeek = 0;
+        let inactiveUsers = 0;
+
+        Object.values(activityMap).forEach(lastActive => {
+            if (lastActive >= startOfToday) {
+                activeToday++;
+                activeThisWeek++;
+            } else if (lastActive >= startOfThisWeek) {
+                activeThisWeek++;
+            } else if (lastActive < startOfInactive) {
+                inactiveUsers++;
+            }
+        });
+
+        return { activeToday, activeThisWeek, inactiveUsers };
+    }, [rawData]);
+
     const statCards = [
-        { label: 'Total Users', value: stats.totalUsers, icon: '👥', color: '#6d5fe7' },
+        { label: 'Total Users', value: stats.totalUsers, icon: '👥', color: '#6d5fe7', alwaysAllTime: true },
         { label: 'Total Tasks', value: stats.totalTasks, icon: '📋', color: '#f59e0b' },
         { label: 'Tasks Completed', value: stats.completedTasks, icon: '✅', color: '#10b981' },
         { label: 'Mood Entries', value: stats.totalMoodEntries, icon: '🎭', color: '#ec4899' },
@@ -70,13 +140,35 @@ const AdminDashboard = () => {
     return (
         <div>
             {/* Page header */}
-            <div style={{ marginBottom: '2rem' }}>
-                <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#f0ecff', margin: 0 }}>
-                    Admin Dashboard
-                </h1>
-                <p style={{ fontSize: '0.875rem', color: '#a78bfa', marginTop: '0.25rem' }}>
-                    Overview of all STUZIC platform activity
-                </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
+                <div>
+                    <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#f0ecff', margin: 0 }}>
+                        Admin Dashboard
+                    </h1>
+                    <p style={{ fontSize: '0.875rem', color: '#a78bfa', marginTop: '0.25rem' }}>
+                        Overview of all STUZIC platform activity
+                    </p>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', background: 'rgba(20,14,50,0.6)', padding: '0.25rem', borderRadius: '12px', border: '1px solid rgba(109,95,231,0.25)' }}>
+                    {['Today', 'This Week', 'This Month', 'All Time'].map(p => (
+                        <button
+                            key={p}
+                            onClick={() => setPeriod(p)}
+                            style={{
+                                padding: '6px 12px',
+                                borderRadius: '8px',
+                                background: period === p ? 'rgba(109,95,231,0.25)' : 'transparent',
+                                color: period === p ? '#f0ecff' : '#a78bfa',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontSize: '0.8rem',
+                                fontWeight: period === p ? 600 : 400,
+                            }}
+                        >
+                            {p}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             {/* Stat cards grid */}
@@ -102,7 +194,7 @@ const AdminDashboard = () => {
                                 background: `${card.color}18`,
                                 fontSize: '0.65rem', fontWeight: 600, color: card.color,
                             }}>
-                                All time
+                                {card.alwaysAllTime ? 'All time' : period}
                             </div>
                         </div>
                         <p style={{ margin: 0, fontSize: '2rem', fontWeight: 800, color: '#f0ecff' }}>
@@ -113,6 +205,27 @@ const AdminDashboard = () => {
                         </p>
                     </div>
                 ))}
+            </div>
+
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f0ecff', margin: '0 0 1rem' }}>User Activity Overview</h2>
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '1rem',
+                marginBottom: '2rem',
+            }}>
+                <div style={{ padding: '1.25rem', borderRadius: '18px', background: 'rgba(20,14,50,0.6)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                    <p style={{ margin: '0 0 0.5rem', color: '#10b981', fontSize: '0.85rem', fontWeight: 600 }}>Active Today</p>
+                    <p style={{ margin: 0, color: '#f0ecff', fontSize: '1.75rem', fontWeight: 700 }}>{userActivity.activeToday}</p>
+                </div>
+                <div style={{ padding: '1.25rem', borderRadius: '18px', background: 'rgba(20,14,50,0.6)', border: '1px solid rgba(245,158,11,0.2)' }}>
+                    <p style={{ margin: '0 0 0.5rem', color: '#f59e0b', fontSize: '0.85rem', fontWeight: 600 }}>Active This Week (past 7d)</p>
+                    <p style={{ margin: 0, color: '#f0ecff', fontSize: '1.75rem', fontWeight: 700 }}>{userActivity.activeThisWeek}</p>
+                </div>
+                <div style={{ padding: '1.25rem', borderRadius: '18px', background: 'rgba(20,14,50,0.6)', border: '1px solid rgba(248,113,113,0.2)' }}>
+                    <p style={{ margin: '0 0 0.5rem', color: '#f87171', fontSize: '0.85rem', fontWeight: 600 }}>Inactive Users (&gt;14d)</p>
+                    <p style={{ margin: 0, color: '#f0ecff', fontSize: '1.75rem', fontWeight: 700 }}>{userActivity.inactiveUsers}</p>
+                </div>
             </div>
 
             {/* Recent users table */}

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth';
+import { onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth';
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../config/firebase';
 import AuthHeader from '../components/user-management/AuthHeader';
@@ -54,8 +54,20 @@ const Login = () => {
 
     // If already authenticated, skip login and go straight to dashboard
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            if (user && !checkingRedirect) navigate('/dashboard');
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            if (user && !checkingRedirect) {
+                try {
+                    const userDoc = await getDoc(doc(db, 'users', user.uid));
+                    if (userDoc.exists() && userDoc.data().role === 'admin') {
+                        await signOut(auth);
+                        setFormError('Admin accounts cannot log in here. Please use the Admin Panel login.');
+                    } else {
+                        navigate('/dashboard');
+                    }
+                } catch (error) {
+                    console.error('Failed to get user role:', error);
+                }
+            }
         });
         return () => unsubscribe(); // clean up listener on unmount
     }, [checkingRedirect, navigate]);
@@ -108,7 +120,16 @@ const Login = () => {
         if (!validate()) return; // stop if fields are empty
 
         try {
-            await signInWithEmailAndPassword(auth, email.trim(), password);
+            const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
+            
+            // Check if user is an admin
+            const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
+            if (userDoc.exists() && userDoc.data().role === 'admin') {
+                await signOut(auth);
+                setFormError('Admin accounts cannot log in here. Please use the Admin Panel login.');
+                return;
+            }
+
             navigate('/dashboard');
         } catch (error) {
             // Generic error — don't expose whether email or password is wrong
@@ -122,6 +143,14 @@ const Login = () => {
         try {
             const result = await signInWithPopup(auth, googleProvider);
             await syncGoogleUser(result.user);
+
+            const userDoc = await getDoc(doc(db, 'users', result.user.uid));
+            if (userDoc.exists() && userDoc.data().role === 'admin') {
+                await signOut(auth);
+                setFormError('Admin accounts cannot log in here. Please use the Admin Panel login.');
+                return;
+            }
+
             navigate('/dashboard');
         } catch (error) {
             console.error('Google sign-in failed:', error);

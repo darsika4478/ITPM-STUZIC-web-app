@@ -1,29 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-    collection,
-    deleteDoc,
-    doc,
-    getDocs,
-    query,
-    serverTimestamp,
-    setDoc,
-    updateDoc,
-    where,
-} from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
 
 const AdminUsersPage = () => {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
-    const [roleFilter, setRoleFilter] = useState('all');
     const [savingUserId, setSavingUserId] = useState('');
-    const [formMode, setFormMode] = useState('create');
-    const [editingUserId, setEditingUserId] = useState('');
-    const [createForm, setCreateForm] = useState({ name: '', email: '', role: 'user', password: '' });
-    const [editForm, setEditForm] = useState({ name: '', email: '', role: 'user' });
     const [formError, setFormError] = useState('');
-    const [formSuccess, setFormSuccess] = useState('');
+    
+    // Modal states
+    const [selectedUser, setSelectedUser] = useState(null);
+    const [userActivity, setUserActivity] = useState({ tasks: [], sessions: [], loading: false });
 
     const fetchUsers = useCallback(async () => {
         setLoading(true);
@@ -50,165 +38,72 @@ const AdminUsersPage = () => {
     const filteredUsers = useMemo(() => {
         const queryText = search.trim().toLowerCase();
         return users.filter((user) => {
-            const role = user.role || 'user';
-            if (roleFilter !== 'all' && role !== roleFilter) return false;
+            if (user.role === 'admin') return false;
+            
             if (!queryText) return true;
             const name = (user.name || '').toLowerCase();
             const email = (user.email || '').toLowerCase();
             return name.includes(queryText) || email.includes(queryText);
         });
-    }, [users, search, roleFilter]);
+    }, [users, search]);
 
-    const updateRole = async (targetUserId, nextRole) => {
-        const currentAdminId = auth.currentUser?.uid;
-        if (targetUserId === currentAdminId && nextRole !== 'admin') {
-            return;
-        }
+    const exportToCSV = () => {
+        const headers = ['Name', 'Email', 'Role', 'Joined'];
+        const csvContent = [
+            headers.join(','),
+            ...filteredUsers.map(u => [
+                `"${u.name || 'N/A'}"`,
+                `"${u.email || 'N/A'}"`,
+                u.role || 'user',
+                `"${u.createdAt?.toDate?.() ? u.createdAt.toDate().toLocaleDateString('en-US') : 'N/A'}"`
+            ].join(','))
+        ].join('\n');
+        
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'users_export.csv');
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
-        setSavingUserId(targetUserId);
+    const loadUserActivity = async (userId) => {
+        setUserActivity({ tasks: [], sessions: [], loading: true });
         try {
-            await updateDoc(doc(db, 'users', targetUserId), { role: nextRole });
-            setUsers((prev) => prev.map((user) => (
-                user.id === targetUserId ? { ...user, role: nextRole } : user
-            )));
-        } catch (error) {
-            console.error('Failed to update role:', error);
-        }
-        setSavingUserId('');
-    };
-
-    const resetMessages = () => {
-        setFormError('');
-        setFormSuccess('');
-    };
-
-    const createUser = async (event) => {
-        event.preventDefault();
-        resetMessages();
-
-        const name = createForm.name.trim();
-        const email = createForm.email.trim().toLowerCase();
-        const role = createForm.role;
-        const password = createForm.password;
-
-        if (!name || !email || !password) {
-            setFormError('Name, email, and password are required.');
-            return;
-        }
-        if (password.length < 6) {
-            setFormError('Password must be at least 6 characters.');
-            return;
-        }
-
-        setSavingUserId('creating');
-        try {
-            const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
-            if (!apiKey) {
-                throw new Error('Missing VITE_FIREBASE_API_KEY in frontend environment variables.');
-            }
-
-            const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password, returnSecureToken: true }),
+            const [tasksSnap, sessionsSnap] = await Promise.all([
+                getDocs(query(collection(db, 'tasks'), where('userId', '==', userId))),
+                getDocs(query(collection(db, 'sessions'), where('userId', '==', userId)))
+            ]);
+            
+            setUserActivity({
+                tasks: tasksSnap.docs.map(d => d.data()),
+                sessions: sessionsSnap.docs.map(d => d.data()),
+                loading: false
             });
-
-            const result = await response.json();
-            if (!response.ok || !result.localId) {
-                throw new Error(result.error?.message || 'Unable to create auth account.');
-            }
-
-            await setDoc(doc(db, 'users', result.localId), {
-                name,
-                email,
-                role,
-                createdAt: serverTimestamp(),
-                createdByAdmin: auth.currentUser?.uid || null,
-            });
-
-            setCreateForm({ name: '', email: '', role: 'user', password: '' });
-            setFormSuccess('User created successfully.');
-            await fetchUsers();
         } catch (error) {
-            console.error('Failed to create user:', error);
-            setFormError(error.message || 'Failed to create user.');
+            console.error("Error loading activity", error);
+            setUserActivity(prev => ({ ...prev, loading: false }));
         }
-        setSavingUserId('');
     };
 
-    const startEdit = (user) => {
-        resetMessages();
-        setFormMode('edit');
-        setEditingUserId(user.id);
-        setEditForm({
-            name: user.name || '',
-            email: user.email || '',
-            role: user.role || 'user',
-        });
-    };
-
-    const cancelEdit = () => {
-        setFormMode('create');
-        setEditingUserId('');
-        setEditForm({ name: '', email: '', role: 'user' });
-        resetMessages();
-    };
-
-    const saveEdit = async (event) => {
-        event.preventDefault();
-        resetMessages();
-
-        if (!editingUserId) return;
-
-        const currentAdminId = auth.currentUser?.uid;
-        if (editingUserId === currentAdminId && editForm.role !== 'admin') {
-            setFormError('You cannot remove your own admin access.');
-            return;
-        }
-
-        const name = editForm.name.trim();
-        const email = editForm.email.trim().toLowerCase();
-        if (!name || !email) {
-            setFormError('Name and email are required.');
-            return;
-        }
-
-        setSavingUserId(editingUserId);
-        try {
-            await updateDoc(doc(db, 'users', editingUserId), {
-                name,
-                email,
-                role: editForm.role,
-                updatedAt: serverTimestamp(),
-                updatedByAdmin: currentAdminId || null,
-            });
-
-            setUsers((prev) => prev.map((user) => (
-                user.id === editingUserId
-                    ? { ...user, name, email, role: editForm.role }
-                    : user
-            )));
-
-            setFormSuccess('User details updated successfully.');
-            cancelEdit();
-        } catch (error) {
-            console.error('Failed to update user:', error);
-            setFormError('Failed to update user details.');
-        }
-        setSavingUserId('');
+    const handleViewDetails = (user) => {
+        setSelectedUser(user);
+        loadUserActivity(user.id);
     };
 
     const deleteUser = async (user) => {
         const currentAdminId = auth.currentUser?.uid;
         if (user.id === currentAdminId) {
-            setFormError('You cannot delete your own account profile.');
+            alert('You cannot delete your own account profile.');
             return;
         }
 
         const confirmed = window.confirm(`Delete ${user.email || user.name || 'this user'}? This removes the profile and related records.`);
         if (!confirmed) return;
 
-        resetMessages();
         setSavingUserId(user.id);
         try {
             const relatedCollections = ['tasks', 'moods', 'sessions'];
@@ -219,10 +114,9 @@ const AdminUsersPage = () => {
 
             await deleteDoc(doc(db, 'users', user.id));
             setUsers((prev) => prev.filter((item) => item.id !== user.id));
-            setFormSuccess('User profile deleted successfully.');
         } catch (error) {
             console.error('Failed to delete user:', error);
-            setFormError('Failed to delete user profile.');
+            alert('Failed to delete user profile.');
         }
         setSavingUserId('');
     };
@@ -237,146 +131,23 @@ const AdminUsersPage = () => {
 
     return (
         <div>
-            <div style={{ marginBottom: '1.5rem' }}>
-                <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#f0ecff', margin: 0 }}>User Management</h1>
-                <p style={{ fontSize: '0.875rem', color: '#a78bfa', marginTop: '0.25rem' }}>
-                    Create, edit, delete, and manage account roles.
-                </p>
-            </div>
-
-            <form
-                onSubmit={formMode === 'create' ? createUser : saveEdit}
-                style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                    gap: '0.75rem',
-                    padding: '1rem',
-                    borderRadius: '16px',
-                    background: 'rgba(20,14,50,0.6)',
-                    border: '1px solid rgba(109,95,231,0.15)',
-                    marginBottom: '1rem',
-                }}
-            >
-                <input
-                    value={formMode === 'create' ? createForm.name : editForm.name}
-                    onChange={(event) => {
-                        const value = event.target.value;
-                        if (formMode === 'create') setCreateForm((prev) => ({ ...prev, name: value }));
-                        else setEditForm((prev) => ({ ...prev, name: value }));
-                    }}
-                    placeholder="Full name"
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                <div>
+                    <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#f0ecff', margin: 0 }}>User Management</h1>
+                    <p style={{ fontSize: '0.875rem', color: '#a78bfa', margin: '0.25rem 0 0' }}>Manage Users</p>
+                </div>
+                <button
+                    onClick={exportToCSV}
                     style={{
-                        borderRadius: '12px',
-                        border: '1px solid rgba(248,113,113,0.25)',
-                        background: 'rgba(20,14,50,0.7)',
-                        color: '#f0ecff',
-                        padding: '10px 12px',
-                        outline: 'none',
-                    }}
-                />
-                <input
-                    type="email"
-                    value={formMode === 'create' ? createForm.email : editForm.email}
-                    onChange={(event) => {
-                        const value = event.target.value;
-                        if (formMode === 'create') setCreateForm((prev) => ({ ...prev, email: value }));
-                        else setEditForm((prev) => ({ ...prev, email: value }));
-                    }}
-                    placeholder="Email address"
-                    style={{
-                        borderRadius: '12px',
-                        border: '1px solid rgba(248,113,113,0.25)',
-                        background: 'rgba(20,14,50,0.7)',
-                        color: '#f0ecff',
-                        padding: '10px 12px',
-                        outline: 'none',
-                    }}
-                />
-                <select
-                    value={formMode === 'create' ? createForm.role : editForm.role}
-                    onChange={(event) => {
-                        const value = event.target.value;
-                        if (formMode === 'create') setCreateForm((prev) => ({ ...prev, role: value }));
-                        else setEditForm((prev) => ({ ...prev, role: value }));
-                    }}
-                    style={{
-                        borderRadius: '12px',
-                        border: '1px solid rgba(248,113,113,0.25)',
-                        background: 'rgba(20,14,50,0.7)',
-                        color: '#f0ecff',
-                        padding: '10px 12px',
-                        outline: 'none',
+                        padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(16,185,129,0.3)',
+                        background: 'rgba(16,185,129,0.15)', color: '#34d399', fontWeight: 600, cursor: 'pointer'
                     }}
                 >
-                    <option value="user">User</option>
-                    <option value="admin">Admin</option>
-                </select>
-
-                {formMode === 'create' && (
-                    <input
-                        type="password"
-                        value={createForm.password}
-                        onChange={(event) => setCreateForm((prev) => ({ ...prev, password: event.target.value }))}
-                        placeholder="Temporary password"
-                        style={{
-                            borderRadius: '12px',
-                            border: '1px solid rgba(248,113,113,0.25)',
-                            background: 'rgba(20,14,50,0.7)',
-                            color: '#f0ecff',
-                            padding: '10px 12px',
-                            outline: 'none',
-                        }}
-                    />
-                )}
-
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <button
-                        type="submit"
-                        disabled={savingUserId === 'creating' || !!savingUserId}
-                        style={{
-                            borderRadius: '10px',
-                            border: '1px solid rgba(248,113,113,0.35)',
-                            background: 'rgba(248,113,113,0.16)',
-                            color: '#f0ecff',
-                            padding: '9px 14px',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            opacity: savingUserId ? 0.7 : 1,
-                        }}
-                    >
-                        {formMode === 'create' ? 'Create User' : 'Save Changes'}
-                    </button>
-
-                    {formMode === 'edit' && (
-                        <button
-                            type="button"
-                            onClick={cancelEdit}
-                            style={{
-                                borderRadius: '10px',
-                                border: '1px solid rgba(167,139,250,0.35)',
-                                background: 'rgba(109,95,231,0.12)',
-                                color: '#c4b5fd',
-                                padding: '9px 14px',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                            }}
-                        >
-                            Cancel
-                        </button>
-                    )}
-                </div>
-
-                {(formError || formSuccess) && (
-                    <p style={{
-                        margin: 0,
-                        gridColumn: '1 / -1',
-                        fontSize: '0.82rem',
-                        color: formError ? '#f87171' : '#34d399',
-                    }}>
-                        {formError || formSuccess}
-                    </p>
-                )}
-            </form>
+                    ⬇ Export CSV
+                </button>
+            </div>
+            
+            {formError && <p style={{ color: '#fca5a5', fontSize: '0.85rem', marginBottom: '1rem' }}>{formError}</p>}
 
             <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
                 <input
@@ -387,34 +158,22 @@ const AdminUsersPage = () => {
                         flex: 1,
                         minWidth: '200px',
                         borderRadius: '12px',
-                        border: '1px solid rgba(248,113,113,0.25)',
+                        border: '1px solid rgba(109,95,231,0.25)',
                         background: 'rgba(20,14,50,0.6)',
                         color: '#f0ecff',
                         padding: '10px 12px',
                         outline: 'none',
                     }}
                 />
-                <select
-                    value={roleFilter}
-                    onChange={(event) => setRoleFilter(event.target.value)}
-                    style={{
-                        borderRadius: '12px',
-                        border: '1px solid rgba(248,113,113,0.25)',
-                        background: 'rgba(20,14,50,0.6)',
-                        color: '#f0ecff',
-                        padding: '10px 12px',
-                        outline: 'none',
-                    }}
-                >
-                    <option value="all">All Roles</option>
-                    <option value="admin">Admins</option>
-                    <option value="user">Users</option>
-                </select>
             </div>
+
+            <p style={{ fontSize: '0.85rem', color: '#a78bfa', margin: '0 0 1rem 0' }}>
+                Showing {filteredUsers.length} of {users.filter(u => u.role !== 'admin').length} users
+            </p>
 
             <div style={{ padding: '1rem', borderRadius: '16px', background: 'rgba(20,14,50,0.6)', border: '1px solid rgba(109,95,231,0.15)' }}>
                 {filteredUsers.length === 0 ? (
-                    <p style={{ color: '#a78bfa', margin: 0 }}>No users found for this filter.</p>
+                    <p style={{ color: '#a78bfa', margin: 0, textAlign: 'center', padding: '2rem 0' }}>No users found for this search/filter.</p>
                 ) : (
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
@@ -453,38 +212,20 @@ const AdminUsersPage = () => {
                                         </td>
                                         <td style={{ padding: '0.75rem', borderBottom: '1px solid rgba(109,95,231,0.08)' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                                <select
-                                                    value={userRole}
-                                                    disabled={savingUserId === user.id || isSelf}
-                                                    onChange={(event) => updateRole(user.id, event.target.value)}
-                                                    style={{
-                                                        borderRadius: '8px',
-                                                        border: '1px solid rgba(248,113,113,0.25)',
-                                                        background: 'rgba(20,14,50,0.7)',
-                                                        color: '#f0ecff',
-                                                        padding: '6px 8px',
-                                                        outline: 'none',
-                                                        opacity: isSelf ? 0.6 : 1,
-                                                    }}
-                                                >
-                                                    <option value="user">Set as User</option>
-                                                    <option value="admin">Set as Admin</option>
-                                                </select>
-
+                                                
                                                 <button
                                                     type="button"
-                                                    disabled={!!savingUserId}
-                                                    onClick={() => startEdit(user)}
+                                                    onClick={() => handleViewDetails(user)}
                                                     style={{
                                                         borderRadius: '8px',
-                                                        border: '1px solid rgba(167,139,250,0.35)',
-                                                        background: 'rgba(109,95,231,0.12)',
-                                                        color: '#c4b5fd',
+                                                        border: '1px solid rgba(16,185,129,0.3)',
+                                                        background: 'rgba(16,185,129,0.1)',
+                                                        color: '#34d399',
                                                         padding: '6px 10px',
                                                         cursor: 'pointer',
                                                     }}
                                                 >
-                                                    Edit
+                                                    Details
                                                 </button>
 
                                                 <button
@@ -513,6 +254,47 @@ const AdminUsersPage = () => {
                     </table>
                 )}
             </div>
+
+            {/* User Details Modal */}
+            {selectedUser && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+                }}>
+                    <div style={{
+                        background: '#1a103c', borderRadius: '16px', border: '1px solid rgba(109,95,231,0.3)',
+                        width: '90%', maxWidth: '600px', maxHeight: '80vh', overflowY: 'auto', padding: '2rem'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+                            <h2 style={{ margin: 0, color: '#f0ecff', fontSize: '1.5rem' }}>User Profile: {selectedUser.name}</h2>
+                            <button onClick={() => setSelectedUser(null)} style={{ background: 'transparent', border: 'none', color: '#a78bfa', fontSize: '1.5rem', cursor: 'pointer' }}>&times;</button>
+                        </div>
+
+                        <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '12px' }}>
+                            <p style={{ margin: '0 0 0.5rem', color: '#c4b5fd' }}><strong>Email:</strong> {selectedUser.email}</p>
+                            <p style={{ margin: '0 0 0.5rem', color: '#c4b5fd' }}><strong>Role:</strong> {selectedUser.role || 'user'}</p>
+                            <p style={{ margin: 0, color: '#c4b5fd' }}><strong>Joined:</strong> {selectedUser.createdAt?.toDate?.() ? selectedUser.createdAt.toDate().toLocaleDateString('en-US') : 'N/A'}</p>
+                        </div>
+                        
+                        <h3 style={{ color: '#f0ecff', fontSize: '1.2rem', marginBottom: '1rem' }}>Activity Logs</h3>
+                        {userActivity.loading ? (
+                            <p style={{ color: '#a78bfa' }}>Loading user activity...</p>
+                        ) : (
+                            <div style={{ display: 'flex', gap: '1rem' }}>
+                                <div style={{ flex: 1, padding: '1rem', background: 'rgba(16,185,129,0.1)', borderRadius: '12px', border: '1px solid rgba(16,185,129,0.2)' }}>
+                                    <h4 style={{ margin: '0 0 0.5rem', color: '#34d399' }}>Tasks Created</h4>
+                                    <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0, color: '#f0ecff' }}>{userActivity.tasks.length}</p>
+                                </div>
+                                <div style={{ flex: 1, padding: '1rem', background: 'rgba(59,130,246,0.1)', borderRadius: '12px', border: '1px solid rgba(59,130,246,0.2)' }}>
+                                    <h4 style={{ margin: '0 0 0.5rem', color: '#60a5fa' }}>Sessions Completed</h4>
+                                    <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0, color: '#f0ecff' }}>{userActivity.sessions.length}</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

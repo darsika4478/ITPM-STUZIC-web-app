@@ -20,13 +20,6 @@ const toDateSafe = (value) => {
     return null;
 };
 
-const formatDateTime = (value) => {
-    const date = toDateSafe(value);
-    return date
-        ? date.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-        : 'N/A';
-};
-
 const resolveDuration = (session) => {
     if (typeof session.durationMinutes === 'number') return session.durationMinutes;
     const start = toDateSafe(session.startTime);
@@ -38,34 +31,22 @@ const resolveDuration = (session) => {
 const AdminSessionsPage = () => {
     const [sessions, setSessions] = useState([]);
     const [users, setUsers] = useState([]);
-    const [moods, setMoods] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState('');
-    const [moodFilter, setMoodFilter] = useState('all');
 
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
             try {
-                const [sessionsSnap, usersSnap, moodsSnap] = await Promise.all([
+                const [sessionsSnap, usersSnap] = await Promise.all([
                     getDocs(collection(db, 'sessions')),
                     getDocs(collection(db, 'users')),
-                    getDocs(collection(db, 'moods')),
                 ]);
 
                 const sessionRows = sessionsSnap.docs.map((item) => ({ id: item.id, ...item.data() }));
                 const userRows = usersSnap.docs.map((item) => ({ id: item.id, ...item.data() }));
-                const moodRows = moodsSnap.docs.map((item) => ({ id: item.id, ...item.data() }));
-
-                sessionRows.sort((a, b) => {
-                    const aTime = a.createdAt?.toMillis?.() || 0;
-                    const bTime = b.createdAt?.toMillis?.() || 0;
-                    return bTime - aTime;
-                });
-
+                
                 setSessions(sessionRows);
                 setUsers(userRows);
-                setMoods(moodRows);
             } catch (error) {
                 console.error('Failed to load session reports:', error);
             }
@@ -78,72 +59,113 @@ const AdminSessionsPage = () => {
     const userMap = useMemo(() => {
         const mapped = {};
         users.forEach((user) => {
-            mapped[user.id] = user.name || user.email || user.id;
+            mapped[user.id] = user.name || user.email || `User ${user.id.slice(0, 4)}`;
         });
         return mapped;
     }, [users]);
 
-    const moodOptions = useMemo(() => {
-        const set = new Set();
-        sessions.forEach((session) => {
-            if (session.mood) set.add(String(session.mood));
-        });
-        return Array.from(set).sort();
-    }, [sessions]);
-
-    const filteredSessions = useMemo(() => {
-        const queryText = search.trim().toLowerCase();
-        return sessions.filter((session) => {
-            if (moodFilter !== 'all' && String(session.mood || '').toLowerCase() !== moodFilter.toLowerCase()) return false;
-            if (!queryText) return true;
-            const owner = (userMap[session.userId] || session.userId || '').toLowerCase();
-            const track = String(session.trackTitle || '').toLowerCase();
-            const mood = String(session.mood || '').toLowerCase();
-            return owner.includes(queryText) || track.includes(queryText) || mood.includes(queryText);
-        });
-    }, [sessions, search, moodFilter, userMap]);
-
     const stats = useMemo(() => {
-        const total = filteredSessions.length;
-        const durations = filteredSessions.map(resolveDuration).filter((item) => typeof item === 'number');
-        const completed = filteredSessions.filter((session) => session.endTime || typeof session.durationMinutes === 'number').length;
+        const total = sessions.length;
+        const durations = sessions.map(resolveDuration).filter((item) => typeof item === 'number');
+        const completed = sessions.filter((session) => session.endTime || typeof session.durationMinutes === 'number').length;
         const totalMinutes = durations.reduce((sum, value) => sum + value, 0);
         const avgMinutes = durations.length ? (totalMinutes / durations.length).toFixed(1) : '0.0';
         return { total, completed, totalMinutes, avgMinutes };
-    }, [filteredSessions]);
+    }, [sessions]);
 
-    const fallbackByUser = useMemo(() => {
-        if (sessions.length > 0) return [];
-        const byUser = {};
-        moods.forEach((entry) => {
-            byUser[entry.userId] = (byUser[entry.userId] || 0) + 1;
+    const userStats = useMemo(() => {
+        const userActivity = {};
+        sessions.forEach(session => {
+            if (!userActivity[session.userId]) {
+                userActivity[session.userId] = { sessions: 0, totalMinutes: 0 };
+            }
+            userActivity[session.userId].sessions += 1;
+            const duration = resolveDuration(session);
+            if (typeof duration === 'number') {
+                userActivity[session.userId].totalMinutes += duration;
+            }
         });
-        return Object.entries(byUser)
-            .map(([userId, entryCount]) => ({ userId, entryCount }))
-            .sort((a, b) => b.entryCount - a.entryCount)
-            .slice(0, 10);
-    }, [sessions, moods]);
+
+        const arr = Object.keys(userActivity).map(uid => {
+            return {
+                id: uid,
+                name: userMap[uid] || `User ${uid.slice(0, 4)}`,
+                ...userActivity[uid]
+            };
+        });
+        arr.sort((a, b) => b.totalMinutes - a.totalMinutes);
+        return arr;
+    }, [sessions, userMap]);
+
+    const peakHours = useMemo(() => {
+        const hours = Array.from({ length: 24 }, () => 0);
+        sessions.forEach(session => {
+            const time = toDateSafe(session.startTime || session.createdAt);
+            if (time) {
+                hours[time.getHours()] += 1;
+            }
+        });
+
+        const max = Math.max(...hours, 1);
+        return hours.map((count, hour) => ({
+            hour,
+            count,
+            percent: Math.round((count / max) * 100),
+            label: hour === 0 ? '12am' : hour < 12 ? `${hour}am` : hour === 12 ? '12pm' : `${hour - 12}pm`
+        }));
+    }, [sessions]);
+
+    const exportToCSV = () => {
+        const headers = ['User', 'Total Sessions', 'Total Duration (min)'];
+        const csvContent = [
+            headers.join(','),
+            ...userStats.map(u => [
+                `"${u.name}"`,
+                u.sessions,
+                u.totalMinutes
+            ].join(','))
+        ].join('\n');
+        
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'aggregated_sessions.csv');
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     if (loading) {
         return (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem' }}>Loading session reports...</p>
+                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem' }}>Loading session analytics...</p>
             </div>
         );
     }
 
     return (
         <div>
-            <div style={{ marginBottom: '1.5rem' }}>
-                <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#f0ecff', margin: 0 }}>Session Reports</h1>
-                <p style={{ fontSize: '0.875rem', color: '#a78bfa', marginTop: '0.25rem' }}>
-                    Track study session logs and time spent metrics.
-                </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                <div>
+                    <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#f0ecff', margin: 0 }}>Platform Sessions Overview</h1>
+                    <p style={{ fontSize: '0.875rem', color: '#a78bfa', margin: '0.25rem 0 0' }}>Aggregated study session metrics and peak hours.</p>
+                </div>
+                <button
+                    onClick={exportToCSV}
+                    style={{
+                        padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(59,130,246,0.3)',
+                        background: 'rgba(59,130,246,0.15)', color: '#60a5fa', fontWeight: 600, cursor: 'pointer'
+                    }}
+                >
+                    ⬇ Export CSV
+                </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
                 {[
-                    { label: 'Sessions', value: stats.total, icon: '⏱️', color: '#3b82f6' },
+                    { label: 'Total Sessions', value: stats.total, icon: '⏱️', color: '#3b82f6' },
                     { label: 'Completed', value: stats.completed, icon: '✅', color: '#22c55e' },
                     { label: 'Total Minutes', value: stats.totalMinutes, icon: '🧮', color: '#6d5fe7' },
                     { label: 'Avg Duration', value: stats.avgMinutes, icon: '📊', color: '#f59e0b' },
@@ -155,107 +177,55 @@ const AdminSessionsPage = () => {
                 ))}
             </div>
 
-            <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-                <input
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search user/track/mood"
-                    style={{
-                        flex: 1,
-                        minWidth: '220px',
-                        borderRadius: '12px',
-                        border: '1px solid rgba(248,113,113,0.25)',
-                        background: 'rgba(20,14,50,0.6)',
-                        color: '#f0ecff',
-                        padding: '10px 12px',
-                        outline: 'none',
-                    }}
-                />
-                <select
-                    value={moodFilter}
-                    onChange={(event) => setMoodFilter(event.target.value)}
-                    style={{ borderRadius: '12px', border: '1px solid rgba(248,113,113,0.25)', background: 'rgba(20,14,50,0.6)', color: '#f0ecff', padding: '10px 12px', outline: 'none' }}
-                >
-                    <option value="all">All Moods</option>
-                    {moodOptions.map((mood) => (
-                        <option key={mood} value={mood}>{mood}</option>
-                    ))}
-                </select>
-            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+                
+                {/* Peak Study Hours */}
+                <div style={{ padding: '1.5rem', borderRadius: '16px', background: 'rgba(20,14,50,0.6)', border: '1px solid rgba(109,95,231,0.15)' }}>
+                    <h2 style={{ color: '#f0ecff', fontSize: '1.1rem', margin: '0 0 1.5rem 0' }}>Peak Study Hours</h2>
+                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: '180px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                        {peakHours.map((h) => (
+                            <div key={h.hour} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%', position: 'relative' }}>
+                                <div 
+                                    style={{ 
+                                        width: '80%', height: `${h.percent}%`, 
+                                        background: h.percent >= 80 ? '#3b82f6' : h.percent >= 40 ? '#60a5fa' : '#93c5fd', 
+                                        borderRadius: '3px 3px 0 0', opacity: h.count > 0 ? 1 : 0.1 
+                                    }} 
+                                    title={`${h.label}: ${h.count} sessions`}
+                                ></div>
+                                {h.hour % 4 === 0 && (
+                                    <span style={{ position: 'absolute', bottom: '-20px', fontSize: '0.65rem', color: '#a78bfa' }}>
+                                        {h.label}
+                                    </span>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                    <div style={{ height: '20px' }}></div> {/* Spacer for labels */}
+                </div>
 
-            <div style={{ padding: '1rem', borderRadius: '16px', background: 'rgba(20,14,50,0.6)', border: '1px solid rgba(109,95,231,0.15)' }}>
-                {sessions.length === 0 ? (
-                    <div>
-                        <p style={{ color: '#a78bfa', marginTop: 0 }}>No session documents found in `sessions` collection.</p>
-                        <p style={{ color: '#c4b5fd', fontSize: '0.82rem' }}>
-                            Fallback summary from mood activity (top users by mood entries):
-                        </p>
-                        {fallbackByUser.length === 0 ? (
-                            <p style={{ color: '#a78bfa', marginBottom: 0 }}>No fallback data available.</p>
+                {/* Sessions per User Leaderboard */}
+                <div style={{ padding: '1.5rem', borderRadius: '16px', background: 'rgba(20,14,50,0.6)', border: '1px solid rgba(109,95,231,0.15)' }}>
+                    <h2 style={{ color: '#f0ecff', fontSize: '1.1rem', margin: '0 0 1.5rem 0' }}>Sessions Engagement per User</h2>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '250px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                        {userStats.length === 0 ? (
+                            <p style={{ color: '#a78bfa', margin: 0, fontSize: '0.9rem' }}>No session data available.</p>
                         ) : (
-                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                <thead>
-                                    <tr>
-                                        {['User', 'Mood Entries'].map((column) => (
-                                            <th key={column} style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.75rem', color: '#a78bfa', borderBottom: '1px solid rgba(109,95,231,0.2)', textTransform: 'uppercase' }}>
-                                                {column}
-                                            </th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {fallbackByUser.map((item) => (
-                                        <tr key={item.userId}>
-                                            <td style={{ padding: '0.75rem', color: '#f0ecff', borderBottom: '1px solid rgba(109,95,231,0.08)' }}>{userMap[item.userId] || item.userId}</td>
-                                            <td style={{ padding: '0.75rem', color: '#c4b5fd', borderBottom: '1px solid rgba(109,95,231,0.08)' }}>{item.entryCount}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                            userStats.map(u => (
+                                <div key={u.id} style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div>
+                                        <p style={{ margin: '0 0 0.25rem 0', color: '#c4b5fd', fontSize: '0.95rem', fontWeight: 600 }}>{u.name}</p>
+                                        <p style={{ margin: 0, color: '#a78bfa', fontSize: '0.75rem' }}>Total time: {u.totalMinutes} mins</p>
+                                    </div>
+                                    <div style={{ background: 'rgba(59,130,246,0.15)', padding: '0.4rem 0.8rem', borderRadius: '8px', color: '#60a5fa', fontWeight: 600, fontSize: '0.9rem' }}>
+                                        {u.sessions} sessions
+                                    </div>
+                                </div>
+                            ))
                         )}
                     </div>
-                ) : filteredSessions.length === 0 ? (
-                    <p style={{ color: '#a78bfa', margin: 0 }}>No sessions found for this filter.</p>
-                ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                            <tr>
-                                {['User', 'Mood', 'Track', 'Duration', 'Start', 'End'].map((column) => (
-                                    <th key={column} style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.75rem', color: '#a78bfa', borderBottom: '1px solid rgba(109,95,231,0.2)', textTransform: 'uppercase' }}>
-                                        {column}
-                                    </th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredSessions.map((session) => {
-                                const duration = resolveDuration(session);
-                                return (
-                                    <tr key={session.id}>
-                                        <td style={{ padding: '0.75rem', color: '#f0ecff', borderBottom: '1px solid rgba(109,95,231,0.08)' }}>
-                                            {userMap[session.userId] || 'Unknown user'}
-                                        </td>
-                                        <td style={{ padding: '0.75rem', color: '#c4b5fd', borderBottom: '1px solid rgba(109,95,231,0.08)' }}>
-                                            {session.mood || 'N/A'}
-                                        </td>
-                                        <td style={{ padding: '0.75rem', color: '#a78bfa', borderBottom: '1px solid rgba(109,95,231,0.08)' }}>
-                                            {session.trackTitle || 'N/A'}
-                                        </td>
-                                        <td style={{ padding: '0.75rem', color: '#fbbf24', borderBottom: '1px solid rgba(109,95,231,0.08)' }}>
-                                            {typeof duration === 'number' ? `${duration} min` : 'N/A'}
-                                        </td>
-                                        <td style={{ padding: '0.75rem', color: '#a78bfa', borderBottom: '1px solid rgba(109,95,231,0.08)' }}>
-                                            {formatDateTime(session.startTime || session.createdAt)}
-                                        </td>
-                                        <td style={{ padding: '0.75rem', color: '#a78bfa', borderBottom: '1px solid rgba(109,95,231,0.08)' }}>
-                                            {formatDateTime(session.endTime)}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                )}
+                </div>
+
             </div>
         </div>
     );

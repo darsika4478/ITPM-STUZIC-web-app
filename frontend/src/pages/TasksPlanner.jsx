@@ -274,6 +274,13 @@ export default function TasksPlanner() {
 
     const handleAddTask = async (e) => {
         e.preventDefault();
+
+        const today = new Date().toISOString().split("T")[0];
+        if (dueDate && dueDate < today) {
+            alert("Due date cannot be in the past");
+            return;
+        }
+
         const normalizedChecklist = normalizeChecklistItems(checklistItems);
         const hasTextNote = title.trim() || description.trim();
         const hasChecklistNote = normalizedChecklist.length > 0;
@@ -397,6 +404,13 @@ export default function TasksPlanner() {
 
     const handleUpdateTask = async (e) => {
         e.preventDefault();
+
+        const today = new Date().toISOString().split("T")[0];
+        if (editDueDate && editDueDate < today) {
+            alert("Due date cannot be in the past");
+            return;
+        }
+
         if (!editTitle.trim() || !editingTask) return;
         setUpdating(true);
         try {
@@ -783,7 +797,14 @@ export default function TasksPlanner() {
                                     <input
                                         type="date"
                                         value={dueDate}
-                                        onChange={(e) => setDueDate(e.target.value)}
+                                        onChange={(e) => {
+                                            const today = new Date().toISOString().split("T")[0];
+                                            if (e.target.value && e.target.value < today) {
+                                                alert("Due date cannot be in the past");
+                                                return;
+                                            }
+                                            setDueDate(e.target.value);
+                                        }}
                                         min={new Date().toISOString().split("T")[0]}
                                         style={{
                                             borderRadius: '8px', padding: '4px 10px',
@@ -1080,18 +1101,31 @@ export default function TasksPlanner() {
                                                 </div>
                                             ) : (
                                                 <>
-                                                    <button
-                                                        onClick={() => openEditModal(task)}
-                                                        title="Edit task"
-                                                        className="opacity-0 group-hover:opacity-100"
-                                                        style={{ borderRadius: '8px', padding: '6px', color: 'rgba(255,255,255,0.2)', background: 'none', border: 'none', cursor: 'pointer', transition: 'all 0.15s' }}
-                                                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(109,95,231,0.15)'; e.currentTarget.style.color = '#a78bfa'; }}
-                                                        onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'rgba(255,255,255,0.2)'; }}
-                                                    >
-                                                        <svg style={{ width: '14px', height: '14px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                        </svg>
-                                                    </button>
+                                                    {!task.completed ? (
+                                                        <button
+                                                            onClick={() => openEditModal(task)}
+                                                            title="Edit task"
+                                                            className="opacity-0 group-hover:opacity-100"
+                                                            style={{ borderRadius: '8px', padding: '6px', color: 'rgba(255,255,255,0.2)', background: 'none', border: 'none', cursor: 'pointer', transition: 'all 0.15s' }}
+                                                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(109,95,231,0.15)'; e.currentTarget.style.color = '#a78bfa'; }}
+                                                            onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'rgba(255,255,255,0.2)'; }}
+                                                        >
+                                                            <svg style={{ width: '14px', height: '14px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                            </svg>
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            disabled
+                                                            title="Unmark task to edit"
+                                                            className="opacity-0 group-hover:opacity-50"
+                                                            style={{ borderRadius: '8px', padding: '6px', color: 'rgba(255,255,255,0.1)', background: 'none', border: 'none', cursor: 'not-allowed', transition: 'all 0.15s' }}
+                                                        >
+                                                            <svg style={{ width: '14px', height: '14px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                            </svg>
+                                                        </button>
+                                                    )}
                                                     <button
                                                         onClick={() => setConfirmDelete(task.id)}
                                                         title="Delete task"
@@ -1404,7 +1438,17 @@ export default function TasksPlanner() {
                                     <div style={{ flex: 1, minWidth: '160px' }}>
                                         <label style={labelStyle}>Due Date</label>
                                         <input
-                                            type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)}
+                                            type="date"
+                                            value={editDueDate}
+                                            min={new Date().toISOString().split("T")[0]}
+                                            onChange={(e) => {
+                                                const today = new Date().toISOString().split("T")[0];
+                                                if (e.target.value && e.target.value < today) {
+                                                    alert("Due date cannot be in the past");
+                                                    return;
+                                                }
+                                                setEditDueDate(e.target.value);
+                                            }}
                                             style={inputStyle}
                                             onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
                                             onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'}

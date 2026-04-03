@@ -53,7 +53,7 @@ const AuthGuard = () => {
 
     // Admin accounts should not access the student dashboard
     if (isAdmin) {
-        return <Navigate to="/admin/users" replace />;
+        return <Navigate to="/admin/dashboard" replace />;
     }
 
     // Authenticated regular user — render the protected page

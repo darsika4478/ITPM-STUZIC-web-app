@@ -122,9 +122,7 @@ const AdminLogin = () => {
                             Admin Portal
                         </span>
                     </div>
-                    <p style={{ marginTop: '0.75rem', fontSize: '0.8rem', color: '#a78bfa' }}>
-                        Authorized personnel only
-                    </p>
+                
                 </div>
 
                 {/* Form */}
@@ -187,9 +185,7 @@ const AdminLogin = () => {
                     </button>
                 </form>
 
-                <p style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.72rem', color: 'rgba(167,139,250,0.5)' }}>
-                    STUZIC Admin Console v1.0
-                </p>
+                
             </div>
         </main>
     );

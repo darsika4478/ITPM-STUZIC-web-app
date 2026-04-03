@@ -22,7 +22,12 @@ import ReportPage from "./pages/ReportPage.jsx";
 import AdminLogin from "./admin/pages/AdminLogin.jsx";
 import AdminGuard from "./admin/components/AdminGuard.jsx";
 import AdminLayout from "./admin/layout/AdminLayout.jsx";
+import AdminDashboard from "./admin/pages/AdminDashboard.jsx";
 import AdminUsersPage from "./admin/pages/AdminUsersPage.jsx";
+import AdminTasksPage from "./admin/pages/AdminTasksPage.jsx";
+import AdminMoodReportsPage from "./admin/pages/AdminMoodReportsPage.jsx";
+import AdminSessionsPage from "./admin/pages/AdminSessionsPage.jsx";
+import AdminAnnouncementsPage from "./admin/pages/AdminAnnouncementsPage.jsx";
 
 export default function App() {
   return (
@@ -53,10 +58,11 @@ export default function App() {
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Navigate to="users" replace />} />
           <Route path="users" element={<AdminUsersPage />} />
-          <Route path="dashboard" element={<Navigate to="../users" replace />} />
-          <Route path="tasks" element={<Navigate to="../users" replace />} />
-          <Route path="mood-reports" element={<Navigate to="../users" replace />} />
-          <Route path="sessions" element={<Navigate to="../users" replace />} />
+          <Route path="dashboard" element={<AdminDashboard />} />
+          <Route path="tasks" element={<AdminTasksPage />} />
+          <Route path="mood-reports" element={<AdminMoodReportsPage />} />
+          <Route path="sessions" element={<AdminSessionsPage />} />
+          <Route path="announcements" element={<AdminAnnouncementsPage />} />
         </Route>
       </Route>
 
