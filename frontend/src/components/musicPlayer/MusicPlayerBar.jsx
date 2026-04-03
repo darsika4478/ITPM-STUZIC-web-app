@@ -11,9 +11,26 @@ export default function MusicPlayerBar() {
     volume,
     setVolume,
     isPlayerActive,
+    currentTime,
+    duration,
+    seekTo,
   } = useMusicPlayer();
 
   if (!currentTrack || !isPlayerActive) return null;
+
+  const formatTime = (seconds) => {
+    if (!seconds || isNaN(seconds)) return "0:00";
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleSeek = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const percentage = x / rect.width;
+    seekTo(percentage * duration);
+  };
 
   return (
     <div className="fixed bottom-0 left-[256px] right-0 z-[100] bg-[#1A1D2E]/95 backdrop-blur-xl border-t border-purple-400/20 px-8 py-4 flex items-center justify-between shadow-[0_-10px_40px_rgba(0,0,0,0.6)] animate-slideUp">
@@ -55,16 +72,22 @@ export default function MusicPlayerBar() {
           </button>
         </div>
         
-        {/* Progress Bar (Visual only for now as actual time tracking might depend on Audio element) */}
+        {/* Progress Bar */}
         <div className="w-full max-w-md flex items-center gap-3">
-          <span className="text-[10px] text-purple-300/50 font-medium font-mono">02:14</span>
-          <div className="flex-1 h-1.5 bg-purple-900/40 rounded-full overflow-hidden relative group cursor-pointer">
+          <span className="text-[10px] text-purple-300/50 font-medium font-mono">{formatTime(currentTime)}</span>
+          <div 
+            onClick={handleSeek}
+            className="flex-1 h-1.5 bg-purple-900/40 rounded-full overflow-hidden relative group cursor-pointer"
+          >
             <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-            <div className="h-full bg-gradient-to-r from-purple-500 to-indigo-400 w-1/3 rounded-full shadow-[0_0_10px_rgba(139,92,246,0.5)] relative">
+            <div 
+              className="h-full bg-gradient-to-r from-purple-500 to-indigo-400 rounded-full shadow-[0_0_10px_rgba(139,92,246,0.5)] relative"
+              style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
+            >
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg scale-0 group-hover:scale-100 transition-transform" />
             </div>
           </div>
-          <span className="text-[10px] text-purple-300/50 font-medium font-mono">03:45</span>
+          <span className="text-[10px] text-purple-300/50 font-medium font-mono">{formatTime(duration)}</span>
         </div>
       </div>
 
