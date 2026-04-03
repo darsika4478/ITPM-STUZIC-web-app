@@ -9,3 +9,4 @@
 **/.env
 backend/.env
 frontend/.env.example
+frontend/firestore.rules
