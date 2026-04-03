@@ -4,6 +4,8 @@
 
 # Environment variables
 .env
+.env.local
+.env*.local
 **/.env
 backend/.env
-backend/.env
+frontend/.env.example

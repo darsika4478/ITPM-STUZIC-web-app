@@ -7,8 +7,7 @@ export default function CalendarEventsPopover({
   position,
   eventsByDate,
   onClose,
-  onEditEvent,     
-  onDeleteEvent, 
+  onAddEvent,
 }) {
   const popRef = useRef(null);
   const [showAddEventForm, setShowAddEventForm] = useState(false);
@@ -25,7 +24,11 @@ export default function CalendarEventsPopover({
   }, [dateKey, onClose]);
 
   useEffect(() => {
-    if (!dateKey) setShowAddEventForm(false);
+    if (!dateKey) {
+      setShowAddEventForm(false);
+      return;
+    }
+    setShowAddEventForm(false);
   }, [dateKey]);
 
   if (!dateKey) return null;
@@ -45,8 +48,18 @@ export default function CalendarEventsPopover({
     return dateStart < todayStart;
   })();
 
+  const closeForm = () => {
+    setShowAddEventForm(false);
+  };
+
   const getEventAccent = (category) => {
     switch (category) {
+      case "Study Session":
+        return "bg-[#FFECC0] text-[#B500B2] border-l-[3px] border-[#B500B2]";
+      case "Lectures":
+        return "bg-[#fff3cd] text-[#856404] border-l-[3px] border-[#f97316]";
+      case "Deadlines":
+        return "bg-[#d1fae5] text-[#065f46] border-l-[3px] border-[#10b981]";
       case "work":
         return "bg-[#e0f2fe] text-[#0369a1] border-l-[3px] border-[#0ea5e9]";
       case "personal":
@@ -90,41 +103,14 @@ export default function CalendarEventsPopover({
 
               return (
                 <li
-                  key={idx}
-                  className={`text-xs p-2 rounded ${getEventAccent(ev.category)} flex justify-between items-start`}
+                  key={ev.id || idx}
+                  className={`text-xs p-2 rounded ${getEventAccent(ev.category)}`}
                 >
-                  <div>
+                  <div className="min-w-0">
                     {ev.time ? (
                       <span className="font-semibold mr-2">{ev.time}</span>
                     ) : null}
                     {ev.title || "Event"}
-                  </div>
-
-                  {/* Buttons */}
-                  <div className="flex gap-1 ml-2">
-                    <button
-                      type="button"
-                      disabled={isPastDate}
-                      onClick={() => !isPastDate && onEditEvent?.(dateKey, idx, ev)}
-                      className={`px-2 py-0.5 rounded text-[10px]
-                        ${isPastDate
-                          ? "bg-gray-500 text-gray-300 cursor-not-allowed"
-                          : "bg-blue-500 hover:bg-blue-600 text-white"}`}
-                    >
-                      Edit
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={isPastDate}
-                      onClick={() => !isPastDate && onDeleteEvent?.(dateKey, idx)}
-                      className={`px-2 py-0.5 rounded text-[10px]
-                        ${isPastDate
-                          ? "bg-gray-500 text-gray-300 cursor-not-allowed"
-                          : "bg-red-500 hover:bg-red-600 text-white"}`}
-                    >
-                      Delete
-                    </button>
                   </div>
                 </li>
               );
@@ -140,14 +126,20 @@ export default function CalendarEventsPopover({
           <div className="relative w-full max-w-md">
             <button
               type="button"
-              className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-white text-black shadow"
-              onClick={() => setShowAddEventForm(false)}
+              className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-white text-black shadow z-10"
+              onClick={closeForm}
             >
               ✕
             </button>
             <CalendarAddEventForm
               selectedDate={selectedDate}
-              onSave={() => setShowAddEventForm(false)}
+              onSuccessfulSave={closeForm}
+              onSave={async (payload) => {
+                if (typeof onAddEvent !== "function") {
+                  throw new Error("Calendar save is not wired (onAddEvent missing).");
+                }
+                await onAddEvent(dateKey, payload);
+              }}
             />
           </div>
         </div>

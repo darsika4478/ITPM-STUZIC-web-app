@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../../../config/firebase';
 import MoodSelector from '../components/MoodSelector';
 import MoodSubmitButton from '../components/MoodSubmitButton';
 import { MOOD_CONFIG } from '../components/MoodEmojiOption';
+import { onAuthStateChanged } from 'firebase/auth';
 
 // ── Professional Palette ─────────────────────────────────────────
 // Background: transparent (inherited) | Surface: #3C436B | Primary: #585296
@@ -13,18 +14,93 @@ import { MOOD_CONFIG } from '../components/MoodEmojiOption';
 
 const MoodInputPage = () => {
     const navigate = useNavigate();
-
-    // Form State for 6 fields
-    const [selectedMood, setSelectedMood] = useState(null);
-    const [formData, setFormData] = useState({
+    const defaultFormData = {
         genre: '',
         energy: '',
         activity: '',
         vocals: '',
         focusTime: '',
         artist: ''
-    });
+    };
+
+    // Form State for 6 fields
+    const [selectedMood, setSelectedMood] = useState(null);
+    const [formData, setFormData] = useState(defaultFormData);
     const [showErrors, setShowErrors] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveError, setSaveError] = useState('');
+    const [currentUser, setCurrentUser] = useState(auth.currentUser);
+    const [existingMoodEntry, setExistingMoodEntry] = useState(null);
+    const [isLoadingEntry, setIsLoadingEntry] = useState(true);
+    const [isEditMode, setIsEditMode] = useState(true);
+
+    const resetForm = () => {
+        setSelectedMood(null);
+        setFormData(defaultFormData);
+        setShowErrors(false);
+        setSaveError('');
+    };
+
+    const getTodayId = () => new Date().toISOString().slice(0, 10);
+
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            setCurrentUser(user);
+        });
+        return unsubscribe;
+    }, []);
+
+    useEffect(() => {
+        resetForm();
+        const handlePageShow = (event) => {
+            if (event.persisted) {
+                resetForm();
+            }
+        };
+
+        window.addEventListener('pageshow', handlePageShow);
+        return () => window.removeEventListener('pageshow', handlePageShow);
+    }, []);
+
+    useEffect(() => {
+        if (!currentUser) {
+            setExistingMoodEntry(null);
+            setIsLoadingEntry(false);
+            return;
+        }
+
+        const loadExistingMood = async () => {
+            const docId = `${currentUser.uid}_${getTodayId()}`;
+            setIsLoadingEntry(true);
+
+            try {
+                const snapshot = await getDoc(doc(db, 'moodEntries', docId));
+                if (snapshot.exists()) {
+                    const entry = snapshot.data();
+                    setExistingMoodEntry({ id: snapshot.id, ...entry });
+                    setSelectedMood(entry.moodValue || null);
+                    setFormData({
+                        genre: entry.preferences?.genre || '',
+                        energy: entry.preferences?.energy ? String(entry.preferences.energy) : '',
+                        activity: entry.preferences?.activity || '',
+                        vocals: entry.preferences?.vocals || '',
+                        focusTime: entry.preferences?.focusTime ? String(entry.preferences.focusTime) : '',
+                        artist: entry.preferences?.artist || ''
+                    });
+                    setIsEditMode(false);
+                } else {
+                    setExistingMoodEntry(null);
+                    setIsEditMode(true);
+                }
+            } catch (error) {
+                console.error('Failed to load today mood entry:', error);
+            } finally {
+                setIsLoadingEntry(false);
+            }
+        };
+
+        loadExistingMood();
+    }, [currentUser]);
 
     const selectedConfig = MOOD_CONFIG.find((m) => m.value === selectedMood);
 
@@ -72,33 +148,63 @@ const MoodInputPage = () => {
     };
 
     const handleConfirm = async () => {
-        if (isFormValid) {
-            // Persist mood entry to Firestore
-            try {
-                await addDoc(collection(db, 'moods'), {
-                    userId: auth.currentUser.uid,
-                    mood: selectedMood,
-                    energy: Number(formData.energy),
-                    activity: formData.activity,
-                    genre: formData.genre,
-                    vocals: formData.vocals,
-                    focusTime: Number(formData.focusTime),
-                    artist: formData.artist?.trim() || null,
-                    createdAt: serverTimestamp(),
-                    date: new Date().toISOString().split('T')[0],
-                });
-            } catch (err) {
-                console.error('Failed to save mood:', err);
-            }
-            // Pass the entire structured payload to the recommendation engine
+        if (!isFormValid) {
+            setShowErrors(true);
+            return;
+        }
+
+        if (!currentUser) {
+            setSaveError('Unable to save mood. Please sign in again.');
+            return;
+        }
+
+        setIsSaving(true);
+        setSaveError('');
+
+        const today = new Date().toISOString().slice(0, 10);
+        const moodPayload = {
+            userId: currentUser.uid,
+            date: today,
+            moodValue: selectedMood,
+            moodLabel: selectedConfig?.label || '',
+            moodEmoji: selectedConfig?.emoji || '',
+            preferences: {
+                genre: formData.genre,
+                energy: Number(formData.energy),
+                activity: formData.activity,
+                vocals: formData.vocals,
+                focusTime: Number(formData.focusTime),
+                artist: formData.artist.trim() || null,
+            },
+            recordedAt: serverTimestamp(),
+        };
+
+        try {
+            const docId = `${currentUser.uid}_${today}`;
+            await setDoc(doc(db, 'moodEntries', docId), moodPayload, { merge: true });
             navigate('/dashboard/mood-recommendation', {
                 state: {
                     mood: selectedConfig,
                     preferences: formData
                 }
             });
-        } else {
-            setShowErrors(true);
+        } catch (error) {
+            console.error('Failed to save mood entry:', error);
+            const code = error?.code || '';
+            const message = error?.message || '';
+
+            if (code === 'permission-denied') {
+                setSaveError(
+                    'Permission denied. Please verify your Firebase Firestore rules are deployed and that you are signed in to the correct Firebase project.'
+                );
+            } else {
+                setSaveError(
+                    `Could not save mood to Firebase. ${code ? `(${code}) ` : ''}${message}`.trim() ||
+                    'Could not connect to Firebase. Please try again.'
+                );
+            }
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -136,9 +242,51 @@ const MoodInputPage = () => {
                         </p>
                     </div>
 
-                    {/* 1. Mood Selector */}
-                    <div className="flex flex-col items-center">
-                        <label className={`${labelClasses} text-center w-full`} style={{ color: '#B6B4BB' }}>1. Current Mood *</label>
+                    {isLoadingEntry ? (
+                        <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-center text-sm text-white/80">
+                            Checking whether today&apos;s mood has already been recorded...
+                        </div>
+                    ) : existingMoodEntry && !isEditMode ? (
+                        <div className="rounded-3xl border border-white/10 bg-white/5 p-6 space-y-4">
+                            <p className="text-sm text-white/80">
+                                You already recorded your mood for today. If you want to see personalized music, open your recommendation page.
+                            </p>
+                            <div className="grid gap-3 md:grid-cols-2">
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/dashboard/mood-recommendation', {
+                                        state: {
+                                            mood: {
+                                                value: existingMoodEntry.moodValue,
+                                                emoji: existingMoodEntry.moodEmoji,
+                                                label: existingMoodEntry.moodLabel
+                                            }
+                                        }
+                                    })}
+                                    className="rounded-2xl bg-gradient-to-r from-[var(--c3)] to-[var(--c4)] px-4 py-3 text-sm font-semibold text-white transition hover:brightness-110"
+                                >
+                                    View today&apos;s recommendation
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsEditMode(true);
+                                        setExistingMoodEntry(null);
+                                        resetForm();
+                                    }}
+                                    className="rounded-2xl border border-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+                                >
+                                    Update mood for today
+                                </button>
+                            </div>
+                        </div>
+                    ) : null}
+
+                    {!(existingMoodEntry && !isEditMode) && (
+                        <>
+                            {/* 1. Mood Selector */}
+                            <div className="flex flex-col items-center">
+                                <label className={`${labelClasses} text-center w-full`} style={{ color: '#B6B4BB' }}>1. Current Mood *</label>
                         <MoodSelector selectedMood={selectedMood} onMoodSelect={(val) => { setSelectedMood(val); if (showErrors) setShowErrors(false); }} />
                         <ErrorMsg condition={selectedMood !== null} msg="Please select your current mood." />
                         {selectedConfig && (
@@ -253,13 +401,17 @@ const MoodInputPage = () => {
                     <div className="flex flex-col items-center mt-4">
                         <MoodSubmitButton
                             onClick={handleConfirm}
-                            disabled={false}
-                            label="Get Recommendations"
+                            disabled={isSaving || !currentUser}
                         />
+                        {saveError && (
+                            <p className="text-sm text-red-300 text-center mt-3">{saveError}</p>
+                        )}
                         <p className="text-xs text-center opacity-60 mt-4" style={{ color: '#B6B4BB' }}>
                             <span className="font-semibold">*</span> Required fields
                         </p>
                     </div>
+                        </>
+                    )}
                 </div>
             </div>
         </div>
