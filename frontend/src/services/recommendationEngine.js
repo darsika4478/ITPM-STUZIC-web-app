@@ -80,31 +80,44 @@ export function groupTracksByGenre(tracks) {
  * @param {number} limit - Maximum number of tracks
  * @returns {Array} Diverse recommendation playlist
  */
-export function createDiversePlaylist(moodValue, activity, preferences = {}, limit = 8) {
+export function createDiversePlaylist(moodValue, activity, preferences = {}, limit = 12, minDuration = 3600) {
   const tracks = getRankedPlaylists(moodValue, activity, preferences);
   const playlist = [];
   const usedGenres = new Set();
+  let totalDuration = 0;
 
-  // First pass: pick one from each genre
+  // First pass: pick one from each genre to ensure variety
   for (const track of tracks) {
     if (playlist.length >= limit) break;
     const genre = track.genre;
-    
+
     if (!usedGenres.has(genre)) {
       playlist.push(track);
       usedGenres.add(genre);
+      totalDuration += track.duration || 240;
     }
   }
 
-  // Second pass: fill remaining with highest scoring tracks
+  // Second pass: add highest scoring tracks until minDuration is reached
   for (const track of tracks) {
-    if (playlist.length >= limit) break;
+    if (playlist.length >= limit && totalDuration >= minDuration) break;
     if (!playlist.find(p => p.id === track.id)) {
       playlist.push(track);
+      totalDuration += track.duration || 240;
     }
   }
 
-  return playlist.slice(0, limit);
+  // If still under min duration, allow additional track additions beyond limit
+  if (totalDuration < minDuration) {
+    for (const track of tracks) {
+      if (playlist.find(p => p.id === track.id)) continue;
+      playlist.push(track);
+      totalDuration += track.duration || 240;
+      if (totalDuration >= minDuration) break;
+    }
+  }
+
+  return playlist;
 }
 
 /**
@@ -115,8 +128,22 @@ export function createDiversePlaylist(moodValue, activity, preferences = {}, lim
  * @returns {Object} Recommendation data with playlists and stats
  */
 export function getRecommendationSummary(moodValue, activity, preferences = {}) {
-  const allTracks = getFilteredRecommendations(moodValue, activity, preferences);
-  const diversePlaylist = createDiversePlaylist(moodValue, activity, preferences);
+  let allTracks = getFilteredRecommendations(moodValue, activity, preferences);
+
+  // If preferences lead to very few options, relax filters to ensure enough playlist duration
+  if (allTracks.length < 3) {
+    allTracks = getRecommendationsByMoodAndActivity(moodValue, activity);
+  }
+
+  let minDuration = 3600; // default 1 hour
+  if (preferences.focusTime) {
+    const mins = parseInt(preferences.focusTime.replace(/[^0-9]/g, ""), 10);
+    if (!Number.isNaN(mins) && mins > 0) {
+      minDuration = Math.max(minDuration, mins * 60);
+    }
+  }
+
+  const diversePlaylist = createDiversePlaylist(moodValue, activity, preferences, 12, minDuration);
   const genreGroups = groupTracksByGenre(allTracks);
 
   const moodLabels = {

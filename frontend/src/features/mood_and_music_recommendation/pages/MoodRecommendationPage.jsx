@@ -136,7 +136,7 @@ const MoodRecommendationPage = () => {
 
                 {/* Statistics */}
                 {stats && (
-                    <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 px-4">
+                    <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4 px-4">
                         <div className="rounded-lg p-3 text-center" style={{ backgroundColor: 'rgba(88, 82, 150, 0.2)' }}>
                             <div className="text-2xl font-bold" style={{ color: '#B6B4BB' }}>{stats.totalTracksAvailable}</div>
                             <div className="text-xs mt-1" style={{ color: '#8F8BB6' }}>Tracks Available</div>
@@ -150,6 +150,12 @@ const MoodRecommendationPage = () => {
                                 {stats.topGenres.map(g => g.genre).join(', ')}
                             </div>
                             <div className="text-xs mt-1" style={{ color: '#8F8BB6' }}>Top Genres</div>
+                        </div>
+                        <div className="rounded-lg p-3 text-center" style={{ backgroundColor: 'rgba(88, 82, 150, 0.2)' }}>
+                            <div className="text-lg font-bold" style={{ color: '#B6B4BB' }}>
+                                {Math.floor(recommendations.reduce((t, r) => t + (r.duration || 0), 0) / 60)}m
+                            </div>
+                            <div className="text-xs mt-1" style={{ color: '#8F8BB6' }}>Playlist Length</div>
                         </div>
                     </div>
                 )}
