@@ -51,11 +51,16 @@ service cloud.firestore {
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // RECOMMENDATIONS COLLECTION - Generated recommendations
+    // User recommendations: /recommendations/{userId}/playlists/{playlistId}
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    match /recommendations/{recommendationId} {
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    match /recommendations/{userId}/playlists/{playlistId} {
+      allow read: if isAuthenticated() && userId == request.auth.uid;
+      allow create: if isAuthenticated() && userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && userId == request.auth.uid;
+    }
+
+    match /recommendations/{userId} {
+      allow read: if isAuthenticated() && userId == request.auth.uid;
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

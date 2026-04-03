@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import SelectedMoodDisplay from '../components/SelectedMoodDisplay';
 import PlaylistCard from '../components/PlaylistCard';
-import { getRecommendationSummary, createDiversePlaylist } from '../../../services/recommendationEngine';
+import { getRecommendationSummaryWithJioSaavan } from '../../../services/recommendationEngine';
+import { useMusicPlayer } from '../../../context/useMusicPlayer';
 
 // ── Professional Palette ─────────────────────────────────────────
 // Background: #272D3E | Surface: #3C436B | Primary: #585296
@@ -19,6 +20,7 @@ const BACKGROUND_IMAGES = [
 const MoodRecommendationPage = () => {
     const location = useLocation();
     const navigate = useNavigate();
+    const { setCustomPlaylist, updateMoodData, moodData: contextMoodData } = useMusicPlayer();
 
     // Default to 'Happy' if no state is passed
     const [moodData, setMoodData] = useState({ value: 5, emoji: '😄', label: 'Happy', activity: 'studying' });
@@ -27,8 +29,9 @@ const MoodRecommendationPage = () => {
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        if (location.state && location.state.mood) {
-            const mood = location.state.mood;
+        const mood = (location.state && location.state.mood) || contextMoodData;
+        
+        if (mood) {
             setMoodData({
                 value: mood.value,
                 emoji: mood.emoji,
@@ -40,36 +43,55 @@ const MoodRecommendationPage = () => {
                 focusTime: mood.focusTime
             });
 
-            // Get recommendations
-            setLoading(true);
-            try {
-                const preferences = {
-                    genre: mood.genre,
-                    vocals: mood.vocals,
-                    focusTime: mood.focusTime,
-                    energy: mood.energy
-                };
-                const summary = getRecommendationSummary(mood.value, mood.activity || 'studying', preferences);
-                setRecommendations(summary.playlist);
-                setStats(summary.stats);
-            } catch (err) {
-                console.error('Failed to get recommendations:', err);
-            } finally {
-                setLoading(false);
-            }
+            // Get recommendations based on mood input
+            const fetchRecommendations = async () => {
+                setLoading(true);
+                try {
+                    const preferences = {
+                        genre: mood.genre,
+                        vocals: mood.vocals,
+                        focusTime: mood.focusTime,
+                        energy: mood.energy
+                    };
+                    
+                    const summary = await getRecommendationSummaryWithJioSaavan(
+                        mood.value, 
+                        mood.activity || 'studying', 
+                        preferences
+                    );
+                    setRecommendations(summary.playlist);
+                    setStats(summary.stats);
+                    console.log('[MoodRecommendationPage] Recommendations loaded:', summary);
+                    
+                    // Sync to context if it was from location.state
+                    if (location.state && location.state.mood) {
+                        updateMoodData(mood);
+                    }
+                } catch (err) {
+                    console.error('[MoodRecommendationPage] Failed to get recommendations:', err);
+                    setRecommendations([]);
+                    setStats(null);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            fetchRecommendations();
         }
-    }, [location.state]);
+    }, [location.state, contextMoodData]);
 
     const playTrack = (track) => {
         console.log('Playing track:', track);
-        // Navigate to music player with the track and recommendations
-        navigate('/music-player', {
-            state: {
-                track: track,
-                playlist: recommendations,
-                mood: moodData
-            }
-        });
+        
+        // Find index of clicked track in the recommendations
+        const trackIndex = recommendations.findIndex(t => t.id === track.id);
+        
+        // Update context immediately
+        setCustomPlaylist(recommendations, trackIndex >= 0 ? trackIndex : 0);
+        updateMoodData(moodData);
+
+        // Navigate to full player
+        navigate('/dashboard/music');
     };
 
     return (
@@ -138,16 +160,16 @@ const MoodRecommendationPage = () => {
                 {stats && (
                     <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 px-4">
                         <div className="rounded-lg p-3 text-center" style={{ backgroundColor: 'rgba(88, 82, 150, 0.2)' }}>
-                            <div className="text-2xl font-bold" style={{ color: '#B6B4BB' }}>{stats.totalTracksAvailable}</div>
+                            <div className="text-2xl font-bold" style={{ color: '#B6B4BB' }}>{stats.totalTracksAvailable || 0}</div>
                             <div className="text-xs mt-1" style={{ color: '#8F8BB6' }}>Tracks Available</div>
                         </div>
                         <div className="rounded-lg p-3 text-center" style={{ backgroundColor: 'rgba(88, 82, 150, 0.2)' }}>
-                            <div className="text-2xl font-bold" style={{ color: '#B6B4BB' }}>{stats.genresAvailable}</div>
+                            <div className="text-2xl font-bold" style={{ color: '#B6B4BB' }}>{stats.genresAvailable || 0}</div>
                             <div className="text-xs mt-1" style={{ color: '#8F8BB6' }}>Genres</div>
                         </div>
                         <div className="rounded-lg p-3 text-center" style={{ backgroundColor: 'rgba(88, 82, 150, 0.2)' }}>
                             <div className="text-lg font-bold" style={{ color: '#B6B4BB' }}>
-                                {stats.topGenres.map(g => g.genre).join(', ')}
+                                {stats.topGenres && stats.topGenres.length > 0 ? stats.topGenres.map(g => g.genre).join(', ') : 'Mixed'}
                             </div>
                             <div className="text-xs mt-1" style={{ color: '#8F8BB6' }}>Top Genres</div>
                         </div>
