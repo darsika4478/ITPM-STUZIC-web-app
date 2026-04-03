@@ -22,7 +22,7 @@ import ReportPage from "./pages/ReportPage.jsx";
 import AdminLogin from "./admin/pages/AdminLogin.jsx";
 import AdminGuard from "./admin/components/AdminGuard.jsx";
 import AdminLayout from "./admin/layout/AdminLayout.jsx";
-import AdminDashboard from "./admin/pages/AdminDashboard.jsx";
+import AdminUsersPage from "./admin/pages/AdminUsersPage.jsx";
 
 export default function App() {
   return (
@@ -51,7 +51,12 @@ export default function App() {
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route element={<AdminGuard />}>
         <Route path="/admin" element={<AdminLayout />}>
-          <Route path="dashboard" element={<AdminDashboard />} />
+          <Route index element={<Navigate to="users" replace />} />
+          <Route path="users" element={<AdminUsersPage />} />
+          <Route path="dashboard" element={<Navigate to="../users" replace />} />
+          <Route path="tasks" element={<Navigate to="../users" replace />} />
+          <Route path="mood-reports" element={<Navigate to="../users" replace />} />
+          <Route path="sessions" element={<Navigate to="../users" replace />} />
         </Route>
       </Route>
 

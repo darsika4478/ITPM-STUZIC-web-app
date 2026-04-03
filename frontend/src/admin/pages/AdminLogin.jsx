@@ -13,14 +13,14 @@ const AdminLogin = () => {
     const [formError, setFormError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // If already logged in as admin, redirect to admin dashboard
+    // If already logged in as admin, redirect to admin users page
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (!user) return;
             try {
                 const userDoc = await getDoc(doc(db, 'users', user.uid));
                 if (userDoc.exists() && userDoc.data().role === 'admin') {
-                    navigate('/admin/dashboard');
+                    navigate('/admin/users');
                 }
             } catch {
                 // ignore
@@ -55,7 +55,7 @@ const AdminLogin = () => {
                 return;
             }
 
-            navigate('/admin/dashboard');
+            navigate('/admin/users');
         } catch {
             setFormError('Invalid email or password.');
         }

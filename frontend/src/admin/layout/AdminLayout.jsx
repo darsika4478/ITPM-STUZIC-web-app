@@ -97,20 +97,8 @@ const AdminLayout = () => {
                     <p style={{ marginBottom: '0.5rem', paddingLeft: '1rem', fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#f87171' }}>
                         Management
                     </p>
-                    <NavLink to="/admin/dashboard" end style={({ isActive }) => navLinkStyle(isActive)}>
-                        <span style={{ fontSize: '1.125rem' }}>📊</span> Dashboard
-                    </NavLink>
                     <NavLink to="/admin/users" style={({ isActive }) => navLinkStyle(isActive)}>
                         <span style={{ fontSize: '1.125rem' }}>👥</span> User Management
-                    </NavLink>
-                    <NavLink to="/admin/tasks" style={({ isActive }) => navLinkStyle(isActive)}>
-                        <span style={{ fontSize: '1.125rem' }}>📋</span> Task Reports
-                    </NavLink>
-                    <NavLink to="/admin/mood-reports" style={({ isActive }) => navLinkStyle(isActive)}>
-                        <span style={{ fontSize: '1.125rem' }}>🎭</span> Mood Reports
-                    </NavLink>
-                    <NavLink to="/admin/sessions" style={({ isActive }) => navLinkStyle(isActive)}>
-                        <span style={{ fontSize: '1.125rem' }}>⏱️</span> Session Reports
                     </NavLink>
                 </nav>
 

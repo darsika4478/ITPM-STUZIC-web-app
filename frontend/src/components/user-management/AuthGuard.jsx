@@ -10,7 +10,7 @@ import { auth, db } from '../../config/firebase';
  * Listens for Firebase auth state on mount.
  * - While checking: shows a loading screen
  * - If no user: redirects to /login
- * - If admin user: redirects to /admin/dashboard
+ * - If admin user: redirects to /admin/users
  * - If regular user: renders child routes via <Outlet />
  *
  * Usage: wrap protected routes with <AuthGuard /> in App.jsx
@@ -53,7 +53,7 @@ const AuthGuard = () => {
 
     // Admin accounts should not access the student dashboard
     if (isAdmin) {
-        return <Navigate to="/admin/dashboard" replace />;
+        return <Navigate to="/admin/users" replace />;
     }
 
     // Authenticated regular user — render the protected page
