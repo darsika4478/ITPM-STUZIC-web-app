@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 
-export default function EventForm({ onSave, selectedDate }) {
+export default function EventForm({ onSave, selectedDate, onSuccessfulSave }) {
   const [type, setType] = useState("Study Session");
   const [title, setTitle] = useState("");
   const [startTime, setStartTime] = useState("");
@@ -24,6 +24,8 @@ export default function EventForm({ onSave, selectedDate }) {
     : null;
 
   useEffect(() => {
+    setType("Study Session");
+    setTitle("");
     setStartTime("");
     setEndTime("");
     setDeadlineTime("");
@@ -110,7 +112,8 @@ export default function EventForm({ onSave, selectedDate }) {
     return null;
   };
 
-  const handleSubmit = (e) => {
+  // ✅ No direct Firestore calls — Calendarpage handles all saving
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const err = validate();
 
@@ -121,7 +124,7 @@ export default function EventForm({ onSave, selectedDate }) {
     }
 
     setError("");
-    setSuccess(true);
+    setSuccess(false);
 
     const newEvent = {
       type,
@@ -132,15 +135,31 @@ export default function EventForm({ onSave, selectedDate }) {
       reminder: combineDateTime(reminder),
     };
 
-    onSave && onSave(newEvent);
+    try {
+      if (onSave) await onSave(newEvent);
 
-    setTitle("");
-    setStartTime("");
-    setEndTime("");
-    setDeadlineTime("");
-    setReminder("");
+      if (onSuccessfulSave) {
+        onSuccessfulSave();
+        return;
+      }
 
-    setTimeout(() => setSuccess(false), 3000);
+      setSuccess(true);
+      setTitle("");
+      setStartTime("");
+      setEndTime("");
+      setDeadlineTime("");
+      setReminder("");
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (saveErr) {
+      const code = saveErr?.code || "";
+      const msg =
+        saveErr?.message ||
+        (code === "permission-denied"
+          ? "Firestore blocked this save. Check Firestore rules."
+          : "Could not save the event. Check the browser console.");
+      setError(msg);
+      setSuccess(false);
+    }
   };
 
   return (

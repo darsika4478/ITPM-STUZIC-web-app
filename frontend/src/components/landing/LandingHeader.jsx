@@ -61,7 +61,7 @@ export default function LandingHeader() {
                 }}>
                     Log In
                 </Link>
-                <Link to="/Register" style={{ 
+                <Link to="/register" style={{ 
                     borderRadius: '14px', 
                     padding: '12px 28px', 
                     fontSize: '0.9rem', 
