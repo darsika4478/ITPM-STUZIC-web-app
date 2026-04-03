@@ -1,9 +1,11 @@
 // Recommendation Engine Service
 // Generates music recommendations based on mood, activity, and user preferences
+// Uses local playlist data filtered by user preferences
 
 import { MOOD_PLAYLISTS, getFilteredRecommendations } from "../data/dummyTracks";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "../config/firebase";
+import jioSaavanService from "./jioSaavanService";
 
 /**
  * Calculates recommendation score for a track based on preferences
@@ -181,6 +183,87 @@ export async function getRecommendationsFromFirestore(userId, moodValue, activit
 }
 
 /**
+ * Get recommendation summary - returns local playlist based on mood inputs
+ * Recommendations are filtered by user's selected mood, activity, genre, and vocals
+ * @param {number} moodValue - Mood value (1-5)
+ * @param {string} activity - Activity
+ * @param {Object} preferences - User preferences { genre, vocals, focusTime, energy }
+ * @returns {Object} Recommendation data with playlists and stats
+ */
+export function getRecommendationSummaryFiltered(moodValue, activity, preferences = {}) {
+  const allTracks = getFilteredRecommendations(moodValue, activity, preferences);
+  
+  // Apply additional filtering based on user preferences
+  let filteredTracks = allTracks;
+
+  // Filter by genre if specified
+  if (preferences.genre) {
+    filteredTracks = filteredTracks.filter(
+      t => t.genre && t.genre.toLowerCase() === preferences.genre.toLowerCase()
+    );
+  }
+
+  // Filter by vocals preference if specified
+  if (preferences.vocals) {
+    filteredTracks = filteredTracks.filter(
+      t => t.vocals && t.vocals.toLowerCase() === preferences.vocals.toLowerCase()
+    );
+  }
+
+  // If filtering results in too few tracks, fall back to all tracks for mood/activity
+  if (filteredTracks.length < 5) {
+    filteredTracks = allTracks;
+  }
+
+  // Score and rank
+  const scoredTracks = filteredTracks.map(track => ({
+    ...track,
+    score: calculateTrackScore(track, { 
+      ...preferences, 
+      energy: preferences.energy || (moodValue > 3 ? 4 : 2) 
+    })
+  })).sort((a, b) => b.score - a.score);
+
+  // Create diverse playlist (one per genre)
+  const playlist = createDiversePlaylist(moodValue, activity, preferences, 12);
+  const genreGroups = groupTracksByGenre(scoredTracks);
+
+  const moodLabels = {
+    1: "Sad",
+    2: "Low",
+    3: "Neutral",
+    4: "Good",
+    5: "Happy"
+  };
+
+  // Calculate total duration
+  const totalDuration = playlist.reduce((sum, track) => sum + (track.duration || 240), 0);
+
+  return {
+    mood: {
+      value: moodValue,
+      label: moodLabels[moodValue] || "Unknown",
+      emoji: ["😢", "😕", "😐", "🙂", "😄"][moodValue - 1]
+    },
+    activity,
+    preferences,
+    playlist: playlist,
+    stats: {
+      totalTracksAvailable: scoredTracks.length,
+      genresAvailable: Object.keys(genreGroups).length,
+      totalDurationMinutes: Math.round(totalDuration / 60),
+      topGenres: Object.entries(genreGroups)
+        .sort((a, b) => b[1].length - a[1].length)
+        .slice(0, 3)
+        .map(([genre, tracks]) => ({
+          genre,
+          count: tracks.length
+        }))
+    }
+  };
+}
+
+/**
  * Suggestion: Store user mood history to improve recommendations
  * @param {Array} moodHistory - Array of past mood entries
  * @returns {Object} Preferred genres and vocal styles
@@ -214,12 +297,105 @@ export function analyzeUserPreferences(moodHistory) {
   return { preferredGenres, preferredVocals };
 }
 
+
+/**
+ * Fetch recommendations from JioSaavan API
+ * @param {number} moodValue - Mood value (1-5)
+ * @param {string} activity - Activity
+ * @param {Object} preferences - User preferences
+ * @returns {Promise<Array>} Scored and ranked tracks from JioSaavan
+ */
+export async function getRecommendationsFromJioSaavan(moodValue, activity, preferences = {}) {
+  try {
+    const moodKeys = { 1: 'sad', 2: 'low', 3: 'neutral', 4: 'good', 5: 'happy' };
+    const moodKey = moodKeys[moodValue] || 'neutral';
+    
+    const moodData = {
+      mood: moodKey,
+      activity: activity,
+      genre: preferences.genre || "tamil",
+      vocals: preferences.vocals || "mixed"
+    };
+
+    const tracks = await jioSaavanService.getPlaylistForMood(moodData);
+    
+    // Score and rank JioSaavan tracks
+    const scoredTracks = tracks.map(track => ({
+      ...track,
+      score: calculateTrackScore(track, { 
+        ...preferences, 
+        energy: preferences.energy || (moodValue > 3 ? 4 : 2) 
+      })
+    }));
+
+    return scoredTracks.sort((a, b) => b.score - a.score);
+  } catch (err) {
+    console.error("[recommendationEngine] JioSaavan fetch failed:", err);
+    return [];
+  }
+}
+
+/**
+ * Get recommendation summary with JioSaavan integration and local fallback
+ * @param {number} moodValue - Mood value (1-5)
+ * @param {string} activity - Activity
+ * @param {Object} preferences - User preferences
+ * @returns {Promise<Object>} Recommendation summary
+ */
+export async function getRecommendationSummaryWithJioSaavan(moodValue, activity, preferences = {}) {
+  // Try JioSaavan first
+  let playlist = await getRecommendationsFromJioSaavan(moodValue, activity, preferences);
+  let source = "JioSaavan";
+
+  // Fallback to local if JioSaavan returns nothing
+  if (!playlist || playlist.length === 0) {
+    console.info("[recommendationEngine] Falling back to local data");
+    const summary = getRecommendationSummaryFiltered(moodValue, activity, preferences);
+    playlist = summary.playlist;
+    source = "Local";
+  }
+
+  const moodLabels = {
+    1: "Sad", 2: "Low", 3: "Neutral", 4: "Good", 5: "Happy"
+  };
+
+  const totalDuration = playlist.reduce((sum, track) => sum + (track.duration || 240), 0);
+  const genreGroups = groupTracksByGenre(playlist);
+
+  return {
+    mood: {
+      value: moodValue,
+      label: moodLabels[moodValue] || "Unknown",
+      emoji: ["😢", "😕", "😐", "🙂", "😄"][moodValue - 1]
+    },
+    activity,
+    preferences,
+    playlist: playlist.slice(0, 15),
+    stats: {
+      totalTracksAvailable: playlist.length,
+      genresAvailable: Object.keys(genreGroups).length,
+      totalDurationMinutes: Math.round(totalDuration / 60),
+      source: source,
+      topGenres: Object.entries(genreGroups)
+        .sort((a, b) => b[1].length - a[1].length)
+        .slice(0, 3)
+        .map(([genre, tracks]) => ({
+          genre,
+          count: tracks.length
+        }))
+    }
+  };
+}
+
 export default {
   getRankedPlaylists,
   groupTracksByGenre,
   createDiversePlaylist,
   getRecommendationSummary,
+  getRecommendationSummaryFiltered,
   getRecommendationsFromFirestore,
   analyzeUserPreferences,
-  calculateTrackScore
+  calculateTrackScore,
+  getRecommendationsFromJioSaavan,
+  getRecommendationSummaryWithJioSaavan
 };

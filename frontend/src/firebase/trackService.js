@@ -3,7 +3,7 @@
 // Each doc: { title, artist, mood, duration, audioUrl }
 
 import { collection, getDocs, query, where } from "firebase/firestore";
-import { db } from "./firebaseConfig";
+import { db } from "../config/firebase";
 import { getPlaylistByMood } from "../data/dummyTracks";
 
 const TRACKS_COLLECTION = "tracks";
