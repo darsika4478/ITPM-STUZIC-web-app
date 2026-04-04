@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../../../config/firebase';
+import { auth } from '../../../config/firebase';
 import MoodSelector from '../components/MoodSelector';
 import MoodSubmitButton from '../components/MoodSubmitButton';
 import { MOOD_CONFIG } from '../components/MoodEmojiOption';
 import { onAuthStateChanged } from 'firebase/auth';
+import * as moodService from '../../../firebase/moodService';
 
 // ── Professional Palette ─────────────────────────────────────────
 // Background: transparent (inherited) | Surface: #3C436B | Primary: #585296
@@ -32,7 +32,7 @@ const MoodInputPage = () => {
     const [currentUser, setCurrentUser] = useState(auth.currentUser);
     const [existingMoodEntry, setExistingMoodEntry] = useState(null);
     const [isLoadingEntry, setIsLoadingEntry] = useState(true);
-    const [isEditMode, setIsEditMode] = useState(true);
+    const [isEditMode, setIsEditMode] = useState(false);
 
     const resetForm = () => {
         setSelectedMood(null);
@@ -69,37 +69,26 @@ const MoodInputPage = () => {
             return;
         }
 
-        const loadExistingMood = async () => {
-            const docId = `${currentUser.uid}_${getTodayId()}`;
+        const checkTodayMood = async () => {
             setIsLoadingEntry(true);
-
             try {
-                const snapshot = await getDoc(doc(db, 'moodEntries', docId));
-                if (snapshot.exists()) {
-                    const entry = snapshot.data();
-                    setExistingMoodEntry({ id: snapshot.id, ...entry });
-                    setSelectedMood(entry.moodValue || null);
-                    setFormData({
-                        genre: entry.preferences?.genre || '',
-                        energy: entry.preferences?.energy ? String(entry.preferences.energy) : '',
-                        activity: entry.preferences?.activity || '',
-                        vocals: entry.preferences?.vocals || '',
-                        focusTime: entry.preferences?.focusTime ? String(entry.preferences.focusTime) : '',
-                        artist: entry.preferences?.artist || ''
-                    });
+                const entry = await moodService.getTodayMood(currentUser.uid);
+                if (entry) {
+                    setExistingMoodEntry(entry);
                     setIsEditMode(false);
                 } else {
                     setExistingMoodEntry(null);
                     setIsEditMode(true);
                 }
             } catch (error) {
-                console.error('Failed to load today mood entry:', error);
+                console.error('Failed to check today mood:', error);
+                setIsEditMode(true);
             } finally {
                 setIsLoadingEntry(false);
             }
         };
 
-        loadExistingMood();
+        checkTodayMood();
     }, [currentUser]);
 
     const selectedConfig = MOOD_CONFIG.find((m) => m.value === selectedMood);
@@ -161,10 +150,7 @@ const MoodInputPage = () => {
         setIsSaving(true);
         setSaveError('');
 
-        const today = new Date().toISOString().slice(0, 10);
         const moodPayload = {
-            userId: currentUser.uid,
-            date: today,
             moodValue: selectedMood,
             moodLabel: selectedConfig?.label || '',
             moodEmoji: selectedConfig?.emoji || '',
@@ -175,13 +161,11 @@ const MoodInputPage = () => {
                 vocals: formData.vocals,
                 focusTime: Number(formData.focusTime),
                 artist: formData.artist.trim() || null,
-            },
-            recordedAt: serverTimestamp(),
+            }
         };
 
         try {
-            const docId = `${currentUser.uid}_${today}`;
-            await setDoc(doc(db, 'moodEntries', docId), moodPayload, { merge: true });
+            await moodService.addMoodEntry(currentUser.uid, moodPayload);
             navigate('/dashboard/mood-recommendation', {
                 state: {
                     mood: selectedConfig,
@@ -229,7 +213,7 @@ const MoodInputPage = () => {
             {/* Form Container (Removed explicit inner scrollbar to let the page scroll naturally) */}
             <div className="relative z-10 w-full max-w-2xl px-4">
                 <div
-                    className="border border-white/10 rounded-3xl shadow-2xl p-6 md:p-8 flex flex-col gap-8 back"
+                    className="border border-white/10 rounded-3xl shadow-2xl p-6 md:p-8 flex flex-col gap-8"
                     style={{ backgroundColor: '#3C436B' }}
                 >
                     {/* Header */}
@@ -242,47 +226,55 @@ const MoodInputPage = () => {
                         </p>
                     </div>
 
+                    {/* Mood Already Set Banner */}
                     {isLoadingEntry ? (
                         <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-center text-sm text-white/80">
-                            Checking whether today&apos;s mood has already been recorded...
+                            Checking your mood for today...
                         </div>
                     ) : existingMoodEntry && !isEditMode ? (
                         <div className="rounded-3xl border border-white/10 bg-white/5 p-6 space-y-4">
-                            <p className="text-sm text-white/80">
-                                You already recorded your mood for today. If you want to see personalized music, open your recommendation page.
-                            </p>
-                            <div className="grid gap-3 md:grid-cols-2">
+                            <div className="flex items-center gap-4">
+                                <span className="text-4xl">{existingMoodEntry.moodEmoji || "✨"}</span>
+                                <div>
+                                    <h2 className="text-lg font-bold text-white">Mood Already Set</h2>
+                                    <p className="text-sm text-white/60">
+                                        You've already set your mood as <span className="text-white font-medium">{existingMoodEntry.moodLabel || "Great"}</span> today. 
+                                        Would you like to move directly to music recommendation or update a new mood?
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="grid gap-3 md:grid-cols-2 pt-2">
                                 <button
                                     type="button"
                                     onClick={() => navigate('/dashboard/mood-recommendation', {
                                         state: {
                                             mood: {
-                                                value: existingMoodEntry.moodValue,
-                                                emoji: existingMoodEntry.moodEmoji,
+                                                value: existingMoodEntry.mood || existingMoodEntry.moodValue,
+                                                emoji: existingMoodEntry.moodEmoji || "✨",
                                                 label: existingMoodEntry.moodLabel
                                             }
                                         }
                                     })}
                                     className="rounded-2xl bg-gradient-to-r from-[var(--c3)] to-[var(--c4)] px-4 py-3 text-sm font-semibold text-white transition hover:brightness-110"
                                 >
-                                    View today&apos;s recommendation
+                                    Move to Music Recommendation
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => {
                                         setIsEditMode(true);
-                                        setExistingMoodEntry(null);
                                         resetForm();
                                     }}
                                     className="rounded-2xl border border-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
                                 >
-                                    Update mood for today
+                                    Update New Mood
                                 </button>
                             </div>
                         </div>
                     ) : null}
 
-                    {!(existingMoodEntry && !isEditMode) && (
+                    {/* Mood Profile Form */}
+                    {isEditMode && (
                         <>
                             {/* 1. Mood Selector */}
                             <div className="flex flex-col items-center">
@@ -412,9 +404,9 @@ const MoodInputPage = () => {
                     </div>
                         </>
                     )}
+                    </div>
                 </div>
             </div>
-        </div>
     );
 };
 
