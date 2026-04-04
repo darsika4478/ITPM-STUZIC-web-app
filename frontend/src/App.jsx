@@ -18,6 +18,17 @@ import CalendarUI from "./features/Schedule&Reminder/Calendarpage.jsx";
 import AboutPage from "./pages/AboutPage.jsx";
 import ReportPage from "./pages/ReportPage.jsx";
 
+// Admin imports
+import AdminLogin from "./admin/pages/AdminLogin.jsx";
+import AdminGuard from "./admin/components/AdminGuard.jsx";
+import AdminLayout from "./admin/layout/AdminLayout.jsx";
+import AdminDashboard from "./admin/pages/AdminDashboard.jsx";
+import AdminUsersPage from "./admin/pages/AdminUsersPage.jsx";
+import AdminTasksPage from "./admin/pages/AdminTasksPage.jsx";
+import AdminMoodReportsPage from "./admin/pages/AdminMoodReportsPage.jsx";
+import AdminSessionsPage from "./admin/pages/AdminSessionsPage.jsx";
+import AdminAnnouncementsPage from "./admin/pages/AdminAnnouncementsPage.jsx";
+
 export default function App() {
   return (
     <Routes>
@@ -41,6 +52,20 @@ export default function App() {
           <Route path="music" element={<MusicPlayerFullScreen />} />
         </Route>
       </Route>
+      {/* Admin routes */}
+      <Route path="/admin/login" element={<AdminLogin />} />
+      <Route element={<AdminGuard />}>
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<Navigate to="users" replace />} />
+          <Route path="users" element={<AdminUsersPage />} />
+          <Route path="dashboard" element={<AdminDashboard />} />
+          <Route path="tasks" element={<AdminTasksPage />} />
+          <Route path="mood-reports" element={<AdminMoodReportsPage />} />
+          <Route path="sessions" element={<AdminSessionsPage />} />
+          <Route path="announcements" element={<AdminAnnouncementsPage />} />
+        </Route>
+      </Route>
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
