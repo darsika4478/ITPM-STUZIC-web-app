@@ -22,15 +22,34 @@ export const searchTracks = async (query, limit = 10) => {
       n: limit,
     });
 
-    const response = await fetch(`${JIOSAAVAN_API}?${params}`);
-    const data = await response.json();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000); // 6 second timeout
 
-    if (data.results && Array.isArray(data.results)) {
-      return data.results.map((track) => formatTrackResponse(track));
+    try {
+      const response = await fetch(`${JIOSAAVAN_API}?${params}`, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+          throw new Error(`JioSaavan API returned status ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.results && Array.isArray(data.results)) {
+        return data.results.map((track) => formatTrackResponse(track));
+      }
+      return [];
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+          console.error("JioSaavan search timed out after 6 seconds");
+      } else {
+          console.error("JioSaavan search error:", err);
+      }
+      return [];
     }
-    return [];
-  } catch (error) {
-    console.error("JioSaavan search error:", error);
+  } catch (outerError) {
+    console.error("Outer JioSaavan error:", outerError);
     return [];
   }
 };
