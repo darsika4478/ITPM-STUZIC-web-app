@@ -1,4 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { auth } from '../../../config/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import * as moodService from '../../../firebase/moodService';
 
 const getPlaylistName = (moodValue) => {
     switch (moodValue) {
@@ -11,28 +14,56 @@ const getPlaylistName = (moodValue) => {
     }
 };
 
-const MOOD_HISTORY_DATA = [
-    {
-        id: 1,
-        date: 'April 23',
-        moodEmoji: '😃',
-        moodValue: 4
-    },
-    {
-        id: 2,
-        date: 'April 22',
-        moodEmoji: '😄',
-        moodValue: 5
-    },
-    {
-        id: 3,
-        date: 'April 21',
-        moodEmoji: '🙁',
-        moodValue: 2
+const getEmojiForValue = (moodValue) => {
+    switch (moodValue) {
+        case 1: return "😢";
+        case 2: return "😕";
+        case 3: return "😐";
+        case 4: return "🙂";
+        case 5: return "😄";
+        default: return "😐";
     }
-];
+};
 
 const MoodHistoryPage = () => {
+    const [moodHistory, setMoodHistory] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [currentUser, setCurrentUser] = useState(auth.currentUser);
+
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            setCurrentUser(user);
+        });
+        return unsubscribe;
+    }, []);
+
+    useEffect(() => {
+        if (!currentUser) {
+            setMoodHistory([]);
+            setIsLoading(false);
+            return;
+        }
+
+        const fetchHistory = async () => {
+            setIsLoading(true);
+            try {
+                const data = await moodService.getMoodHistory(currentUser.uid);
+                setMoodHistory(data);
+            } catch (error) {
+                console.error('Failed to fetch mood history:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchHistory();
+    }, [currentUser]);
+
+    const formatDate = (date) => {
+        if (!date) return 'Unknown Date';
+        const d = date instanceof Date ? date : new Date(date);
+        return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+    };
     return (
         <div className="relative w-full h-full min-h-[calc(100vh-4rem)] rounded-3xl overflow-hidden shadow-2xl flex flex-col items-center pt-10 px-4 md:px-12 z-0 font-sans">
 
@@ -78,38 +109,53 @@ const MoodHistoryPage = () => {
 
                 {/* Table Body Content */}
                 <div className="flex flex-col">
-                    {MOOD_HISTORY_DATA.map((item, index) => (
-                        <div
-                            key={item.id}
-                            className={`
-                                grid grid-cols-[1fr_1fr_3fr] md:grid-cols-[20%_20%_60%] items-center 
-                                px-6 py-5 md:py-6 transition-colors duration-200 
-                                hover:bg-white/5
-                                ${index !== MOOD_HISTORY_DATA.length - 1 ? 'border-b border-white/10' : ''}
-                            `}
-                        >
-                            {/* Date */}
-                            <div className="text-[#f0ecff] text-xs md:text-sm font-medium tracking-wider text-center md:text-left">
-                                {item.date}
-                            </div>
+                    {isLoading ? (
+                        <div className="px-6 py-10 text-center text-[#f0ecff] animate-pulse">
+                            Loading your mood journey...
+                        </div>
+                    ) : moodHistory.length === 0 ? (
+                        <div className="px-6 py-10 text-center text-[#f0ecff] opacity-60">
+                            No mood entries found. Start by recording your mood!
+                        </div>
+                    ) : (
+                        moodHistory.map((item, index) => (
+                            <div
+                                key={item.id}
+                                className={`
+                                    grid grid-cols-[1fr_1fr_3fr] md:grid-cols-[20%_20%_60%] items-center 
+                                    px-6 py-5 md:py-6 transition-colors duration-200 
+                                    hover:bg-white/5
+                                    ${index !== moodHistory.length - 1 ? 'border-b border-white/10' : ''}
+                                `}
+                            >
+                                {/* Date */}
+                                <div className="text-[#f0ecff] text-xs md:text-sm font-medium tracking-wider text-center md:text-left">
+                                    {formatDate(item.recordedAt || item.createdAt || item.date)}
+                                </div>
 
-                            {/* Center Mood Emoji */}
-                            <div className="flex justify-center">
-                                <span className="text-3xl md:text-4xl drop-shadow-lg filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]">
-                                    {item.moodEmoji}
-                                </span>
-                            </div>
-
-                            {/* Description Block */}
-                            <div className="flex items-center justify-start pl-4 pr-2">
-                                <div className="flex flex-col gap-0.5 md:gap-1">
-                                    <span className="text-[#f0ecff] font-semibold text-sm md:text-base tracking-wide">
-                                        Mood level {item.moodValue} <span className="text-[#c4b5fd] font-normal text-xs md:text-sm">— {getPlaylistName(item.moodValue)}</span>
+                                {/* Center Mood Emoji */}
+                                <div className="flex justify-center">
+                                    <span className="text-3xl md:text-4xl drop-shadow-lg filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]">
+                                        {item.moodEmoji || getEmojiForValue(item.mood || item.moodValue)}
                                     </span>
                                 </div>
+
+                                {/* Description Block */}
+                                <div className="flex items-center justify-start pl-4 pr-2">
+                                    <div className="flex flex-col gap-0.5 md:gap-1">
+                                        <span className="text-[#f0ecff] font-semibold text-sm md:text-base tracking-wide">
+                                            Mood level {item.mood || item.moodValue} <span className="text-[#c4b5fd] font-normal text-xs md:text-sm">— {getPlaylistName(item.mood || item.moodValue)}</span>
+                                        </span>
+                                        {(item.preferences?.activity || item.activity) && (
+                                            <span className="text-white/40 text-[10px] md:text-xs">
+                                                Doing: {item.preferences?.activity || item.activity}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        ))
+                    )}
                 </div>
             </div>
 
