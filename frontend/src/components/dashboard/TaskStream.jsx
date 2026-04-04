@@ -6,17 +6,19 @@ export default function TaskStream({ tasks = [] }) {
   const now = new Date();
 
   const sorted = [...tasks].sort((a, b) => {
-    const aOverdue = !a.completed && a.dueDate && new Date(a.dueDate) < new Date(now.toDateString());
-    const bOverdue = !b.completed && b.dueDate && new Date(b.dueDate) < new Date(now.toDateString());
-    if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
-
-    const todayStr = now.toISOString().split("T")[0];
-    const aDueToday = a.dueDate === todayStr;
-    const bDueToday = b.dueDate === todayStr;
-    if (aDueToday !== bDueToday) return aDueToday ? -1 : 1;
-
-    const prio = { High: 0, Medium: 1, Low: 2 };
-    return (prio[a.priority] ?? 3) - (prio[b.priority] ?? 3);
+    if (a.completed !== b.completed) return a.completed ? 1 : -1;
+    
+    if (a.dueDate && b.dueDate) {
+        if (a.dueDate !== b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+    } else if (a.dueDate) {
+        return -1;
+    } else if (b.dueDate) {
+        return 1;
+    }
+    
+    const aTime = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+    const bTime = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+    return bTime - aTime;
   });
 
   const visible = sorted.filter((t) => !t.completed).slice(0, 8);

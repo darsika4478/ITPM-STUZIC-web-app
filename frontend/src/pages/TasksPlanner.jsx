@@ -14,14 +14,22 @@ import {
 import { auth, db } from "../config/firebase";
 
 export default function TasksPlanner() {
+    const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
     const [tasks, setTasks] = useState([]);
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
+    const [composerMode, setComposerMode] = useState("note");
+    const [checklistItems, setChecklistItems] = useState([]);
+    const [checklistDraft, setChecklistDraft] = useState("");
     const [dueDate, setDueDate] = useState("");
     const [priority, setPriority] = useState("Medium");
     const [loading, setLoading] = useState(true);
     const [adding, setAdding] = useState(false);
     const [showForm, setShowForm] = useState(false);
+    const [showBin, setShowBin] = useState(false);
+    const composerChecklistRefs = useRef({});
+    const editChecklistRefs = useRef({});
 
     // Undo / Redo history
     const historyRef = useRef([{ title: "", description: "" }]);
@@ -82,9 +90,140 @@ export default function TasksPlanner() {
     const [editingTask, setEditingTask] = useState(null);
     const [editTitle, setEditTitle] = useState("");
     const [editDescription, setEditDescription] = useState("");
+    const [editComposerMode, setEditComposerMode] = useState("note");
+    const [editChecklistItems, setEditChecklistItems] = useState([]);
+    const [editChecklistDraft, setEditChecklistDraft] = useState("");
     const [editDueDate, setEditDueDate] = useState("");
     const [editPriority, setEditPriority] = useState("Medium");
     const [updating, setUpdating] = useState(false);
+
+    const createChecklistItem = useCallback((text = "", checked = false) => ({
+        id: (typeof crypto !== "undefined" && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        text,
+        checked,
+    }), []);
+
+    const normalizeChecklistItems = useCallback((items) => {
+        return items
+            .map((item) => ({
+                ...item,
+                text: (item.text || "").trim(),
+            }))
+            .filter((item) => item.text.length > 0);
+    }, []);
+
+    const serializeChecklistItems = useCallback((items) => {
+        return normalizeChecklistItems(items)
+            .map((item) => `${item.checked ? "[x]" : "[ ]"} ${item.text}`)
+            .join("\n");
+    }, [normalizeChecklistItems]);
+
+    const getTaskTitle = useCallback((task) => {
+        const titleText = (task.title || "").trim();
+        if (titleText) return titleText;
+        const firstChecklist = getTaskChecklistItems(task).find((item) => (item.text || "").trim());
+        if (firstChecklist?.text) return firstChecklist.text.trim();
+        return "Untitled note";
+    }, []);
+
+    const getTaskSearchText = useCallback((task) => {
+        const checklistText = getTaskChecklistItems(task).map((item) => item.text || "").join(" ");
+        return [task.title, task.description, checklistText].filter(Boolean).join(" ").toLowerCase();
+    }, []);
+
+    const getTaskChecklistItems = useCallback((task) => {
+        if (Array.isArray(task.checklistItems) && task.checklistItems.length > 0) {
+            return task.checklistItems;
+        }
+
+        if (task.contentType !== "checklist" || !task.description) {
+            return [];
+        }
+
+        return task.description
+            .split(/\n+/)
+            .map((line, index) => {
+                const trimmed = line.trim();
+                if (!trimmed) return null;
+                const match = trimmed.match(/^\[(x|X| )\]\s*(.*)$/);
+                if (match) {
+                    return {
+                        id: `legacy-${task.id}-${index}`,
+                        text: match[2].trim(),
+                        checked: match[1].toLowerCase() === "x",
+                    };
+                }
+                return {
+                    id: `legacy-${task.id}-${index}`,
+                    text: trimmed,
+                    checked: false,
+                };
+            })
+            .filter(Boolean);
+    }, []);
+
+    const syncComposerFromNote = useCallback(() => {
+        const itemsFromDescription = description
+            .split(/\n+/)
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .map((text) => createChecklistItem(text, false));
+        setChecklistItems(itemsFromDescription.length > 0 ? itemsFromDescription : [createChecklistItem("", false)]);
+        setChecklistDraft("");
+    }, [createChecklistItem, description]);
+
+    const syncNoteFromChecklist = useCallback(() => {
+        const joined = normalizeChecklistItems(checklistItems).map((item) => item.text).join("\n");
+        setDescription(joined);
+    }, [checklistItems, normalizeChecklistItems]);
+
+    const switchComposerMode = useCallback((nextMode) => {
+        if (nextMode === composerMode) return;
+        if (nextMode === "checklist") {
+            syncComposerFromNote();
+        } else {
+            syncNoteFromChecklist();
+        }
+        setComposerMode(nextMode);
+    }, [composerMode, syncComposerFromNote, syncNoteFromChecklist]);
+
+    const updateChecklistItem = useCallback((itemId, updates, setState) => {
+        setState((prev) => prev.map((item) => (
+            item.id === itemId ? { ...item, ...updates } : item
+        )));
+    }, []);
+
+    const getDateMs = useCallback((value) => {
+        if (!value) return null;
+        if (typeof value?.toMillis === "function") return value.toMillis();
+        if (typeof value?.toDate === "function") return value.toDate().getTime();
+        const parsed = new Date(value).getTime();
+        return Number.isNaN(parsed) ? null : parsed;
+    }, []);
+
+    const getDaysUntilPermanentDelete = useCallback((task) => {
+        const deletedAtMs = getDateMs(task.deletedAt);
+        if (!deletedAtMs) return 30;
+        const remaining = THIRTY_DAYS_MS - (Date.now() - deletedAtMs);
+        return Math.max(0, Math.ceil(remaining / (24 * 60 * 60 * 1000)));
+    }, [getDateMs]);
+
+    const insertChecklistItemAfter = useCallback((itemId, setState, refsMap) => {
+        const newItem = createChecklistItem("", false);
+        setState((prev) => {
+            const index = prev.findIndex((item) => item.id === itemId);
+            if (index === -1) return [...prev, newItem];
+            const next = [...prev];
+            next.splice(index + 1, 0, newItem);
+            return next;
+        });
+
+        requestAnimationFrame(() => {
+            refsMap.current[newItem.id]?.focus();
+        });
+    }, [createChecklistItem]);
 
     // Real-time listener for user's tasks
     useEffect(() => {
@@ -104,6 +243,20 @@ export default function TasksPlanner() {
                 setTasks(taskList);
                 setLoading(false);
                 setError("");
+
+                const expiredTasks = taskList.filter((task) => {
+                    if (!task.isDeleted) return false;
+                    const deletedAtMs = getDateMs(task.deletedAt);
+                    if (!deletedAtMs) return false;
+                    return Date.now() - deletedAtMs > THIRTY_DAYS_MS;
+                });
+
+                if (expiredTasks.length > 0) {
+                    Promise.all(expiredTasks.map((task) => deleteDoc(doc(db, "tasks", task.id))))
+                        .catch((cleanupError) => {
+                            console.error("Error cleaning expired bin tasks:", cleanupError);
+                        });
+                }
             },
             (err) => {
                 console.error("Firestore error:", err);
@@ -117,23 +270,42 @@ export default function TasksPlanner() {
         );
 
         return () => unsubscribe();
-    }, []);
+    }, [getDateMs]);
 
     const handleAddTask = async (e) => {
         e.preventDefault();
-        if (!title.trim()) return;
+
+        const today = new Date().toISOString().split("T")[0];
+        if (dueDate && dueDate < today) {
+            alert("Due date cannot be in the past");
+            return;
+        }
+
+        const normalizedChecklist = normalizeChecklistItems(checklistItems);
+        const hasTextNote = title.trim() || description.trim();
+        const hasChecklistNote = normalizedChecklist.length > 0;
+        if (composerMode === "note" && !hasTextNote) return;
+        if (composerMode === "checklist" && !hasChecklistNote && !title.trim()) return;
         setAdding(true);
         try {
             await addDoc(collection(db, "tasks"), {
                 title: title.trim(),
-                description: description.trim() || null,
+                description: composerMode === "checklist"
+                    ? serializeChecklistItems(normalizedChecklist) || null
+                    : description.trim() || null,
+                contentType: composerMode,
+                checklistItems: composerMode === "checklist" ? normalizedChecklist : [],
+                isDeleted: false,
+                deletedAt: null,
                 dueDate: dueDate || null,
                 priority,
                 completed: false,
                 userId: auth.currentUser.uid,
                 createdAt: serverTimestamp(),
             });
-            setTitle(""); setDescription(""); setDueDate(""); setPriority("Medium");
+            setTitle(""); setDescription(""); setChecklistItems([]); setChecklistDraft("");
+            setComposerMode("note");
+            setDueDate(""); setPriority("Medium");
             setShowForm(false);
         } catch (err) {
             console.error("Error adding task:", err);
@@ -150,37 +322,106 @@ export default function TasksPlanner() {
         }
     };
 
+    const handleToggleChecklistItem = async (taskId, itemId) => {
+        const task = tasks.find((t) => t.id === taskId);
+        if (!task) return;
+
+        const currentItems = getTaskChecklistItems(task);
+        if (!currentItems.length) return;
+
+        const nextItems = currentItems.map((item) => (
+            (item.id === itemId)
+                ? { ...item, checked: !item.checked }
+                : item
+        ));
+
+        try {
+            await updateDoc(doc(db, "tasks", taskId), {
+                checklistItems: nextItems,
+                description: serializeChecklistItems(nextItems) || null,
+            });
+        } catch (err) {
+            console.error("Error toggling checklist item:", err);
+        }
+    };
+
     const handleDeleteTask = async (taskId) => {
         try {
-            await deleteDoc(doc(db, "tasks", taskId));
+            await updateDoc(doc(db, "tasks", taskId), {
+                isDeleted: true,
+                deletedAt: serverTimestamp(),
+            });
             setConfirmDelete(null);
         } catch (err) {
             console.error("Error deleting task:", err);
         }
     };
 
+    const handleRestoreTask = async (taskId) => {
+        try {
+            await updateDoc(doc(db, "tasks", taskId), {
+                isDeleted: false,
+                deletedAt: null,
+            });
+        } catch (err) {
+            console.error("Error restoring task:", err);
+        }
+    };
+
+    const handlePermanentDeleteTask = async (taskId) => {
+        try {
+            await deleteDoc(doc(db, "tasks", taskId));
+        } catch (err) {
+            console.error("Error permanently deleting task:", err);
+        }
+    };
+
     const openEditModal = (task) => {
         setEditingTask(task);
-        setEditTitle(task.title);
+        setEditTitle(task.title || "");
         setEditDescription(task.description || "");
+        setEditComposerMode(task.contentType === "checklist" || Array.isArray(task.checklistItems) ? "checklist" : "note");
+        const checklistForEdit = getTaskChecklistItems(task);
+        setEditChecklistItems(checklistForEdit.length > 0
+            ? checklistForEdit.map((item) => ({
+                id: item.id || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
+                text: item.text || "",
+                checked: !!item.checked,
+            }))
+            : [createChecklistItem("", false)]);
+        setEditChecklistDraft("");
         setEditDueDate(task.dueDate || "");
-        setEditPriority(task.priority);
+        setEditPriority(task.priority || "Medium");
     };
 
     const closeEditModal = () => {
         setEditingTask(null);
-        setEditTitle(""); setEditDescription(""); setEditDueDate(""); setEditPriority("Medium");
+        setEditTitle(""); setEditDescription(""); setEditChecklistItems([]); setEditChecklistDraft("");
+        setEditComposerMode("note");
+        setEditDueDate(""); setEditPriority("Medium");
         setUpdating(false);
     };
 
     const handleUpdateTask = async (e) => {
         e.preventDefault();
+
+        const today = new Date().toISOString().split("T")[0];
+        if (editDueDate && editDueDate < today) {
+            alert("Due date cannot be in the past");
+            return;
+        }
+
         if (!editTitle.trim() || !editingTask) return;
         setUpdating(true);
         try {
+            const normalizedEditChecklist = normalizeChecklistItems(editChecklistItems);
             await updateDoc(doc(db, "tasks", editingTask.id), {
                 title: editTitle.trim(),
-                description: editDescription.trim() || null,
+                description: editComposerMode === "checklist"
+                    ? serializeChecklistItems(normalizedEditChecklist) || null
+                    : editDescription.trim() || null,
+                contentType: editComposerMode,
+                checklistItems: editComposerMode === "checklist" ? normalizedEditChecklist : [],
                 dueDate: editDueDate || null,
                 priority: editPriority,
             });
@@ -190,6 +431,36 @@ export default function TasksPlanner() {
             alert("Failed to update task. Please try again.");
             setUpdating(false);
         }
+    };
+
+    const addComposerChecklistItem = () => {
+        const value = checklistDraft.trim();
+        if (!value) return;
+        setChecklistItems((prev) => [...prev, createChecklistItem(value, false)]);
+        setChecklistDraft("");
+    };
+
+    const addEditChecklistItem = () => {
+        const value = editChecklistDraft.trim();
+        if (!value) return;
+        setEditChecklistItems((prev) => [...prev, createChecklistItem(value, false)]);
+        setEditChecklistDraft("");
+    };
+
+    const removeChecklistItem = (itemId, setState) => {
+        setState((prev) => prev.filter((item) => item.id !== itemId));
+    };
+
+    const toggleChecklistItem = (itemId, setState) => {
+        setState((prev) => prev.map((item) => (
+            item.id === itemId ? { ...item, checked: !item.checked } : item
+        )));
+    };
+
+    const updateChecklistItemText = (itemId, text, setState) => {
+        setState((prev) => prev.map((item) => (
+            item.id === itemId ? { ...item, text } : item
+        )));
     };
 
     const getPriorityBadgeStyle = (p) => {
@@ -229,18 +500,24 @@ export default function TasksPlanner() {
         return new Date(dateStr) < new Date(new Date().toDateString());
     };
 
-    const activeTasks    = tasks.filter((t) => !t.completed);
-    const completedTasks = tasks.filter((t) => t.completed);
-    const overdueTasks   = tasks.filter((t) => !t.completed && isOverdue(t.dueDate));
+    const deletedTasks   = tasks
+        .filter((t) => t.isDeleted)
+        .sort((a, b) => (getDateMs(b.deletedAt) || 0) - (getDateMs(a.deletedAt) || 0));
 
-    const filteredTasks = tasks.filter((t) => {
+    const visibleTasks = tasks.filter((t) => !t.isDeleted);
+
+    const activeVisibleTasks = visibleTasks.filter((t) => !t.completed);
+    const completedVisibleTasks = visibleTasks.filter((t) => t.completed);
+    const overdueVisibleTasks = visibleTasks.filter((t) => !t.completed && isOverdue(t.dueDate));
+
+    const filteredTasks = visibleTasks.filter((t) => {
         if (activeTab === "Active"    && t.completed) return false;
         if (activeTab === "Completed" && !t.completed) return false;
         if (activeTab === "Overdue"   && (t.completed || !isOverdue(t.dueDate))) return false;
         if (filterPriority !== "All"  && t.priority !== filterPriority) return false;
         if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase();
-            return t.title.toLowerCase().includes(q) || (t.description && t.description.toLowerCase().includes(q));
+            return getTaskSearchText(t).includes(q);
         }
         return true;
     });
@@ -341,18 +618,149 @@ export default function TasksPlanner() {
                                 }}
                                 autoFocus
                             />
-                            <textarea
-                                value={description}
-                                onChange={(e) => { const v = e.target.value; setDescription(v); pushHistory(title, v); }}
-                                placeholder="Take a note..."
-                                rows={2}
-                                style={{
-                                    width: '100%', background: 'transparent', border: 'none',
-                                    padding: '0.25rem 1.25rem 0.75rem',
-                                    fontSize: '0.875rem', color: 'rgba(240,236,255,0.8)',
-                                    outline: 'none', resize: 'none', boxSizing: 'border-box',
-                                }}
-                            />
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0 1.25rem 0.75rem' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => switchComposerMode("note")}
+                                    style={{
+                                        borderRadius: '999px', padding: '6px 12px',
+                                        fontSize: '11px', fontWeight: 600,
+                                        border: composerMode === "note" ? '1px solid rgba(167,139,250,0.6)' : '1px solid rgba(255,255,255,0.1)',
+                                        background: composerMode === "note" ? 'rgba(109,95,231,0.22)' : 'rgba(255,255,255,0.05)',
+                                        color: composerMode === "note" ? '#f0ecff' : 'rgba(255,255,255,0.55)',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    📝 Note
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => switchComposerMode("checklist")}
+                                    style={{
+                                        borderRadius: '999px', padding: '6px 12px',
+                                        fontSize: '11px', fontWeight: 600,
+                                        border: composerMode === "checklist" ? '1px solid rgba(167,139,250,0.6)' : '1px solid rgba(255,255,255,0.1)',
+                                        background: composerMode === "checklist" ? 'rgba(109,95,231,0.22)' : 'rgba(255,255,255,0.05)',
+                                        color: composerMode === "checklist" ? '#f0ecff' : 'rgba(255,255,255,0.55)',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    ☑ Checklist
+                                </button>
+                            </div>
+
+                            {composerMode === "note" ? (
+                                <textarea
+                                    value={description}
+                                    onChange={(e) => { const v = e.target.value; setDescription(v); pushHistory(title, v); }}
+                                    placeholder="Take a note..."
+                                    rows={3}
+                                    style={{
+                                        width: '100%', background: 'transparent', border: 'none',
+                                        padding: '0.25rem 1.25rem 0.75rem',
+                                        fontSize: '0.875rem', color: 'rgba(240,236,255,0.8)',
+                                        outline: 'none', resize: 'none', boxSizing: 'border-box',
+                                    }}
+                                />
+                            ) : (
+                                <div style={{ padding: '0 1.25rem 0.75rem' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                        {checklistItems.map((item) => (
+                                            <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', padding: '0.35rem 0.55rem', borderRadius: '12px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => toggleChecklistItem(item.id, setChecklistItems)}
+                                                    aria-label={item.checked ? 'Uncheck item' : 'Check item'}
+                                                    style={{
+                                                        flexShrink: 0,
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        height: '18px', width: '18px', borderRadius: '5px',
+                                                        border: item.checked ? '2px solid #4ade80' : '2px solid rgba(255,255,255,0.25)',
+                                                        background: item.checked ? 'rgba(34,197,94,0.2)' : 'transparent',
+                                                        color: '#4ade80', cursor: 'pointer',
+                                                    }}
+                                                >
+                                                    {item.checked && (
+                                                        <svg style={{ width: '11px', height: '11px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                    )}
+                                                </button>
+                                                <input
+                                                    type="text"
+                                                    value={item.text}
+                                                    onChange={(e) => updateChecklistItemText(item.id, e.target.value, setChecklistItems)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            e.preventDefault();
+                                                            insertChecklistItemAfter(item.id, setChecklistItems, composerChecklistRefs);
+                                                        }
+                                                    }}
+                                                    ref={(node) => {
+                                                        if (node) composerChecklistRefs.current[item.id] = node;
+                                                        else delete composerChecklistRefs.current[item.id];
+                                                    }}
+                                                    placeholder="List item"
+                                                    style={{
+                                                        flex: 1, background: 'transparent', border: 'none',
+                                                        outline: 'none', color: '#f0ecff', fontSize: '0.875rem',
+                                                        textDecoration: item.checked ? 'line-through' : 'none',
+                                                        opacity: item.checked ? 0.7 : 1,
+                                                    }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeChecklistItem(item.id, setChecklistItems)}
+                                                    style={{
+                                                        flexShrink: 0, border: 'none', background: 'none',
+                                                        color: 'rgba(255,255,255,0.35)', cursor: 'pointer',
+                                                    }}
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.75rem' }}>
+                                        <input
+                                            type="text"
+                                            value={checklistDraft}
+                                            onChange={(e) => setChecklistDraft(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    addComposerChecklistItem();
+                                                }
+                                            }}
+                                            placeholder="Add list item"
+                                            style={{
+                                                flex: 1,
+                                                background: 'rgba(255,255,255,0.05)',
+                                                border: '1px solid rgba(255,255,255,0.1)',
+                                                borderRadius: '12px',
+                                                padding: '0.75rem 0.9rem',
+                                                color: '#f0ecff',
+                                                outline: 'none',
+                                            }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={addComposerChecklistItem}
+                                            style={{
+                                                borderRadius: '12px', padding: '0.75rem 1rem',
+                                                border: '1px solid rgba(167,139,250,0.28)',
+                                                background: 'rgba(109,95,231,0.18)',
+                                                color: '#f0ecff', cursor: 'pointer',
+                                                fontWeight: 600,
+                                            }}
+                                        >
+                                            Add
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Bottom toolbar */}
                             <div style={{
@@ -389,7 +797,14 @@ export default function TasksPlanner() {
                                     <input
                                         type="date"
                                         value={dueDate}
-                                        onChange={(e) => setDueDate(e.target.value)}
+                                        onChange={(e) => {
+                                            const today = new Date().toISOString().split("T")[0];
+                                            if (e.target.value && e.target.value < today) {
+                                                alert("Due date cannot be in the past");
+                                                return;
+                                            }
+                                            setDueDate(e.target.value);
+                                        }}
                                         min={new Date().toISOString().split("T")[0]}
                                         style={{
                                             borderRadius: '8px', padding: '4px 10px',
@@ -427,7 +842,8 @@ export default function TasksPlanner() {
                                     <button
                                         type="button"
                                         onClick={() => {
-                                            setShowForm(false); setTitle(""); setDescription(""); setDueDate(""); setPriority("Medium");
+                                            setShowForm(false); setTitle(""); setDescription(""); setChecklistItems([]); setChecklistDraft(""); setComposerMode("note");
+                                            setDueDate(""); setPriority("Medium");
                                             historyRef.current = [{ title: "", description: "" }];
                                             historyIndexRef.current = 0; setCanUndo(false); setCanRedo(false);
                                         }}
@@ -439,13 +855,17 @@ export default function TasksPlanner() {
                                     </button>
                                     <button
                                         type="submit"
-                                        disabled={adding || !title.trim()}
+                                        disabled={adding || (composerMode === "checklist"
+                                            ? (normalizeChecklistItems(checklistItems).length === 0 && !title.trim())
+                                            : (!title.trim() && !description.trim()))}
                                         style={{
                                             borderRadius: '8px', padding: '6px 16px',
                                             fontSize: '12px', fontWeight: 600,
-                                            color: '#fff', border: 'none', cursor: adding || !title.trim() ? 'not-allowed' : 'pointer',
+                                            color: '#fff', border: 'none', cursor: adding ? 'not-allowed' : 'pointer',
                                             background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)',
-                                            opacity: adding || !title.trim() ? 0.35 : 1,
+                                            opacity: adding || (composerMode === "checklist"
+                                                ? (normalizeChecklistItems(checklistItems).length === 0 && !title.trim())
+                                                : (!title.trim() && !description.trim())) ? 0.35 : 1,
                                             transition: 'opacity 0.15s',
                                         }}
                                     >
@@ -460,10 +880,10 @@ export default function TasksPlanner() {
                 {/* ── Stats Row ── */}
                 <div style={{ marginBottom: '2rem', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem' }}>
                     {[
-                        { label: "Total",     value: tasks.length,          color: '#f0ecff', icon: "📊" },
-                        { label: "Active",    value: activeTasks.length,    color: '#fbbf24', icon: "⏳" },
-                        { label: "Completed", value: completedTasks.length, color: '#4ade80', icon: "✅" },
-                        { label: "Overdue",   value: overdueTasks.length,   color: '#f87171', icon: "🔴" },
+                        { label: "Total",     value: visibleTasks.length,          color: '#f0ecff', icon: "📊" },
+                        { label: "Active",    value: activeVisibleTasks.length,    color: '#fbbf24', icon: "⏳" },
+                        { label: "Completed", value: completedVisibleTasks.length, color: '#4ade80', icon: "✅" },
+                        { label: "Overdue",   value: overdueVisibleTasks.length,   color: '#f87171', icon: "🔴" },
                     ].map((s) => (
                         <div key={s.label} style={{ ...cardStyle, padding: '1.25rem 1rem', textAlign: 'center' }}>
                             <span style={{ fontSize: '1.25rem' }}>{s.icon}</span>
@@ -478,10 +898,10 @@ export default function TasksPlanner() {
                     {/* Tabs */}
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
                         {[
-                            { key: "All",       label: "All",       count: tasks.length,          icon: "📊" },
-                            { key: "Active",    label: "Active",    count: activeTasks.length,    icon: "⏳" },
-                            { key: "Completed", label: "Completed", count: completedTasks.length, icon: "✅" },
-                            { key: "Overdue",   label: "Overdue",   count: overdueTasks.length,   icon: "🔴" },
+                            { key: "All",       label: "All",       count: visibleTasks.length,          icon: "📊" },
+                            { key: "Active",    label: "Active",    count: activeVisibleTasks.length,    icon: "⏳" },
+                            { key: "Completed", label: "Completed", count: completedVisibleTasks.length, icon: "✅" },
+                            { key: "Overdue",   label: "Overdue",   count: overdueVisibleTasks.length,   icon: "🔴" },
                         ].map((tab) => (
                             <button
                                 key={tab.key}
@@ -550,6 +970,34 @@ export default function TasksPlanner() {
                             <option value="Medium" style={{ background: '#1c1848' }}>🟡 Medium</option>
                             <option value="Low"    style={{ background: '#1c1848' }}>🟢 Low</option>
                         </select>
+                        <button
+                            type="button"
+                            onClick={() => setShowBin(true)}
+                            style={{
+                                ...inputStyle,
+                                width: 'auto',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                cursor: 'pointer',
+                                fontWeight: 600,
+                            }}
+                            title="Open bin"
+                        >
+                            🗑️ Bin
+                            {deletedTasks.length > 0 && (
+                                <span style={{
+                                    borderRadius: '999px',
+                                    background: 'rgba(239,68,68,0.2)',
+                                    color: '#f87171',
+                                    fontSize: '11px',
+                                    padding: '2px 7px',
+                                    lineHeight: 1.2,
+                                }}>
+                                    {deletedTasks.length}
+                                </span>
+                            )}
+                        </button>
                     </div>
                 </div>
 
@@ -559,7 +1007,7 @@ export default function TasksPlanner() {
                         <div className="mb-4 h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-[var(--c3)]" />
                         <p style={{ margin: 0, fontSize: '0.875rem' }}>Loading tasks...</p>
                     </div>
-                ) : tasks.length === 0 ? (
+                ) : visibleTasks.length === 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '20px', border: '1px dashed rgba(255,255,255,0.15)', padding: '4rem 1rem', textAlign: 'center' }}>
                         <span style={{ fontSize: '3rem' }}>📝</span>
                         <h3 style={{ marginTop: '1rem', fontSize: '1.125rem', fontWeight: 600, color: '#f0ecff', marginBottom: 0 }}>No tasks yet</h3>
@@ -633,7 +1081,7 @@ export default function TasksPlanner() {
                                             textDecoration: task.completed ? 'line-through' : 'none',
                                             opacity: task.completed ? 0.7 : 1,
                                         }}>
-                                            {task.title}
+                                            {getTaskTitle(task)}
                                         </h4>
 
                                         {/* Edit + Delete */}
@@ -645,7 +1093,7 @@ export default function TasksPlanner() {
                                                         style={{ borderRadius: '8px', background: 'rgba(239,68,68,0.2)', padding: '4px 10px', fontSize: '11px', fontWeight: 600, color: '#f87171', border: 'none', cursor: 'pointer', transition: 'background 0.15s' }}
                                                         onMouseEnter={(e) => e.target.style.background = 'rgba(239,68,68,0.3)'}
                                                         onMouseLeave={(e) => e.target.style.background = 'rgba(239,68,68,0.2)'}
-                                                    >Delete</button>
+                                                    >Move to bin</button>
                                                     <button
                                                         onClick={() => setConfirmDelete(null)}
                                                         style={{ borderRadius: '8px', background: 'rgba(255,255,255,0.1)', padding: '4px 10px', fontSize: '11px', fontWeight: 500, color: '#c4b5fd', border: 'none', cursor: 'pointer' }}
@@ -653,18 +1101,31 @@ export default function TasksPlanner() {
                                                 </div>
                                             ) : (
                                                 <>
-                                                    <button
-                                                        onClick={() => openEditModal(task)}
-                                                        title="Edit task"
-                                                        className="opacity-0 group-hover:opacity-100"
-                                                        style={{ borderRadius: '8px', padding: '6px', color: 'rgba(255,255,255,0.2)', background: 'none', border: 'none', cursor: 'pointer', transition: 'all 0.15s' }}
-                                                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(109,95,231,0.15)'; e.currentTarget.style.color = '#a78bfa'; }}
-                                                        onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'rgba(255,255,255,0.2)'; }}
-                                                    >
-                                                        <svg style={{ width: '14px', height: '14px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                        </svg>
-                                                    </button>
+                                                    {!task.completed ? (
+                                                        <button
+                                                            onClick={() => openEditModal(task)}
+                                                            title="Edit task"
+                                                            className="opacity-0 group-hover:opacity-100"
+                                                            style={{ borderRadius: '8px', padding: '6px', color: 'rgba(255,255,255,0.2)', background: 'none', border: 'none', cursor: 'pointer', transition: 'all 0.15s' }}
+                                                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(109,95,231,0.15)'; e.currentTarget.style.color = '#a78bfa'; }}
+                                                            onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'rgba(255,255,255,0.2)'; }}
+                                                        >
+                                                            <svg style={{ width: '14px', height: '14px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                            </svg>
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            disabled
+                                                            title="Unmark task to edit"
+                                                            className="opacity-0 group-hover:opacity-50"
+                                                            style={{ borderRadius: '8px', padding: '6px', color: 'rgba(255,255,255,0.1)', background: 'none', border: 'none', cursor: 'not-allowed', transition: 'all 0.15s' }}
+                                                        >
+                                                            <svg style={{ width: '14px', height: '14px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                            </svg>
+                                                        </button>
+                                                    )}
                                                     <button
                                                         onClick={() => setConfirmDelete(task.id)}
                                                         title="Delete task"
@@ -683,7 +1144,7 @@ export default function TasksPlanner() {
                                     </div>
 
                                     {/* Description */}
-                                    {task.description && (
+                                    {task.contentType !== 'checklist' && task.description && (
                                         <p style={{
                                             marginTop: '10px', marginLeft: '32px', marginBottom: 0,
                                             fontSize: '12px', lineHeight: '1.6', color: '#c4b5fd',
@@ -692,6 +1153,23 @@ export default function TasksPlanner() {
                                         }}>
                                             {task.description.length > 120 ? task.description.slice(0, 120) + "..." : task.description}
                                         </p>
+                                    )}
+
+                                    {/* Checklist preview */}
+                                    {task.contentType === 'checklist' && getTaskChecklistItems(task).length > 0 && (
+                                        <div style={{ marginTop: '10px', marginLeft: '32px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            {getTaskChecklistItems(task).map((item) => (
+                                                <label key={item.id || item.text} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', color: '#f0ecff', fontSize: '0.875rem', opacity: item.checked ? 0.7 : 1, textDecoration: item.checked ? 'line-through' : 'none' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={!!item.checked}
+                                                        onChange={() => handleToggleChecklistItem(task.id, item.id)}
+                                                        style={{ accentColor: '#8b5cf6', width: '14px', height: '14px' }}
+                                                    />
+                                                    <span style={{ lineHeight: 1.4 }}>{item.text}</span>
+                                                </label>
+                                            ))}
+                                        </div>
                                     )}
 
                                     {/* Footer badges */}
@@ -722,6 +1200,68 @@ export default function TasksPlanner() {
                                 </div>
                             </div>
                         ))}
+                    </div>
+                )}
+
+                {/* ── Bin Modal ── */}
+                {showBin && (
+                    <div style={{ position: 'fixed', inset: 0, zIndex: 55, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: 'rgba(10,8,36,0.72)', backdropFilter: 'blur(4px)' }}>
+                        <div style={{ position: 'absolute', inset: 0 }} onClick={() => setShowBin(false)} />
+                        <div style={{ position: 'relative', width: '100%', maxWidth: '44rem', maxHeight: '80vh', overflow: 'hidden', borderRadius: '20px', border: '1px solid rgba(167,139,250,0.22)', background: 'rgba(20,15,55,0.95)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', backdropFilter: 'blur(20px)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '1rem 1.25rem' }}>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#f0ecff' }}>🗑️ Bin</h3>
+                                    <p style={{ margin: '0.35rem 0 0', fontSize: '0.75rem', color: '#c4b5fd' }}>Deleted tasks stay here for up to 30 days.</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowBin(false)}
+                                    style={{ border: 'none', background: 'none', color: '#c4b5fd', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            <div style={{ padding: '1rem 1.25rem', maxHeight: 'calc(80vh - 84px)', overflowY: 'auto' }}>
+                                {deletedTasks.length === 0 ? (
+                                    <div style={{ borderRadius: '16px', border: '1px dashed rgba(255,255,255,0.15)', padding: '2rem 1rem', textAlign: 'center' }}>
+                                        <p style={{ margin: 0, fontSize: '0.95rem', color: '#f0ecff', fontWeight: 600 }}>Bin is empty</p>
+                                        <p style={{ margin: '0.4rem 0 0', fontSize: '0.8rem', color: '#c4b5fd' }}>Deleted tasks will appear here.</p>
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                        {deletedTasks.map((task) => (
+                                            <div key={task.id} style={{ borderRadius: '14px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', padding: '0.9rem 1rem' }}>
+                                                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
+                                                    <div style={{ minWidth: 0 }}>
+                                                        <p style={{ margin: 0, color: '#f0ecff', fontWeight: 600, fontSize: '0.9rem' }}>{getTaskTitle(task)}</p>
+                                                        <p style={{ margin: '0.35rem 0 0', color: '#c4b5fd', fontSize: '0.75rem' }}>
+                                                            {getDaysUntilPermanentDelete(task)} day{getDaysUntilPermanentDelete(task) !== 1 ? 's' : ''} left before auto-delete
+                                                        </p>
+                                                    </div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleRestoreTask(task.id)}
+                                                            style={{ borderRadius: '10px', padding: '6px 10px', border: '1px solid rgba(34,197,94,0.4)', background: 'rgba(34,197,94,0.12)', color: '#4ade80', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                                                        >
+                                                            Restore
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handlePermanentDeleteTask(task.id)}
+                                                            style={{ borderRadius: '10px', padding: '6px 10px', border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.12)', color: '#f87171', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                                                        >
+                                                            Delete now
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 )}
 
@@ -757,21 +1297,158 @@ export default function TasksPlanner() {
                                 </div>
 
                                 <div style={{ marginBottom: '1rem' }}>
-                                    <label style={labelStyle}>Description</label>
-                                    <textarea
-                                        value={editDescription} onChange={(e) => setEditDescription(e.target.value)}
-                                        placeholder="Add details..." rows={3}
-                                        style={{ ...inputStyle, resize: 'none' }}
-                                        onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
-                                        onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'}
-                                    />
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditComposerMode("note")}
+                                            style={{
+                                                borderRadius: '999px', padding: '6px 12px',
+                                                fontSize: '11px', fontWeight: 600,
+                                                border: editComposerMode === "note" ? '1px solid rgba(167,139,250,0.6)' : '1px solid rgba(255,255,255,0.1)',
+                                                background: editComposerMode === "note" ? 'rgba(109,95,231,0.22)' : 'rgba(255,255,255,0.05)',
+                                                color: editComposerMode === "note" ? '#f0ecff' : 'rgba(255,255,255,0.55)',
+                                                cursor: 'pointer',
+                                            }}
+                                        >
+                                            📝 Note
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditComposerMode("checklist")}
+                                            style={{
+                                                borderRadius: '999px', padding: '6px 12px',
+                                                fontSize: '11px', fontWeight: 600,
+                                                border: editComposerMode === "checklist" ? '1px solid rgba(167,139,250,0.6)' : '1px solid rgba(255,255,255,0.1)',
+                                                background: editComposerMode === "checklist" ? 'rgba(109,95,231,0.22)' : 'rgba(255,255,255,0.05)',
+                                                color: editComposerMode === "checklist" ? '#f0ecff' : 'rgba(255,255,255,0.55)',
+                                                cursor: 'pointer',
+                                            }}
+                                        >
+                                            ☑ Checklist
+                                        </button>
+                                    </div>
+
+                                    {editComposerMode === "note" ? (
+                                        <>
+                                            <label style={labelStyle}>Description</label>
+                                            <textarea
+                                                value={editDescription} onChange={(e) => setEditDescription(e.target.value)}
+                                                placeholder="Add details..." rows={3}
+                                                style={{ ...inputStyle, resize: 'none' }}
+                                                onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
+                                                onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'}
+                                            />
+                                        </>
+                                    ) : (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                            <label style={labelStyle}>Checklist items</label>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                {editChecklistItems.map((item) => (
+                                                    <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', padding: '0.4rem 0.55rem', borderRadius: '12px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => toggleChecklistItem(item.id, setEditChecklistItems)}
+                                                            style={{
+                                                                flexShrink: 0,
+                                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                height: '18px', width: '18px', borderRadius: '5px',
+                                                                border: item.checked ? '2px solid #4ade80' : '2px solid rgba(255,255,255,0.25)',
+                                                                background: item.checked ? 'rgba(34,197,94,0.2)' : 'transparent',
+                                                                color: '#4ade80', cursor: 'pointer',
+                                                            }}
+                                                        >
+                                                            {item.checked && (
+                                                                <svg style={{ width: '11px', height: '11px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                                                </svg>
+                                                            )}
+                                                        </button>
+                                                        <input
+                                                            type="text"
+                                                            value={item.text}
+                                                            onChange={(e) => updateChecklistItemText(item.id, e.target.value, setEditChecklistItems)}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') {
+                                                                    e.preventDefault();
+                                                                    insertChecklistItemAfter(item.id, setEditChecklistItems, editChecklistRefs);
+                                                                }
+                                                            }}
+                                                            ref={(node) => {
+                                                                if (node) editChecklistRefs.current[item.id] = node;
+                                                                else delete editChecklistRefs.current[item.id];
+                                                            }}
+                                                            placeholder="List item"
+                                                            style={{
+                                                                flex: 1, background: 'transparent', border: 'none',
+                                                                outline: 'none', color: '#f0ecff', fontSize: '0.875rem',
+                                                                textDecoration: item.checked ? 'line-through' : 'none',
+                                                                opacity: item.checked ? 0.7 : 1,
+                                                            }}
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeChecklistItem(item.id, setEditChecklistItems)}
+                                                            style={{ border: 'none', background: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer' }}
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                <input
+                                                    type="text"
+                                                    value={editChecklistDraft}
+                                                    onChange={(e) => setEditChecklistDraft(e.target.value)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            e.preventDefault();
+                                                            addEditChecklistItem();
+                                                        }
+                                                    }}
+                                                    placeholder="Add list item"
+                                                    style={{
+                                                        flex: 1,
+                                                        background: 'rgba(255,255,255,0.05)',
+                                                        border: '1px solid rgba(255,255,255,0.1)',
+                                                        borderRadius: '12px',
+                                                        padding: '0.75rem 0.9rem',
+                                                        color: '#f0ecff',
+                                                        outline: 'none',
+                                                    }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={addEditChecklistItem}
+                                                    style={{
+                                                        borderRadius: '12px', padding: '0.75rem 1rem',
+                                                        border: '1px solid rgba(167,139,250,0.28)',
+                                                        background: 'rgba(109,95,231,0.18)',
+                                                        color: '#f0ecff', cursor: 'pointer', fontWeight: 600,
+                                                    }}
+                                                >
+                                                    Add
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div style={{ marginBottom: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
                                     <div style={{ flex: 1, minWidth: '160px' }}>
                                         <label style={labelStyle}>Due Date</label>
                                         <input
-                                            type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)}
+                                            type="date"
+                                            value={editDueDate}
+                                            min={new Date().toISOString().split("T")[0]}
+                                            onChange={(e) => {
+                                                const today = new Date().toISOString().split("T")[0];
+                                                if (e.target.value && e.target.value < today) {
+                                                    alert("Due date cannot be in the past");
+                                                    return;
+                                                }
+                                                setEditDueDate(e.target.value);
+                                            }}
                                             style={inputStyle}
                                             onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
                                             onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'}

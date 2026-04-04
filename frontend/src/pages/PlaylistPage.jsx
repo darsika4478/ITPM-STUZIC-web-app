@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useMusicPlayer } from '../context/useMusicPlayer';
-import './PlaylistPage.css';
 
 const MOOD_OPTIONS = [
   { value: 'sad', label: 'Sad 😔', emoji: '😔', color: '#585296' },
@@ -30,36 +29,17 @@ const PlaylistPage = ({ currentMood, onMoodChange }) => {
   const currentMoodOption = MOOD_OPTIONS.find(m => m.value === currentMood);
 
   return (
-    <div className="playlist-page">
-      {/* Mood Selector */}
-      <div className="mood-selector-section">
-        <h2>Select Mood</h2>
-        <div className="mood-buttons">
-          {MOOD_OPTIONS.map((mood) => (
-            <button
-              key={mood.value}
-              className={`mood-btn ${currentMood === mood.value ? 'active' : ''}`}
-              onClick={() => handleMoodSelect(mood.value)}
-              title={mood.label}
-              style={{
-                '--mood-color': mood.color
-              }}
-            >
-              <span className="mood-emoji">{mood.emoji}</span>
-              <span className="mood-text">{mood.label.split(' ')[0]}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+    <div className="flex flex-col gap-6 md:gap-4 sm:gap-3 w-full h-full overflow-y-auto p-1">
+      {/* Playlist Tracks - Expanded view without mood selection */}
 
       {/* Sort & Filter Options */}
-      <div className="sort-section">
-        <label htmlFor="sort-select">Sort by:</label>
+      <div className="flex gap-3 items-center px-3.5 py-3 bg-purple-950/20 rounded-xl border border-purple-400/10 backdrop-blur-lg sm:gap-2">
+        <label htmlFor="sort-select" className="font-semibold text-purple-200/80 text-xs uppercase tracking-wider">Sort by:</label>
         <select
           id="sort-select"
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value)}
-          className="sort-select"
+          className="px-2.5 py-2 border border-purple-400/20 rounded-lg bg-purple-950/60 text-purple-100 cursor-pointer text-xs transition-all duration-200 flex-1 hover:border-purple-400/40 hover:bg-purple-950/80 focus:outline-none"
         >
           <option value="default">Default</option>
           <option value="duration">Duration</option>
@@ -68,26 +48,30 @@ const PlaylistPage = ({ currentMood, onMoodChange }) => {
       </div>
 
       {/* Playlist Tracks */}
-      <div className="tracks-section">
-        <h3>Tracks for {currentMoodOption?.label}</h3>
-        <div className="tracks-list">
+      <div className="flex flex-col gap-4">
+        <h3 className="text-xs font-semibold text-purple-200/80 m-0 uppercase tracking-wider">Tracks for {currentMoodOption?.label}</h3>
+        <div className="flex flex-col gap-1.5 max-h-70 md:max-h-60 sm:max-h-50 overflow-y-auto">
           {sortedPlaylist.map((track, index) => (
             <div
               key={track.id}
-              className={`track-item ${currentTrack?.id === track.id ? 'playing' : ''}`}
+              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 relative overflow-hidden ${
+                currentTrack?.id === track.id
+                  ? 'bg-purple-900/20 border border-purple-400/30 shadow-inner'
+                  : 'bg-purple-950/20 border border-purple-400/10 hover:bg-purple-900/15 hover:border-purple-400/20'
+              }`}
               onClick={() => selectTrack(index)}
             >
-              <div className="track-number">{index + 1}</div>
-              <div className="track-info">
-                <h4 className="track-title">{track.title}</h4>
-                <p className="track-artist">{track.artist}</p>
+              <div className="w-6 text-center font-bold text-purple-200/60 text-2xs">{index + 1}</div>
+              <div className="flex-1 min-w-0">
+                <h4 className="m-0 text-xs font-semibold text-purple-100 whitespace-nowrap overflow-hidden text-ellipsis leading-tight">{track.title}</h4>
+                <p className="m-0 text-2xs text-purple-200/60 whitespace-nowrap overflow-hidden text-ellipsis">{track.artist}</p>
               </div>
-              <div className="track-duration">
+              <div className="text-2xs text-purple-200/60 whitespace-nowrap font-semibold">
                 {Math.floor(track.duration / 60)}:{String(track.duration % 60).padStart(2, '0')}
               </div>
               {currentTrack?.id === track.id && (
-                <div className="playing-indicator">
-                  <span className="music-note">♪</span>
+                <div className="w-5 h-5 flex items-center justify-center text-purple-400 animate-musicBounce">
+                  <span className="text-base">♪</span>
                 </div>
               )}
             </div>
@@ -96,14 +80,14 @@ const PlaylistPage = ({ currentMood, onMoodChange }) => {
       </div>
 
       {/* Playlist Stats */}
-      <div className="playlist-stats">
-        <div className="stat">
-          <span className="stat-label">Total Tracks:</span>
-          <span className="stat-value">{sortedPlaylist.length}</span>
+      <div className="flex gap-4 md:gap-3 sm:gap-2 px-3.5 py-3 bg-purple-950/20 rounded-xl border border-purple-400/10 backdrop-blur-lg flex-wrap">
+        <div className="flex flex-col gap-1">
+          <span className="text-2xs text-purple-200/60 uppercase tracking-wider font-semibold">Total Tracks:</span>
+          <span className="text-sm font-bold text-purple-400">{sortedPlaylist.length}</span>
         </div>
-        <div className="stat">
-          <span className="stat-label">Total Duration:</span>
-          <span className="stat-value">
+        <div className="flex flex-col gap-1">
+          <span className="text-2xs text-purple-200/60 uppercase tracking-wider font-semibold">Total Duration:</span>
+          <span className="text-sm font-bold text-purple-400">
             {Math.floor(sortedPlaylist.reduce((sum, t) => sum + t.duration, 0) / 60)} min
           </span>
         </div>

@@ -1,4 +1,19 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  query,
+  serverTimestamp,
+  updateDoc,
+  where,
+} from "firebase/firestore";
+import { auth, db } from "../../config/firebase";
+import { buildEventsMapFromSnapshot } from "./calendarEventHelpers.js";
+import CalendarEventsPopover from "./CalendarEventspage.jsx";
 
 export default function CalendarUI() {
   const days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -6,6 +21,12 @@ export default function CalendarUI() {
   const today = new Date();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(today);
+  const [eventsPopover, setEventsPopover] = useState({
+    dateKey: null,
+    position: { top: 0, left: 0 },
+  });
+  const [eventsByDate, setEventsByDate] = useState({});
+  const [calendarRulesError, setCalendarRulesError] = useState(null);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -28,24 +49,61 @@ export default function CalendarUI() {
     (_, i) => i + 1
   );
 
-  const events = {
-    "2026-03-25": [
-      { time: "09:00", title: "Design Meeting", category: "work" },
-      { time: "14:00", title: "Client Call", category: "work" },
-    ],
-    "2026-03-18": [
-      { time: "10:00", title: "Study Session", category: "education" },
-    ],
-    "2026-03-22": [
-      { time: "15:00", title: "Gym", category: "personal" },
-    ],
-  };
+  // ✅ Listen to top-level calendarEvents filtered by userId
+  useEffect(() => {
+    let unsubFirestore = () => {};
+    const unsubAuth = onAuthStateChanged(auth, (user) => {
+      unsubFirestore();
+      if (!user || !db) {
+        setEventsByDate({});
+        setCalendarRulesError(null);
+        return;
+      }
+      const uid = user.uid;
+      void user.getIdToken().then(() => {
+        if (auth.currentUser?.uid !== uid) return;
+        const q = query(
+          collection(db, "calendarEvents"),
+          where("userId", "==", uid)
+        );
+        unsubFirestore = onSnapshot(
+          q,
+          (snap) => {
+            setEventsByDate(buildEventsMapFromSnapshot(snap));
+            setCalendarRulesError(null);
+          },
+          (err) => {
+            console.error("calendarEvents listener error:", err);
+            setEventsByDate({});
+            if (err?.code === "permission-denied") {
+              setCalendarRulesError(
+                "Firestore is blocking calendar data. Publish the rules from firestore.rules in this project."
+              );
+            } else {
+              setCalendarRulesError(err?.message || "Could not load calendar events.");
+            }
+          }
+        );
+      });
+    });
+    return () => {
+      unsubAuth();
+      unsubFirestore();
+    };
+  }, []);
 
-  const goPrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
-  const goNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
+  const goPrevMonth = () => {
+    setCurrentDate(new Date(year, month - 1, 1));
+    setEventsPopover({ dateKey: null, position: { top: 0, left: 0 } });
+  };
+  const goNextMonth = () => {
+    setCurrentDate(new Date(year, month + 1, 1));
+    setEventsPopover({ dateKey: null, position: { top: 0, left: 0 } });
+  };
   const goToday = () => {
     setCurrentDate(today);
     setSelectedDate(today);
+    setEventsPopover({ dateKey: null, position: { top: 0, left: 0 } });
   };
 
   const formatDateKey = (dateObj) => {
@@ -58,13 +116,90 @@ export default function CalendarUI() {
   const selectedKey = formatDateKey(selectedDate);
   const todayKey = formatDateKey(today);
 
+  const openEventsPopover = (e, dateObj) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const key = formatDateKey(dateObj);
+    setEventsPopover({
+      dateKey: key,
+      position: {
+        top: rect.bottom + window.scrollY + 5,
+        left: rect.left + window.scrollX,
+      },
+    });
+    setSelectedDate(dateObj);
+  };
+
+  const closeEventsPopover = () => {
+    setEventsPopover({ dateKey: null, position: { top: 0, left: 0 } });
+  };
+
+  // ✅ Save to top-level calendarEvents with userId
+  const handleAddEvent = async (dateKey, payload) => {
+    const user = auth.currentUser;
+    if (!user) throw new Error("You must be signed in to save events.");
+    if (!db) throw new Error("Firebase is not configured. Check your .env file.");
+    try {
+      const docRef = await addDoc(collection(db, "calendarEvents"), {
+        userId: user.uid,
+        dateKey,
+        type: payload.type,
+        title: payload.title,
+        startTime: payload.startTime || "",
+        endTime: payload.endTime || "",
+        deadlineTime: payload.deadlineTime || "",
+        reminder: payload.reminder || "",
+        createdAt: serverTimestamp(),
+      });
+      console.info("[Calendar] Saved:", docRef.path);
+    } catch (err) {
+      console.error("[Calendar] Save failed:", err);
+      throw err;
+    }
+  };
+
+  // ✅ Update existing event
+  const handleUpdateEvent = async (_dateKey, eventId, payload) => {
+    const user = auth.currentUser;
+    if (!user) throw new Error("You must be signed in to update events.");
+    if (!eventId) throw new Error("Missing event id.");
+    try {
+      await updateDoc(doc(db, "calendarEvents", eventId), {
+        type: payload.type,
+        title: payload.title,
+        startTime: payload.startTime || "",
+        endTime: payload.endTime || "",
+        deadlineTime: payload.deadlineTime || "",
+        reminder: payload.reminder || "",
+        updatedAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.error("[Calendar] Update failed:", err);
+      throw err;
+    }
+  };
+
+  // ✅ Delete event
+  const handleDeleteEvent = async (dateKey, idx) => {
+    const user = auth.currentUser;
+    if (!user) throw new Error("You must be signed in to delete events.");
+    const ev = eventsByDate[dateKey]?.[idx];
+    if (!ev?.id) throw new Error("Cannot delete this event.");
+    try {
+      await deleteDoc(doc(db, "calendarEvents", ev.id));
+    } catch (err) {
+      console.error("[Calendar] Delete failed:", err);
+      throw err;
+    }
+  };
+
   const getEventColor = (category) => {
     switch (category) {
-      case "work":
-        return "bg-[#e0f2fe] text-[#0369a1] border-l-[3px] border-[#0ea5e9]";
-      case "personal":
-        return "bg-[#fff3cd] text-[#856404] border-l-[3px] border-[#fbbf24]";
-      case "education":
+      case "Study Session":
+        return "bg-[#FFECC0] text-[#B500B2] border-l-[3px] border-[#B500B2]";
+      case "Lectures":
+        return "bg-[#fff3cd] text-[#856404] border-l-[3px] border-[#f97316]";
+      case "Deadlines":
         return "bg-[#d1fae5] text-[#065f46] border-l-[3px] border-[#10b981]";
       default:
         return "bg-[#ede9fe] text-[#5b21b6] border-l-[3px] border-[#8b5cf6]";
@@ -111,34 +246,34 @@ export default function CalendarUI() {
           </div>
         </div>
 
-       {/* Calendar List */}
-      <div className="mt-7">
-        <p className="text-[12px] font-semibold text-[#a2a5a8] uppercase mb-3">
-          Scheduled
-        </p>
+        {/* Calendar List */}
+        <div className="mt-7">
+          <p className="text-[12px] font-semibold text-[#a2a5a8] uppercase mb-3">
+            Scheduled
+          </p>
 
-        {[
-          { name: "Esther Howard", color: "#B500B2", count: 2 },
-          { name: "Task", color: "#f97316", count: 5 },
-          { name: "Bootcamp", color: "#10b981", count: 3 },
-        ].map((item, i) => (
-          <button
-            key={i}
-            className="w-full flex items-center mb-2 px-4 py-[10px] 
-              bg-[#696FC7] text-white 
-              uppercase tracking-widest text-sm font-medium
-              rounded-[10px] border-2 border-dashed A7AAE1-[#696FC7]
-              shadow-[0px_2px_5px_-1px_rgba(50,50,93,0.25),0px_1px_3px_-1px_rgba(0,0,0,0.3)]
-              transition-all duration-400
-              hover:bg-white hover:text-[#8F8BB6]
-              active:bg-[#8F8BB6]"
-          >
-            <div className="w-4 h-4 rounded mr-3 flex-shrink-0" style={{ background: item.color }} />
-            <span className="flex-1 text-left">{item.name}</span>
-            <span className="text-xs">{item.count}</span>
-          </button>
-        ))}
-      </div>
+          {[
+            { name: "Study Session", color: "#B500B2", count: 2 },
+            { name: "Lectures", color: "#f97316", count: 5 },
+            { name: "Deadlines", color: "#10b981", count: 3 },
+          ].map((item, i) => (
+            <button
+              key={i}
+              className="w-full flex items-center mb-2 px-4 py-[10px] 
+                bg-[#696FC7] text-white 
+                uppercase tracking-widest text-sm font-medium
+                rounded-[10px] border-2 border-dashed
+                shadow-[0px_2px_5px_-1px_rgba(50,50,93,0.25),0px_1px_3px_-1px_rgba(0,0,0,0.3)]
+                transition-all duration-400
+                hover:bg-white hover:text-[#8F8BB6]
+                active:bg-[#8F8BB6]"
+            >
+              <div className="w-4 h-4 rounded mr-3 shrink-0" style={{ background: item.color }} />
+              <span className="flex-1 text-left">{item.name}</span>
+              <span className="text-xs">{item.count}</span>
+            </button>
+          ))}
+        </div>
 
         {/* Today Panel */}
         <div className="mt-8 p-4 bg-[#28244d] border border-[#7067b3] rounded-xl">
@@ -146,8 +281,8 @@ export default function CalendarUI() {
             {selectedDate.toDateString()}
           </h3>
 
-          {events[selectedKey] ? (
-            events[selectedKey].map((ev, i) => (
+          {eventsByDate[selectedKey] ? (
+            eventsByDate[selectedKey].map((ev, i) => (
               <div key={i} className="bg-white p-2 rounded mb-2 shadow border-l-[3px] border-[#7067b3] text-sm text-[#7067b3]">
                 <strong className="text-[#7067b3] mr-2">{ev.time}</strong>
                 {ev.title}
@@ -161,6 +296,12 @@ export default function CalendarUI() {
 
       {/* Main */}
       <div className="flex-1 p-8 overflow-y-auto">
+
+        {calendarRulesError ? (
+          <div className="mb-4 rounded-xl border border-red-500/60 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+            {calendarRulesError}
+          </div>
+        ) : null}
 
         <div className="flex justify-between items-center mb-7">
           <div className="flex gap-2 items-center">
@@ -188,62 +329,66 @@ export default function CalendarUI() {
           ))}
 
           {prevMonthDates.map((date, i) => (
-            <div key={i} className="bg-[#f8fafc] opacity-60 p-2 rounded">
+            <div
+              key={i}
+              className="bg-[#f8fafc] opacity-60 p-2 rounded cursor-pointer hover:shadow-sm transition"
+              onClick={(e) => openEventsPopover(e, new Date(year, month - 1, date))}
+            >
               {date}
             </div>
           ))}
 
           {dates.map((date) => {
-          const dateObj = new Date(year, month, date);
-          const key = formatDateKey(dateObj);
+            const dateObj = new Date(year, month, date);
+            const key = formatDateKey(dateObj);
+            const isToday = key === todayKey;
+            const isSelected = key === selectedKey;
 
-          const isToday = key === todayKey;
-          const isSelected = key === selectedKey;
-
-          /*7e77c2, 908abf*/
-
-          return (
-            <div
-              key={date}
-              onClick={() => setSelectedDate(dateObj)}
-              className={`bg-[#776ec4] border rounded-xl p-2 min-h-[120px] cursor-pointer
-                hover:shadow-md transition 
-                ${
-                  isToday
-                    ? "border-[#f1091c] border-2"
-                    : isSelected
-                    ? "border-[#272D3E] border-2"
-                    : "border"
-                }
-              `}
-            >
-              <span
-                className={`font-semibold block mb-1 ${
-                  isToday ? "text-[#f1091c]" : isSelected ? "text-[#272D3E]" : ""
-                }`}
+            return (
+              <div
+                key={date}
+                onClick={(e) => openEventsPopover(e, dateObj)}
+                className={`bg-[#776ec4] border rounded-xl p-2 min-h-[120px] cursor-pointer
+                  hover:shadow-md transition 
+                  ${isToday ? "border-[#f1091c] border-2" : isSelected ? "border-[#272D3E] border-2" : "border"}`}
               >
-                {date}
-              </span>
+                <span className={`font-semibold block mb-1 ${isToday ? "text-[#f1091c]" : isSelected ? "text-[#272D3E]" : ""}`}>
+                  {date}
+                </span>
 
-              {events[key]?.map((ev, i) => (
-                <div
-                  key={i}
-                  className={`text-xs p-1 rounded mt-1 ${getEventColor(ev.category)}`}
-                >
-                  <span className="font-semibold mr-1">{ev.time}</span>
-                  {ev.title}
-                </div>
-              ))}
-            </div>
-          );
-        })}
+                {eventsByDate[key]?.map((ev, i) => (
+                  <div
+                    key={i}
+                    className={`text-xs p-1 rounded mt-1 ${getEventColor(ev.category)}`}
+                  >
+                    <span className="font-semibold mr-1">{ev.time}</span>
+                    {ev.title}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
 
           {nextMonthDates.map((date, i) => (
-            <div key={i} className="bg-[#B6B4BB] opacity-60 p-2 rounded-xl">
+            <div
+              key={i}
+              className="bg-[#B6B4BB] opacity-60 p-2 rounded-xl cursor-pointer hover:shadow-sm transition"
+              onClick={(e) => openEventsPopover(e, new Date(year, month + 1, date))}
+            >
               {date}
             </div>
           ))}
         </div>
+
+        <CalendarEventsPopover
+          dateKey={eventsPopover.dateKey}
+          position={eventsPopover.position}
+          eventsByDate={eventsByDate}
+          onClose={closeEventsPopover}
+          onAddEvent={handleAddEvent}
+          onUpdateEvent={handleUpdateEvent}
+          onDeleteEvent={handleDeleteEvent}
+        />
       </div>
     </div>
   );
