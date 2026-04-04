@@ -26,6 +26,7 @@ const StudySessionPage = () => {
   } = useMusicPlayer();
   
   const [timeError, setTimeError] = useState('');
+  const [isPaused, setIsPaused] = useState(false);
 
   const MIN_DURATION = 1;
   const MAX_DURATION = 480; // 8 hours
@@ -42,6 +43,14 @@ const StudySessionPage = () => {
   };
 
   const handleStartSession = () => {
+    // If resuming from pause
+    if (isPaused && studyTimeLeft > 0) {
+      setIsPaused(false);
+      setSessionStartTime(new Date()); // Update start time for resume
+      setStudySessionActive(true);
+      return;
+    }
+
     // Basic validation before starting
     if (timeError) {
       alert(`Invalid duration: ${timeError}`);
@@ -57,6 +66,7 @@ const StudySessionPage = () => {
     setSessionStartTime(new Date());
     setStudySongsPlayed([]);
     setStudySessionActive(true);
+    setIsPaused(false);
 
     // Start backend session
     if (auth.currentUser) {
@@ -78,10 +88,19 @@ const StudySessionPage = () => {
     }
   };
 
-  const handleStopSession = () => {
+  const handlePauseSession = () => {
     setStudySessionActive(false);
+    setIsPaused(true);
+  };
+
+  const handleResetSession = () => {
+    setStudySessionActive(false);
+    setIsPaused(false);
+    setStudyTimeLeft(studyDuration * 60);
+    setSessionStartTime(null);
+    setStudySongsPlayed([]);
     
-    // End backend session
+    // End backend session if active
     if (studySessionId) {
       const elapsedSeconds = sessionStartTime 
         ? Math.floor((new Date() - sessionStartTime) / 1000)
@@ -89,13 +108,6 @@ const StudySessionPage = () => {
       sessionService.endSession(studySessionId, elapsedSeconds);
       setStudySessionId(null);
     }
-  };
-
-  const handleResetSession = () => {
-    setStudySessionActive(false);
-    setStudyTimeLeft(studyDuration * 60);
-    setSessionStartTime(null);
-    setStudySongsPlayed([]);
   };
 
   const handleConfigSubmit = (config) => {
@@ -137,8 +149,12 @@ const StudySessionPage = () => {
         <div className="bg-gradient-to-br from-[#3C436B] to-[#585296] rounded-3xl p-8 border border-[#8F8BB6]/30 shadow-2xl h-full flex flex-col justify-center">
           <div className="text-center">
             <h2 className="text-[#B6B4BB] text-sm font-semibold mb-4 uppercase tracking-wider">Session Timer</h2>
-            <div className="text-7xl font-bold text-white font-mono mb-6 bg-[#272D3E] rounded-2xl py-6 shadow-inner border border-[#585296]/30">
-              {formatTime(studyTimeLeft)}
+            <div className="w-full text-white font-bold font-mono mb-6 bg-[#272D3E] rounded-2xl py-6 shadow-inner border border-[#585296]/30 flex items-center justify-center min-h-[120px] overflow-hidden">
+              <div className={`text-center whitespace-nowrap overflow-hidden text-ellipsis ${
+                studyTimeLeft >= 3600 
+                  ? 'text-5xl sm:text-5xl md:text-6xl' 
+                  : 'text-6xl sm:text-7xl'
+              }`}>{formatTime(studyTimeLeft)}</div>
             </div>
             
             <div className="mb-6 relative">
@@ -150,9 +166,10 @@ const StudySessionPage = () => {
                 value={studyDuration}
                 onChange={handleDurationChange}
                 disabled={studySessionActive}
-                className={`w-full px-4 py-3 bg-[#272D3E] border rounded-lg text-white text-center font-semibold focus:outline-none transition-all ${
+                className={`w-full px-4 py-3 bg-[#272D3E] border rounded-lg text-white text-center font-semibold focus:outline-none transition-all overflow-hidden ${
                   timeError ? 'border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.2)]' : 'border-[#585296]/50 focus:border-[#8F8BB6]'
                 } disabled:opacity-50`}
+                style={{ fontSize: '1rem' }}
               />
               {timeError && (
                 <p className="text-red-400 text-[10px] mt-1 absolute -bottom-4 left-0 right-0 text-center animate-pulse">
@@ -167,14 +184,14 @@ const StudySessionPage = () => {
                   onClick={handleStartSession}
                   className="px-6 py-3 bg-[#585296] hover:bg-[#6d5fe7] text-white font-semibold rounded-lg transition-all transform hover:scale-105 active:scale-95 shadow-lg border border-white/10"
                 >
-                  ▶ Start Session
+                  {isPaused ? '▶ Resume Session' : '▶ Start Session'}
                 </button>
               ) : (
                 <button
-                  onClick={handleStopSession}
+                  onClick={handlePauseSession}
                   className="px-6 py-3 bg-red-600/80 hover:bg-red-700 text-white font-semibold rounded-lg transition-all transform hover:scale-105 active:scale-95 shadow-lg border border-white/10"
                 >
-                  ⏸ Stop Session
+                  ⏸ Pause Session
                 </button>
               )}
               <button
