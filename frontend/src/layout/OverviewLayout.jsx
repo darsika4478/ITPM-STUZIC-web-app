@@ -5,6 +5,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import logoText from '../assets/logo-text.png';
 import MusicPlayerBar from '../components/musicPlayer/MusicPlayerBar';
+import FloatingSessionTimer from '../components/musicPlayer/FloatingSessionTimer';
 
 /**
  * DashboardLayout — Persistent sidebar shell for all dashboard pages
@@ -175,6 +176,9 @@ const OverviewLayout = () => {
 
             {/* Global Music Player Bar */}
             <MusicPlayerBar />
+
+            {/* Global Floating Study Timer */}
+            <FloatingSessionTimer />
         </div>
     );
 };

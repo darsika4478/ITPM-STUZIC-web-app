@@ -148,10 +148,15 @@ const HistoryPage = () => {
                 <div className="session-details">
                   <div className="session-header">
                     <span className="session-mood">{MOOD_EMOJIS[session.mood] || '🎵'}</span>
-                    <h4 className="session-track">{session.trackTitle || 'Track'}</h4>
-                    <span className="session-duration">{session.duration || 25} min</span>
+                    <h4 className="session-track">{session.goal ? `Target: ${session.goal}` : (session.trackTitle || 'Track')}</h4>
+                    <span className="session-duration">{session.duration || session.durationMinutes || 25} min</span>
                   </div>
-                  <p className="session-time">{session.timestamp || session.date}</p>
+                  {session.subject && (
+                    <p className="text-xs text-purple-300/60 mt-1">
+                      📚 {session.subject} • 🎯 {session.topic}
+                    </p>
+                  )}
+                  <p className="session-time">{session.timestamp || session.date || (session.startTime ? new Date(session.startTime).toLocaleString() : '')}</p>
                 </div>
               </div>
             ))
