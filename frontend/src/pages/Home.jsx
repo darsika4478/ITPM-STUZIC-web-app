@@ -1,6 +1,7 @@
 
 import { Link } from "react-router-dom";
-import logoText from '../assets/logo-text.png';
+import LandingHeader from "../components/landing/LandingHeader";
+import LandingFooter from "../components/landing/LandingFooter";
 
 /**
  * Home — Public landing page
@@ -54,6 +55,7 @@ export default function Home() {
             position: 'relative', minHeight: '100vh',
             background: 'linear-gradient(135deg, #1c1848 0%, #231f5c 50%, #2b2570 100%)',
             color: '#f0ecff', overflowX: 'hidden',
+            paddingTop: '100px',
         }}>
             {/* ── Ambient background blobs ── */}
             <div style={{ pointerEvents: 'none', position: 'fixed', inset: 0, zIndex: 0 }}>
@@ -62,22 +64,8 @@ export default function Home() {
                 <div style={{ position: 'absolute', bottom: 0, left: '25%', height: '350px', width: '350px', borderRadius: '50%', background: 'rgba(140,100,240,0.15)', filter: 'blur(100px)' }} />
             </div>
 
-            {/* ── Navbar ── */}
-            <nav style={{
-                position: 'relative', zIndex: 20,
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '0.5rem 4rem',
-            }}>
-                <img src={logoText} alt="STUZIC" style={{ height: '180px', width: 'auto', objectFit: 'contain' }} />
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <Link to="/login" style={{ borderRadius: '12px', border: '1.5px solid rgba(167,139,250,0.35)', padding: '8px 20px', fontSize: '0.875rem', fontWeight: 500, color: '#c4b5fd', textDecoration: 'none', background: 'rgba(255,255,255,0.05)' }}>
-                        Log In
-                    </Link>
-                    <Link to="/Register" style={{ borderRadius: '12px', padding: '8px 20px', fontSize: '0.875rem', fontWeight: 700, color: '#fff', textDecoration: 'none', background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)', boxShadow: '0 4px 16px rgba(109,95,231,0.45)' }}>
-                        Sign Up Free
-                    </Link>
-                </div>
-            </nav>
+            {/* ── Landing Header ── */}
+            <LandingHeader />
 
             {/* ── Hero section ── */}
             <section style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4rem 1.5rem 6rem', textAlign: 'center' }}>
@@ -98,7 +86,7 @@ export default function Home() {
                 </div>
 
                 <div style={{ marginTop: '2.25rem', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
-                    <Link to="/Register" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', borderRadius: '16px', padding: '14px 32px', fontSize: '1rem', fontWeight: 700, color: '#fff', textDecoration: 'none', background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)', boxShadow: '0 8px 32px rgba(109,95,231,0.45)' }}>
+                    <Link to="/register" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', borderRadius: '16px', padding: '14px 32px', fontSize: '1rem', fontWeight: 700, color: '#fff', textDecoration: 'none', background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)', boxShadow: '0 8px 32px rgba(109,95,231,0.45)' }}>
                         Get Started — It's Free
                         <svg style={{ height: '1.25rem', width: '1.25rem' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
@@ -190,7 +178,7 @@ export default function Home() {
                     <p style={{ position: 'relative', margin: '1rem auto 0', maxWidth: '512px', color: 'rgba(255,255,255,0.8)', lineHeight: 1.6 }}>
                         Join thousands of students who are already studying smarter with STUZIC. It's free, fast, and built for you.
                     </p>
-                    <Link to="/Register" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginTop: '2rem', borderRadius: '16px', background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.4)', padding: '14px 32px', fontWeight: 700, color: '#fff', textDecoration: 'none', backdropFilter: 'blur(10px)' }}>
+                    <Link to="/register" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginTop: '2rem', borderRadius: '16px', background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.4)', padding: '14px 32px', fontWeight: 700, color: '#fff', textDecoration: 'none', backdropFilter: 'blur(10px)' }}>
                         Create Your Free Account
                         <svg style={{ height: '1.25rem', width: '1.25rem' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
@@ -199,13 +187,8 @@ export default function Home() {
                 </div>
             </section>
 
-            {/* ── Footer ── */}
-            <footer style={{ position: 'relative', zIndex: 10, borderTop: '1px solid rgba(109,95,231,0.2)', padding: '2rem', textAlign: 'center', fontSize: '0.875rem', color: '#c4b5fd' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                    <img src={logoText} alt="STUZIC" style={{ height: '24px', width: 'auto', opacity: 0.6 }} />
-                    <span>© {new Date().getFullYear()} STUZIC. Built for students, by students.</span>
-                </div>
-            </footer>
+            {/* ── Landing Footer ── */}
+            <LandingFooter />
         </div>
     );
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../../config/firebase";
 import GlassCard from "./GlassCard";
@@ -12,11 +13,18 @@ const MOOD_CONFIG = [
 ];
 
 const ACTIVITIES = ["studying", "workingout", "commuting", "relaxing"];
+const GENRES = ["lofi", "classical", "jazz", "electronic", "ambient", "rock", "pop", "tamil", "indie"];
+const FOCUS_TIMES = ["15min", "25min", "45min", "60min", "90min"];
+const VOCAL_PREFERENCES = ["instrumental", "vocals", "mixed"];
 
 export default function MoodCheckIn({ todayMood, onMoodLogged }) {
+  const navigate = useNavigate();
   const [selectedMood, setSelectedMood] = useState(null);
   const [energy, setEnergy] = useState(3);
   const [activity, setActivity] = useState("");
+  const [genre, setGenre] = useState("");
+  const [focusTime, setFocusTime] = useState("");
+  const [vocals, setVocals] = useState("");
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
 
@@ -29,26 +37,42 @@ export default function MoodCheckIn({ todayMood, onMoodLogged }) {
     if (!selectedMood || !activity) return;
     setSaving(true);
     try {
-      await addDoc(collection(db, "moods"), {
+      const moodData = {
         userId: auth.currentUser.uid,
         mood: selectedMood.value,
+        moodLabel: selectedMood.label,
         energy,
         activity,
-        genre: null,
-        vocals: null,
-        focusTime: null,
-        artist: null,
+        genre: genre || null,
+        vocals: vocals || null,
+        focusTime: focusTime || null,
         createdAt: serverTimestamp(),
         date: new Date().toISOString().split("T")[0],
-      });
-      onMoodLogged?.({
+      };
+      await addDoc(collection(db, "moods"), moodData);
+      
+      const moodLogged = {
         ...selectedMood,
         energy,
         activity,
+        genre,
+        vocals,
+        focusTime,
         time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      };
+      
+      onMoodLogged?.(moodLogged);
+      
+      // Navigate to recommendations page
+      navigate("/mood-recommendation", { 
+        state: { mood: moodLogged }
       });
+      
       setShowForm(false);
       setSelectedMood(null);
+      setGenre("");
+      setVocals("");
+      setFocusTime("");
     } catch (err) {
       console.error("Failed to save mood:", err);
     } finally {
@@ -102,13 +126,14 @@ export default function MoodCheckIn({ todayMood, onMoodLogged }) {
         ))}
       </div>
       {showForm && selectedMood && (
-        <div className="mt-4 space-y-3 border-t border-white/10 pt-4">
+        <div className="mt-4 space-y-3 border-t border-white/10 pt-4 max-h-96 overflow-y-auto">
           <div>
             <label className="mb-1 block text-xs font-medium text-[var(--c1)]">Energy Level: {energy}</label>
             <input type="range" min="1" max="5" value={energy} onChange={(e) => setEnergy(Number(e.target.value))} className="w-full accent-[var(--c3)]" />
           </div>
+          
           <div>
-            <label className="mb-1 block text-xs font-medium text-[var(--c1)]">What are you doing?</label>
+            <label className="mb-1 block text-xs font-medium text-[var(--c1)]">What are you doing? *</label>
             <div className="flex flex-wrap gap-2">
               {ACTIVITIES.map((a) => (
                 <button key={a} onClick={() => setActivity(a)} className={`rounded-lg px-3 py-1.5 text-xs font-medium capitalize transition ${activity === a ? "bg-[var(--c3)] text-white shadow" : "bg-white/5 text-[var(--c1)] hover:bg-white/10"}`}>
@@ -117,8 +142,42 @@ export default function MoodCheckIn({ todayMood, onMoodLogged }) {
               ))}
             </div>
           </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-[var(--c1)]">Preferred Genre</label>
+            <div className="flex flex-wrap gap-2">
+              {GENRES.map((g) => (
+                <button key={g} onClick={() => setGenre(g)} className={`rounded-lg px-2.5 py-1 text-xs font-medium capitalize transition ${genre === g ? "bg-[var(--c3)] text-white shadow" : "bg-white/5 text-[var(--c1)] hover:bg-white/10"}`}>
+                  {g === "tamil" ? "🇮🇳 Tamil" : g}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-[var(--c1)]">Vocal Preference</label>
+            <div className="flex gap-2">
+              {VOCAL_PREFERENCES.map((v) => (
+                <button key={v} onClick={() => setVocals(v)} className={`rounded-lg px-3 py-1.5 text-xs font-medium capitalize transition ${vocals === v ? "bg-[var(--c3)] text-white shadow" : "bg-white/5 text-[var(--c1)] hover:bg-white/10"}`}>
+                  {v}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-[var(--c1)]">Session Duration</label>
+            <div className="flex gap-2">
+              {FOCUS_TIMES.map((t) => (
+                <button key={t} onClick={() => setFocusTime(t)} className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${focusTime === t ? "bg-[var(--c3)] text-white shadow" : "bg-white/5 text-[var(--c1)] hover:bg-white/10"}`}>
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <button onClick={handleSave} disabled={!activity || saving} className="w-full rounded-xl bg-gradient-to-r from-[var(--c3)] to-[var(--c2)] py-2.5 text-sm font-bold text-white shadow-lg shadow-[var(--c3)]/30 transition hover:shadow-xl disabled:opacity-40">
-            {saving ? "Saving..." : "Save Mood"}
+            {saving ? "Saving..." : "Get Music Recommendations"}
           </button>
         </div>
       )}

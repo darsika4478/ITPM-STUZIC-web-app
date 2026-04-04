@@ -28,6 +28,17 @@ export default function TodayLineup({ tasks = [] }) {
     }
   };
 
+  const getTaskTitle = (t) => {
+    const titleText = (t.title || "").trim();
+    if (titleText) return titleText;
+    
+    if (Array.isArray(t.checklistItems) && t.checklistItems.length > 0) {
+      const firstChecklist = t.checklistItems.find((item) => (item.text || "").trim());
+      if (firstChecklist?.text) return firstChecklist.text.trim();
+    }
+    return "Untitled task";
+  };
+
   return (
     <GlassCard>
       <h3 className="text-sm font-semibold text-white">📅 Today — {todayFormatted}</h3>
@@ -44,7 +55,7 @@ export default function TodayLineup({ tasks = [] }) {
                 {task.completed ? "✅" : "☐"}
               </button>
               <p className={`flex-1 truncate text-sm text-white ${task.completed ? "line-through opacity-50" : ""}`}>
-                {task.title}
+                {getTaskTitle(task)}
               </p>
               <span className={`h-2 w-2 rounded-full ${priorityColor[task.priority] || "bg-gray-500"}`} />
             </div>
