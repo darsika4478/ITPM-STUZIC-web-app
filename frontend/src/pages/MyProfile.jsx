@@ -10,6 +10,8 @@ import {
     sendEmailVerification,
     updatePassword,
     updateProfile,
+    updateEmail,
+    verifyBeforeUpdateEmail,
 } from 'firebase/auth';
 import { collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
@@ -37,11 +39,14 @@ const MyProfile = () => {
 
     // ── Profile section state ──
     const [name, setName] = useState('');
+    const [email, setEmail] = useState('');
     const [photoURL, setPhotoURL] = useState('');
     const [profileSaved, setProfileSaved] = useState(false);   // success flash
     const [profileError, setProfileError] = useState('');
     const [uploading, setUploading] = useState(false);          // avatar upload in progress
     const [showAvatarEditor, setShowAvatarEditor] = useState(false);
+    const [isNameEditable, setIsNameEditable] = useState(false);
+    const [isEmailEditable, setIsEmailEditable] = useState(false);
 
     // ── Password section state ──
     const [currentPassword, setCurrentPassword] = useState('');
@@ -78,14 +83,18 @@ const MyProfile = () => {
                     // Prefer Firestore photoURL → auth photoURL
                     if (data.photoURL) setPhotoURL(data.photoURL);
                     else if (user.photoURL) setPhotoURL(user.photoURL);
+
+                    if (user.email) setEmail(user.email);
                 } else {
                     setName(user.displayName || '');
                     setPhotoURL(user.photoURL || '');
+                    setEmail(user.email || '');
                 }
             } catch (err) {
                 console.error('Failed to load profile:', err);
                 setName(user.displayName || '');
                 setPhotoURL(user.photoURL || '');
+                setEmail(user.email || '');
             }
         };
         loadProfile();
@@ -162,21 +171,40 @@ const MyProfile = () => {
         }
     };
 
-    // ── Save Profile Name ── updates both Firestore and Firebase Auth display name
+    // ── Save Profile Info ── updates both Firestore and Firebase Auth
     const handleSaveProfile = async (e) => {
         e.preventDefault();
         if (!user) return;
         setProfileSaved(false);
         setProfileError('');
         if (!name.trim()) { setProfileError('Name cannot be empty.'); return; }
+        if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setProfileError('Valid email is required.'); return; }
+        
         try {
             await setDoc(doc(db, 'users', user.uid), { name: name.trim() }, { merge: true });
             await updateProfile(user, { displayName: name.trim() });
+            
+            if (email.trim() !== user.email) {
+                if (typeof verifyBeforeUpdateEmail === 'function') {
+                    await verifyBeforeUpdateEmail(user, email.trim());
+                    setProfileError('Verification link sent to new email. Please verify to complete the change.');
+                } else {
+                    await updateEmail(user, email.trim());
+                }
+                await setDoc(doc(db, 'users', user.uid), { emailLower: email.trim().toLowerCase(), email: email.trim() }, { merge: true });
+            }
+            
+            setIsNameEditable(false);
+            setIsEmailEditable(false);
             setProfileSaved(true);
             setTimeout(() => setProfileSaved(false), 3000);
         } catch (err) {
             console.error('Save profile failed:', err);
-            setProfileError('Failed to save profile.');
+            if (err.code === 'auth/requires-recent-login') {
+                setProfileError('Security restriction: Please re-authenticate (log out and log back in) to update your email.');
+            } else {
+                setProfileError(err.message || 'Failed to save profile.');
+            }
         }
     };
 
@@ -388,18 +416,34 @@ const MyProfile = () => {
                     <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         {/* Editable display name */}
                         <div>
-                            <label style={labelStyle}>Name</label>
-                            <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" style={inputStyle}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <label style={{...labelStyle, marginBottom: 0}}>Name</label>
+                                <button type="button" onClick={() => setIsNameEditable(!isNameEditable)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 6px 0', color: '#a78bfa' }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" style={{ height: '0.875rem', width: '0.875rem' }} viewBox="0 0 20 20" fill="currentColor">
+                                        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <input type="text" value={name} disabled={!isNameEditable} onChange={(e) => setName(e.target.value)} placeholder="Your name" style={{...inputStyle, opacity: isNameEditable ? 1 : 0.6, cursor: isNameEditable ? 'text' : 'not-allowed' }}
                                 onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
                                 onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'} />
                             {profileError && <p style={{ marginTop: '4px', fontSize: '0.75rem', color: '#f87171' }}>{profileError}</p>}
                         </div>
 
-                        {/* Email — read-only with verification status badge */}
+                        {/* Email — editable with toggle */}
                         <div>
-                            <label style={labelStyle}>Email</label>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <input type="email" value={user?.email || ''} disabled style={{ ...inputStyle, flex: 1, opacity: 0.5, cursor: 'not-allowed' }} />
+                                <label style={{...labelStyle, marginBottom: 0}}>Email</label>
+                                <button type="button" onClick={() => setIsEmailEditable(!isEmailEditable)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 6px 0', color: '#a78bfa' }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" style={{ height: '0.875rem', width: '0.875rem' }} viewBox="0 0 20 20" fill="currentColor">
+                                        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <input type="email" value={email} disabled={!isEmailEditable} onChange={(e) => setEmail(e.target.value)} style={{ ...inputStyle, flex: 1, opacity: isEmailEditable ? 1 : 0.6, cursor: isEmailEditable ? 'text' : 'not-allowed' }} 
+                                    onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
+                                    onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'} />
                                 {user && !user.emailVerified && (
                                     <span style={{ flexShrink: 0, borderRadius: '8px', background: 'rgba(251,146,60,0.18)', padding: '3px 8px', fontSize: '0.65rem', fontWeight: 700, color: '#fb923c' }}>Unverified</span>
                                 )}
