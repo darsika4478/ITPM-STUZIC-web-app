@@ -67,9 +67,9 @@ const AdminLayout = () => {
         <div style={{ display: 'flex', minHeight: '100vh', background: '#0f0a2e' }}>
 
             {/* Admin Sidebar */}
-            <aside style={{
+            <aside className="hidden md:flex w-[260px] flex-col fixed left-0 top-0 z-30 h-screen border-r border-[#f8717126] bg-[rgba(8,5,25,0.97)] backdrop-blur-[20px] shadow-[4px_0_24px_rgba(0,0,0,0.4)]" style={{
                 position: 'fixed', left: 0, top: 0, zIndex: 30,
-                display: 'flex', height: '100vh', width: '260px', flexDirection: 'column',
+                display: 'flex', height: '100vh', width: '100%', flexDirection: 'column',
                 borderRight: '1px solid rgba(248,113,113,0.15)',
                 background: 'rgba(8,5,25,0.97)',
                 backdropFilter: 'blur(20px)',
@@ -93,7 +93,7 @@ const AdminLayout = () => {
                 </div>
 
                 {/* Navigation */}
-                <nav style={{ marginTop: '1rem', display: 'flex', flex: 1, flexDirection: 'column', gap: '0.25rem', padding: '0 0.75rem' }}>
+                <nav style={{ marginTop: '1rem', display: 'flex', flex: 1, flexDirection: 'column', gap: '0.25rem', padding: '0 0.75rem', overflowY: 'auto' }}>
                     <p style={{ marginBottom: '0.5rem', paddingLeft: '1rem', fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#f87171' }}>
                         Management
                     </p>
@@ -166,11 +166,31 @@ const AdminLayout = () => {
             </aside>
 
             {/* Main content */}
-            <main style={{ marginLeft: '260px', flex: 1, minHeight: '100vh' }}>
-                <div style={{ padding: '2rem' }}>
+            <main className="md:ml-[260px] flex-1 min-h-screen pb-[90px] md:pb-0" style={{ width: '100%' }}>
+                <div style={{ padding: '2rem' }} className="p-4 md:p-8">
                     <Outlet />
                 </div>
             </main>
+
+            {/* Mobile Bottom Navigation (Hidden on desktop) */}
+            <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around bg-[rgba(8,5,25,0.97)] backdrop-blur-[20px] border-t border-[rgba(248,113,113,0.15)] pb-safe pt-2 px-2 shadow-[0_-4px_24px_rgba(0,0,0,0.4)]">
+                {[
+                    { to: "/admin/dashboard", icon: "📊", label: "Panel" },
+                    { to: "/admin/users", icon: "👥", label: "Users" },
+                    { to: "/admin/tasks", icon: "📋", label: "Tasks" },
+                    { to: "/admin/mood-reports", icon: "🎭", label: "Moods" },
+                    { to: "/admin/sessions", icon: "⏱️", label: "Stats" }
+                ].map((item) => (
+                    <NavLink
+                        key={item.to}
+                        to={item.to}
+                        className={({ isActive }) => `flex flex-col items-center justify-center p-2 rounded-xl text-[10px] font-semibold select-none transition-all ${isActive ? 'text-[#fff] bg-[rgba(248,113,113,0.2)] shadow-[0_4px_12px_rgba(248,113,113,0.3)]' : 'text-[#fca5a5]/80'}`}
+                    >
+                        <span className="text-xl mb-1">{item.icon}</span>
+                        {item.label}
+                    </NavLink>
+                ))}
+            </nav>
         </div>
     );
 };
