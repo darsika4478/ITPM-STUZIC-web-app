@@ -378,97 +378,137 @@ const MyProfile = () => {
                 
 
                 {/* ── Avatar + Profile Info card ── */}
-                <div style={cardStyle}>
-                    {/* Avatar with edit button overlay — opens crop modal */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                <div style={{...cardStyle, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem 2.5rem', background: 'rgba(30,24,72,0.6)', border: '1px solid rgba(167,139,250,0.15)'}}>
+                    {/* Avatar block */}
+                    <div style={{ marginBottom: '1.5rem' }}>
                         <button
                             type="button"
                             onClick={() => setShowAvatarEditor(true)}
-                            style={{ position: 'relative', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                            style={{
+                                position: 'relative',
+                                height: '140px', width: '140px',
+                                borderRadius: '42px', // More perfectly rounded iOS squircle shape
+                                background: 'rgba(255,255,255,0.05)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                border: '1px solid rgba(167,139,250,0.2)', cursor: 'pointer', padding: 0,
+                                boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
+                                overflow: 'hidden',
+                                transition: 'transform 0.2s ease, border-color 0.2s ease'
+                            }}
                             aria-label="Edit profile photo"
+                            onMouseEnter={(e) => e.currentTarget.style.borderColor = 'rgba(167,139,250,0.5)'}
+                            onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(167,139,250,0.2)'}
                         >
-                            {/* Show photo if available, otherwise show initials */}
                             {photoURL ? (
-                                <img src={photoURL} alt="Avatar" style={{ height: '96px', width: '96px', borderRadius: '50%', objectFit: 'cover', boxShadow: '0 0 0 3px rgba(167,139,250,0.4)' }} />
+                                <img src={photoURL} alt="Avatar" style={{ height: '100%', width: '100%', objectFit: 'cover' }} />
                             ) : (
-                                <div style={{ display: 'flex', height: '96px', width: '96px', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)', fontSize: '1.5rem', fontWeight: 700, color: '#fff', boxShadow: '0 0 0 3px rgba(167,139,250,0.4)' }}>
-                                    {getInitials(name)}
-                                </div>
+                                <span style={{ fontSize: '4rem', fontWeight: 800, color: '#f0ecff' }}>{getInitials(name)}</span>
                             )}
-                            {/* Pencil icon badge */}
-                            <div style={{ position: 'absolute', bottom: 0, right: 0, display: 'flex', height: '2rem', width: '2rem', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: '#6d5fe7', color: '#fff', boxShadow: '0 2px 8px rgba(109,95,231,0.5)', border: '2px solid #1c1848' }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" style={{ height: '0.875rem', width: '0.875rem' }} viewBox="0 0 20 20" fill="currentColor">
-                                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                                </svg>
-                            </div>
-                            {/* Upload spinner overlay */}
+                            
                             {uploading && (
-                                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: 'rgba(0,0,0,0.5)' }}>
-                                    <div style={{ height: '1.25rem', width: '1.25rem', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', animation: 'spin 1s linear infinite' }} />
+                                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)' }}>
+                                    <div style={{ height: '2rem', width: '2rem', borderRadius: '50%', border: '4px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', animation: 'spin 1s linear infinite' }} />
                                 </div>
                             )}
                         </button>
                     </div>
-
-                    <h2 style={{ textAlign: 'center', fontSize: '1.125rem', fontWeight: 600, color: '#f0ecff', margin: '0 0 1.25rem' }}>Profile Information</h2>
-
-                    {/* Name and email form */}
-                    <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        {/* Editable display name */}
-                        <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <label style={{...labelStyle, marginBottom: 0}}>Name</label>
-                                <button type="button" onClick={() => setIsNameEditable(!isNameEditable)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 6px 0', color: '#a78bfa' }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" style={{ height: '0.875rem', width: '0.875rem' }} viewBox="0 0 20 20" fill="currentColor">
-                                        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                    
+                    {/* Text info block */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                        {isNameEditable ? (
+                            <form onSubmit={(e) => { handleSaveProfile(e); setIsNameEditable(false); }} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '0 0 0.5rem' }}>
+                                <input
+                                    autoFocus
+                                    type="text"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    placeholder="Enter your name"
+                                    style={{
+                                        ...inputStyle,
+                                        fontSize: '2.2rem',
+                                        fontWeight: 800,
+                                        textAlign: 'center',
+                                        padding: '0.25rem 1rem',
+                                        borderRadius: '16px',
+                                        width: 'auto',
+                                        minWidth: '250px',
+                                        color: '#ffffff',
+                                        background: 'rgba(255,255,255,0.05)',
+                                        border: '2px solid rgba(167,139,250,0.5)'
+                                    }}
+                                />
+                                <button type="submit" aria-label="Save Name" style={{ 
+                                    background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.3)', color: '#34d399', 
+                                    borderRadius: '12px', width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s ease'
+                                }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                                </button>
+                                <button type="button" aria-label="Cancel" onClick={() => { setIsNameEditable(false); setName(user?.displayName || ''); }} style={{ 
+                                    background: 'rgba(248,113,113,0.15)', border: '1px solid rgba(248,113,113,0.3)', color: '#f87171', 
+                                    borderRadius: '12px', width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s ease'
+                                }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                                </button>
+                            </form>
+                        ) : (
+                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: '0.25rem', margin: '0 0 0.5rem' }}>
+                                <h2 style={{
+                                    fontSize: '2.8rem',
+                                    fontWeight: 800,
+                                    color: '#ffffff',
+                                    margin: 0,
+                                    letterSpacing: '-0.5px',
+                                    lineHeight: 1
+                                }}>
+                                    {name || 'Your Name'}
+                                </h2>
+                                <button 
+                                    type="button"
+                                    onClick={() => setIsNameEditable(true)}
+                                    title="Edit Name"
+                                    style={{
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        background: 'linear-gradient(135deg, rgba(167,139,250,0.18) 0%, rgba(167,139,250,0.05) 100%)', 
+                                        border: '1px solid rgba(167,139,250,0.2)',
+                                        color: '#c4b5fd', borderRadius: '10px', width: '32px', height: '32px',
+                                        cursor: 'pointer', transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)', position: 'relative', top: '0px',
+                                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)', backdropFilter: 'blur(8px)'
+                                    }}
+                                    onMouseEnter={(e) => { 
+                                        e.currentTarget.style.background = 'linear-gradient(135deg, rgba(167,139,250,0.3) 0%, rgba(167,139,250,0.1) 100%)'; 
+                                        e.currentTarget.style.transform = 'translateY(-2px) scale(1.05)';
+                                        e.currentTarget.style.boxShadow = '0 6px 16px rgba(167,139,250,0.25)';
+                                        e.currentTarget.style.color = '#ffffff';
+                                    }}
+                                    onMouseLeave={(e) => { 
+                                        e.currentTarget.style.background = 'linear-gradient(135deg, rgba(167,139,250,0.18) 0%, rgba(167,139,250,0.05) 100%)'; 
+                                        e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+                                        e.currentTarget.style.color = '#c4b5fd';
+                                    }}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M12 20h9"></path>
+                                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
                                     </svg>
                                 </button>
                             </div>
-                            <input type="text" value={name} disabled={!isNameEditable} onChange={(e) => setName(e.target.value)} placeholder="Your name" style={{...inputStyle, opacity: isNameEditable ? 1 : 0.6, cursor: isNameEditable ? 'text' : 'not-allowed' }}
-                                onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
-                                onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'} />
-                            {profileError && <p style={{ marginTop: '4px', fontSize: '0.75rem', color: '#f87171' }}>{profileError}</p>}
-                        </div>
-
-                        {/* Email — editable with toggle */}
-                        <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <label style={{...labelStyle, marginBottom: 0}}>Email</label>
-                                <button type="button" onClick={() => setIsEmailEditable(!isEmailEditable)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 6px 0', color: '#a78bfa' }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" style={{ height: '0.875rem', width: '0.875rem' }} viewBox="0 0 20 20" fill="currentColor">
-                                        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                                    </svg>
-                                </button>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <input type="email" value={email} disabled={!isEmailEditable} onChange={(e) => setEmail(e.target.value)} style={{ ...inputStyle, flex: 1, opacity: isEmailEditable ? 1 : 0.6, cursor: isEmailEditable ? 'text' : 'not-allowed' }} 
-                                    onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
-                                    onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'} />
-                                {user && !user.emailVerified && (
-                                    <span style={{ flexShrink: 0, borderRadius: '8px', background: 'rgba(251,146,60,0.18)', padding: '3px 8px', fontSize: '0.65rem', fontWeight: 700, color: '#fb923c' }}>Unverified</span>
-                                )}
-                                {user?.emailVerified && (
-                                    <span style={{ flexShrink: 0, borderRadius: '8px', background: 'rgba(52,211,153,0.18)', padding: '3px 8px', fontSize: '0.65rem', fontWeight: 700, color: '#34d399' }}>Verified</span>
-                                )}
-                            </div>
-                            {/* Show verification link only if email not yet verified */}
-                            {user && !user.emailVerified && (
-                                <button type="button" onClick={handleSendVerification} style={{ marginTop: '6px', fontSize: '0.75rem', fontWeight: 500, color: '#a78bfa', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                                    {verificationSent ? '✓ Verification email sent!' : 'Send verification email'}
-                                </button>
-                            )}
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                            <button type="submit" style={btnPrimaryStyle}>Save Changes</button>
-                            {profileSaved && <span style={{ fontSize: '0.75rem', color: '#34d399', fontWeight: 600 }}>✓ Saved!</span>}
-                        </div>
-                    </form>
+                        )}
+                        
+                        <p style={{
+                            color: '#c4b5fd', // Lighter purple like screenshot
+                            fontSize: '1.25rem',
+                            margin: 0,
+                            fontWeight: 500
+                        }}>
+                            {user?.email || 'name@domain.com'}
+                        </p>
+                    </div>
                 </div>
 
                 {/* ── Account Details card — read-only metadata from Firebase Auth ── */}
                 <div style={cardStyle}>
-                    <h2 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#f0ecff', margin: '0 0 0.75rem' }}>Account Details</h2>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#ffffff', margin: '0 0 1rem' }}>Account Details</h2>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.875rem' }}>
                         <div>
                             <p style={{ color: '#c4b5fd', marginBottom: '2px', marginTop: 0 }}>Account Created</p>
@@ -483,7 +523,7 @@ const MyProfile = () => {
 
                 {/* ── Change Password card ── */}
                 <div style={cardStyle}>
-                    <h2 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#f0ecff', margin: '0 0 1rem' }}>Change Password</h2>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#ffffff', margin: '0 0 1.25rem' }}>Change Password</h2>
                     <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         {/* Current password — used for re-authentication */}
                         <div>
@@ -532,7 +572,7 @@ const MyProfile = () => {
 
                 {/* ── Danger Zone — irreversible account deletion ── */}
                 <div style={{ borderRadius: '20px', border: '1.5px solid rgba(248,113,113,0.3)', background: 'rgba(248,113,113,0.06)', padding: '1.75rem', backdropFilter: 'blur(20px)' }}>
-                    <h2 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#f87171', margin: '0 0 0.5rem' }}>Danger Zone</h2>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f87171', margin: '0 0 0.75rem' }}>Danger Zone</h2>
                     <p style={{ margin: '0 0 1rem', fontSize: '0.875rem', color: 'rgba(248,113,113,0.8)' }}>
                         Permanently delete your account, all tasks, and profile data. This action cannot be undone.
                     </p>
