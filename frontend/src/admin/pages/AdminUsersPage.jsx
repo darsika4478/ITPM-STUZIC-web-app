@@ -235,8 +235,9 @@ const AdminUsersPage = () => {
                 {filteredUsers.length === 0 ? (
                     <p style={{ color: '#a78bfa', margin: 0, textAlign: 'center', padding: '2rem 0' }}>No users found for this search/filter.</p>
                 ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
+                    <div style={{ overflowX: 'auto', width: '100%' }}>
+                        <table style={{ width: '100%', minWidth: '700px', borderCollapse: 'collapse' }}>
+                            <thead>
                             <tr>
                                 {['Name', 'Email', 'Joined', 'Last Login', 'Actions'].map((column) => (
                                     <th key={column} style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.75rem', color: '#a78bfa', borderBottom: '1px solid rgba(109,95,231,0.2)', textTransform: 'uppercase' }}>
@@ -303,6 +304,7 @@ const AdminUsersPage = () => {
                             })}
                         </tbody>
                     </table>
+                    </div>
                 )}
             </div>
 

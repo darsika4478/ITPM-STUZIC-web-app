@@ -121,7 +121,7 @@ const MoodAnalyticsPage = () => {
                         <span className="px-3 py-1 rounded-full bg-white/10 text-xs text-[#8F8BB6] font-semibold tracking-wide">Last 7 Days</span>
                     </div>
                     <div className="flex-1 w-full min-h-[250px] md:min-h-[300px]">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minHeight={1} minWidth={1}>
                             <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="colorMood" x1="0" y1="0" x2="0" y2="1">
@@ -150,7 +150,7 @@ const MoodAnalyticsPage = () => {
                     <h2 className="text-white font-bold text-xl drop-shadow-sm mb-1">Your Contexts</h2>
                     <p className="text-xs text-[#8F8BB6] mb-4 font-medium">When do you listen most?</p>
                     <div className="flex-1 w-full min-h-[250px] relative flex justify-center items-center overflow-visible">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minHeight={1} minWidth={1}>
                             <PieChart>
                                 <Pie
                                     data={activityData}
@@ -191,7 +191,7 @@ const MoodAnalyticsPage = () => {
                         <h2 className="text-white font-bold text-xl drop-shadow-sm">Energy Profile</h2>
                     </div>
                     <div className="w-full h-[250px]">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minHeight={1} minWidth={1}>
                             <BarChart data={energyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barSize={60}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
                                 <XAxis dataKey="name" stroke="#B6B4BB" tick={{ fill: '#B6B4BB', fontSize: 13, fontWeight: 600 }} axisLine={false} tickLine={false} dy={10} />

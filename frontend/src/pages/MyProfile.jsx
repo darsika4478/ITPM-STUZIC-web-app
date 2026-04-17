@@ -509,7 +509,7 @@ const MyProfile = () => {
                 {/* ── Account Details card — read-only metadata from Firebase Auth ── */}
                 <div style={cardStyle}>
                     <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#ffffff', margin: '0 0 1rem' }}>Account Details</h2>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.875rem' }}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                         <div>
                             <p style={{ color: '#c4b5fd', marginBottom: '2px', marginTop: 0 }}>Account Created</p>
                             <p style={{ fontWeight: 600, color: '#f0ecff', margin: 0 }}>{createdAt}</p>

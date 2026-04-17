@@ -293,8 +293,9 @@ const AdminDashboard = () => {
                 {enrichedRecentUsers.length === 0 ? (
                     <p style={{ color: '#a78bfa', fontSize: '0.875rem' }}>No users found.</p>
                 ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
+                    <div style={{ overflowX: 'auto', width: '100%' }}>
+                        <table style={{ width: '100%', minWidth: '600px', borderCollapse: 'collapse' }}>
+                            <thead>
                             <tr>
                                 {['Name', 'Email', 'Joined', 'Last Login'].map((h) => (
                                     <th key={h} style={{
@@ -330,6 +331,7 @@ const AdminDashboard = () => {
                             })}
                         </tbody>
                     </table>
+                    </div>
                 )}
             </div>
         </div>

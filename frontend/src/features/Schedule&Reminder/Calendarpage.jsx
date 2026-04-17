@@ -207,10 +207,10 @@ export default function CalendarUI() {
   };
 
   return (
-    <div className="flex h-screen bg-[#28244d] font-sans">
+    <div className="flex flex-col lg:flex-row h-screen bg-[#28244d] font-sans">
 
       {/* Sidebar */}
-      <div className="w-[280px] bg-[#3C436B] border-r border-[#e9eef2] p-6 overflow-y-auto">
+      <div className="w-full lg:w-[320px] bg-[#3C436B] border-b lg:border-b-0 lg:border-r border-[#e9eef2] p-6 lg:overflow-y-auto shrink-0">
 
         <div className="text-3xl font-bold text-[#ffffff] mb-7">
           📅 Schedule & Reminder
