@@ -120,11 +120,19 @@ export default function CalendarUI() {
     e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
     const key = formatDateKey(dateObj);
+    
+    let leftPos = rect.left + window.scrollX;
+    
+    // Prevent popover from spilling off the right side of the screen on mobile
+    if (leftPos + 320 > window.innerWidth) {
+      leftPos = Math.max(10, window.innerWidth - 340);
+    }
+    
     setEventsPopover({
       dateKey: key,
       position: {
         top: rect.bottom + window.scrollY + 5,
-        left: rect.left + window.scrollX,
+        left: leftPos,
       },
     });
     setSelectedDate(dateObj);
@@ -207,10 +215,10 @@ export default function CalendarUI() {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row h-screen bg-[#28244d] font-sans">
+    <div className="flex flex-col lg:flex-row min-h-screen lg:h-screen bg-[#28244d] font-sans lg:overflow-hidden overflow-y-auto">
 
       {/* Sidebar */}
-      <div className="w-full lg:w-[320px] bg-[#3C436B] border-b lg:border-b-0 lg:border-r border-[#e9eef2] p-6 lg:overflow-y-auto shrink-0">
+      <div className="w-full lg:w-[320px] bg-[#3C436B] border-b lg:border-b-0 lg:border-r border-[#e9eef2] p-4 lg:p-6 lg:overflow-y-auto shrink-0">
 
         <div className="text-3xl font-bold text-[#ffffff] mb-7">
           📅 Schedule & Reminder
@@ -295,7 +303,7 @@ export default function CalendarUI() {
       </div>
 
       {/* Main */}
-      <div className="flex-1 p-8 overflow-y-auto">
+      <div className="flex-1 p-4 lg:p-8 overflow-y-auto w-full">
 
         {calendarRulesError ? (
           <div className="mb-4 rounded-xl border border-red-500/60 bg-red-950/40 px-4 py-3 text-sm text-red-200">
@@ -303,12 +311,12 @@ export default function CalendarUI() {
           </div>
         ) : null}
 
-        <div className="flex justify-between items-center mb-7">
-          <div className="flex gap-2 items-center">
-            <button onClick={goPrevMonth} className="w-9 h-9 border rounded bg-[#28244d] hover:bg-[#393657]">
+        <div className="flex flex-wrap flex-col-reverse sm:flex-row justify-between items-center mb-5 lg:mb-7 gap-4">
+          <div className="flex gap-2 items-center w-full justify-center sm:w-auto sm:justify-start">
+            <button onClick={goPrevMonth} className="w-9 h-9 border rounded bg-[#28244d] hover:bg-[#393657] text-[#ffffff]">
               ←
             </button>
-            <button onClick={goNextMonth} className="w-9 h-9 border rounded bg-[#28244d] hover:bg-[#393657]">
+            <button onClick={goNextMonth} className="w-9 h-9 border rounded bg-[#28244d] hover:bg-[#393657] text-[#ffffff]">
               →
             </button>
             <button onClick={goToday} className="bg-[#696FC7] text-white px-5 py-2 rounded-full hover:bg-[#8F8BB6]">
@@ -316,25 +324,27 @@ export default function CalendarUI() {
             </button>
           </div>
 
-          <h1 className="text-2xl font-bold text-[#ffffff]">
+          <h1 className="text-xl sm:text-2xl font-bold text-[#ffffff] text-center w-full sm:w-auto">
             {monthName} {year}
           </h1>
         </div>
 
-        <div className="grid grid-cols-7 gap-3">
-          {days.map((day) => (
-            <div key={day} className="text-center text-sm font-semibold text-[#fffefe] py-2">
-              {day}
-            </div>
-          ))}
+        <div className="w-full pb-4">
+          <div className="grid grid-cols-7 gap-1 sm:gap-2 lg:gap-3 w-full">
+            {days.map((day) => (
+              <div key={day} className="text-center text-xs sm:text-sm font-semibold text-[#fffefe] py-1 sm:py-2">
+                <span className="sm:hidden">{day.charAt(0)}</span>
+                <span className="hidden sm:inline">{day}</span>
+              </div>
+            ))}
 
           {prevMonthDates.map((date, i) => (
             <div
               key={i}
-              className="bg-[#f8fafc] opacity-60 p-2 rounded cursor-pointer hover:shadow-sm transition"
+              className="bg-[#f8fafc] opacity-60 p-1 sm:p-2 rounded cursor-pointer hover:shadow-sm transition min-h-[60px] md:min-h-[120px]"
               onClick={(e) => openEventsPopover(e, new Date(year, month - 1, date))}
             >
-              {date}
+              <span className="text-xs sm:text-base">{date}</span>
             </div>
           ))}
 
@@ -348,21 +358,21 @@ export default function CalendarUI() {
               <div
                 key={date}
                 onClick={(e) => openEventsPopover(e, dateObj)}
-                className={`bg-[#776ec4] border rounded-xl p-2 min-h-[120px] cursor-pointer
-                  hover:shadow-md transition 
-                  ${isToday ? "border-[#f1091c] border-2" : isSelected ? "border-[#272D3E] border-2" : "border"}`}
+                className={`bg-[#776ec4] rounded-lg sm:rounded-xl p-1 sm:p-2 min-h-[60px] md:min-h-[120px] cursor-pointer
+                  hover:shadow-md transition overflow-hidden
+                  ${isToday ? "border-[#f1091c] border-2" : isSelected ? "border-[#272D3E] border-2" : "border border-transparent"}`}
               >
-                <span className={`font-semibold block mb-1 ${isToday ? "text-[#f1091c]" : isSelected ? "text-[#272D3E]" : ""}`}>
+                <span className={`font-semibold text-xs sm:text-base block mb-0.5 sm:mb-1 ${isToday ? "text-[#f1091c]" : isSelected ? "text-[#272D3E]" : ""}`}>
                   {date}
                 </span>
 
                 {eventsByDate[key]?.map((ev, i) => (
                   <div
                     key={i}
-                    className={`text-xs p-1 rounded mt-1 ${getEventColor(ev.category)}`}
+                    className={`text-[9px] sm:text-xs p-0.5 sm:p-1 rounded mt-0.5 sm:mt-1 truncate ${getEventColor(ev.category)}`}
                   >
-                    <span className="font-semibold mr-1">{ev.time}</span>
-                    {ev.title}
+                    <span className="font-semibold mr-0.5 hidden sm:inline">{ev.time}</span>
+                    <span className="truncate leading-tight block sm:inline">{ev.title}</span>
                   </div>
                 ))}
               </div>
@@ -372,12 +382,13 @@ export default function CalendarUI() {
           {nextMonthDates.map((date, i) => (
             <div
               key={i}
-              className="bg-[#B6B4BB] opacity-60 p-2 rounded-xl cursor-pointer hover:shadow-sm transition"
+              className="bg-[#B6B4BB] opacity-60 p-1 sm:p-2 rounded-lg sm:rounded-xl cursor-pointer hover:shadow-sm transition min-h-[60px] md:min-h-[120px]"
               onClick={(e) => openEventsPopover(e, new Date(year, month + 1, date))}
             >
-              {date}
+              <span className="text-xs sm:text-base">{date}</span>
             </div>
           ))}
+        </div>
         </div>
 
         <CalendarEventsPopover

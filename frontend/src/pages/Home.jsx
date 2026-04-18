@@ -55,7 +55,7 @@ export default function Home() {
             position: 'relative', minHeight: '100vh',
             background: 'linear-gradient(135deg, #1c1848 0%, #231f5c 50%, #2b2570 100%)',
             color: '#f0ecff', overflowX: 'hidden',
-            paddingTop: '100px',
+            paddingTop: '80px',
         }}>
             {/* ── Ambient background blobs ── */}
             <div style={{ pointerEvents: 'none', position: 'fixed', inset: 0, zIndex: 0 }}>
@@ -68,12 +68,12 @@ export default function Home() {
             <LandingHeader />
 
             {/* ── Hero section ── */}
-            <section style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4rem 1.5rem 6rem', textAlign: 'center' }}>
-                <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '4rem 3rem' }}>
+            <section style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2rem 1rem 4rem', textAlign: 'center' }}>
+                <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '2rem 1rem' }}>
                     <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '2px dashed rgba(109,95,231,0.35)', animation: 'spin 20s linear infinite' }} />
                     <div style={{ position: 'absolute', inset: '1.5rem', borderRadius: '50%', border: '1px solid rgba(109,95,231,0.2)', animation: 'spin 30s linear infinite reverse' }} />
                     <div style={{ position: 'relative', zIndex: 10 }}>
-                        <h1 style={{ maxWidth: '768px', fontSize: 'clamp(2rem, 5vw, 3.75rem)', fontWeight: 800, lineHeight: 1.15, letterSpacing: '-0.02em', color: '#f0ecff', margin: 0 }}>
+                        <h1 className="max-w-[768px] mx-auto text-3xl sm:text-4xl md:text-5xl lg:text-[3.75rem] font-extrabold leading-tight tracking-tight text-[#f0ecff] m-0">
                             Your All-in-One{' '}
                             <span style={{ background: 'linear-gradient(135deg, #a78bfa 0%, #c4b5fd 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                                 Student Companion
@@ -107,9 +107,9 @@ export default function Home() {
 
             {/* ── Stats bar ── */}
             <section style={{ position: 'relative', zIndex: 10, maxWidth: '1024px', margin: '0 auto', padding: '0 1.5rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderRadius: '24px', border: '1px solid rgba(167,139,250,0.15)', background: 'rgba(255,255,255,0.05)', padding: '2rem 1.5rem', backdropFilter: 'blur(20px)', boxShadow: '0 4px 24px rgba(0,0,0,0.25)' }}>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-y-6 md:gap-y-0" style={{ borderRadius: '24px', border: '1px solid rgba(167,139,250,0.15)', background: 'rgba(255,255,255,0.05)', padding: '2rem 1.5rem', backdropFilter: 'blur(20px)', boxShadow: '0 4px 24px rgba(0,0,0,0.25)' }}>
                     {stats.map((s, i) => (
-                        <div key={s.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', borderRight: i < stats.length - 1 ? '1px solid rgba(167,139,250,0.2)' : 'none' }}>
+                        <div key={s.label} className={`flex flex-col items-center gap-1 ${i % 2 === 0 ? 'border-r border-[rgba(167,139,250,0.2)] md:border-r' : ''} ${i < stats.length - 1 ? 'md:border-r border-[rgba(167,139,250,0.2)]' : ''}`}>
                             <span style={{ fontSize: '2rem', fontWeight: 700, color: '#f0ecff' }}>{s.value}</span>
                             <span style={{ fontSize: '0.875rem', color: '#a78bfa' }}>{s.label}</span>
                         </div>
@@ -167,7 +167,7 @@ export default function Home() {
 
             {/* ── CTA banner ── */}
             <section style={{ position: 'relative', zIndex: 10, maxWidth: '896px', margin: '0 auto', padding: '0 1.5rem 7rem' }}>
-                <div style={{ position: 'relative', overflow: 'hidden', borderRadius: '28px', background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)', padding: '4rem', textAlign: 'center', boxShadow: '0 20px 60px rgba(109,95,231,0.5)' }}>
+                <div className="relative overflow-hidden rounded-[20px] md:rounded-[28px] bg-gradient-to-br from-[#6d5fe7] to-[#9b7ef8] p-6 sm:p-8 md:p-16 text-center shadow-[0_20px_60px_rgba(109,95,231,0.5)]">
                     <div style={{ pointerEvents: 'none', position: 'absolute', inset: 0 }}>
                         <div style={{ position: 'absolute', top: '-80px', right: '-80px', height: '240px', width: '240px', borderRadius: '50%', background: 'rgba(255,255,255,0.12)', filter: 'blur(40px)' }} />
                         <div style={{ position: 'absolute', bottom: '-80px', left: '-80px', height: '240px', width: '240px', borderRadius: '50%', background: 'rgba(255,255,255,0.12)', filter: 'blur(40px)' }} />

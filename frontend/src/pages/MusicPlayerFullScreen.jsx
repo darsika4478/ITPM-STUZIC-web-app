@@ -28,10 +28,10 @@ const MusicPlayerFullScreen = () => {
       </div>
 
       {/* Main Content Scrollable Area */}
-      <div className="flex-1 flex flex-col gap-10 px-8 py-8 md:px-4 sm:px-3 overflow-y-auto pb-32">
+      <div className="flex-1 flex flex-col gap-6 md:gap-10 px-3 sm:px-4 md:px-8 py-4 md:py-8 overflow-y-auto pb-32">
         
         {/* Top Section: Main Player (ALWAYS VISIBLE) */}
-        <div className="w-full max-w-5xl mx-auto backdrop-blur-lg bg-white/5 rounded-3xl p-8 md:p-4 border border-white/10 shadow-2xl">
+        <div className="w-full max-w-5xl mx-auto backdrop-blur-lg bg-white/5 rounded-3xl p-2 sm:p-4 md:p-8 border border-white/10 shadow-2xl">
           <PlayerPage onMoodChange={changeMood} />
         </div>
 

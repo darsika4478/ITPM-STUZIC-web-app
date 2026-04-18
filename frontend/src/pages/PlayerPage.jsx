@@ -16,11 +16,11 @@ const PlayerPage = () => {
   } = useMusicPlayer();
 
   return (
-    <div className="flex flex-col items-center justify-center w-full h-full min-h-[600px] py-10 px-6 animate-fadeIn">
+    <div className="flex flex-col items-center justify-center w-full h-full min-h-[600px] py-4 px-2 md:py-10 md:px-6 animate-fadeIn">
       <div className="w-full max-w-4xl bg-[#1c1848]/40 backdrop-blur-2xl rounded-[40px] border border-white/10 shadow-[0_20px_80px_rgba(0,0,0,0.4)] overflow-hidden flex flex-col md:flex-row items-center">
         
         {/* Left Side: Elaborate Artwork Section */}
-        <div className="w-full md:w-1/2 p-10 flex flex-col items-center justify-center bg-gradient-to-br from-purple-600/10 to-transparent">
+        <div className="w-full md:w-1/2 p-6 md:p-6 md:p-10 flex flex-col items-center justify-center bg-gradient-to-br from-purple-600/10 to-transparent">
           <h2 className="text-xs font-bold text-purple-300/40 uppercase tracking-[0.2em] mb-8">Now Playing</h2>
           {currentTrack && (
             <div className="relative group">
@@ -36,7 +36,7 @@ const PlayerPage = () => {
         </div>
 
         {/* Right Side: Controls & Info */}
-        <div className="w-full md:w-1/2 p-10 md:p-12 flex flex-col gap-10 bg-white/[0.02]">
+        <div className="w-full md:w-1/2 p-6 md:p-12 flex flex-col gap-6 md:gap-10 bg-white/[0.02]">
           <div className="flex flex-col gap-2">
              <div className="flex items-center gap-2 mb-2">
                 <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
@@ -46,7 +46,7 @@ const PlayerPage = () => {
              <p className="text-purple-200/40 text-sm">Control your focus environment with precision.</p>
           </div>
 
-          <div className="bg-white/[0.03] border border-white/5 rounded-3xl p-8 hover:bg-white/[0.05] transition-colors shadow-inner">
+          <div className="bg-white/[0.03] border border-white/5 rounded-3xl p-4 sm:p-4 sm:p-8 hover:bg-white/[0.05] transition-colors shadow-inner">
             <PlayerControls
               isPlaying={isPlaying}
               onTogglePlay={togglePlay}

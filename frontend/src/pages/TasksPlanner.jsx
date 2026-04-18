@@ -878,7 +878,7 @@ export default function TasksPlanner() {
                 </div>
 
                 {/* ── Stats Row ── */}
-                <div style={{ marginBottom: '2rem', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem' }}>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
                     {[
                         { label: "Total",     value: visibleTasks.length,          color: '#f0ecff', icon: "📊" },
                         { label: "Active",    value: activeVisibleTasks.length,    color: '#fbbf24', icon: "⏳" },
@@ -1032,7 +1032,7 @@ export default function TasksPlanner() {
                         </button>
                     </div>
                 ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {filteredTasks.map((task) => (
                             <div
                                 key={task.id}
