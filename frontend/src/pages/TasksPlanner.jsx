@@ -28,6 +28,8 @@ export default function TasksPlanner() {
     const [adding, setAdding] = useState(false);
     const [showForm, setShowForm] = useState(false);
     const [showBin, setShowBin] = useState(false);
+    const [attachedImage, setAttachedImage] = useState(null);
+    const imageInputRef = useRef(null);
     const composerChecklistRefs = useRef({});
     const editChecklistRefs = useRef({});
 
@@ -272,6 +274,57 @@ export default function TasksPlanner() {
         return () => unsubscribe();
     }, [getDateMs]);
 
+    const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            alert("Please upload an image file");
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 800;
+                const MAX_HEIGHT = 800;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+                
+                if (dataUrl.length > 1048576) {
+                    alert("Image is still too large after compression. Please try a smaller image.");
+                    return;
+                }
+                
+                setAttachedImage(dataUrl);
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+        e.target.value = null; // Reset input
+    };
+
     const handleAddTask = async (e) => {
         e.preventDefault();
 
@@ -302,10 +355,12 @@ export default function TasksPlanner() {
                 completed: false,
                 userId: auth.currentUser.uid,
                 createdAt: serverTimestamp(),
+                attachedImage: attachedImage || null,
             });
             setTitle(""); setDescription(""); setChecklistItems([]); setChecklistDraft("");
             setComposerMode("note");
             setDueDate(""); setPriority("Medium");
+            setAttachedImage(null);
             setShowForm(false);
         } catch (err) {
             console.error("Error adding task:", err);
@@ -762,6 +817,31 @@ export default function TasksPlanner() {
                                 </div>
                             )}
 
+                            {attachedImage && (
+                                <div style={{ padding: '0 1rem 1rem', display: 'flex', alignItems: 'flex-start' }}>
+                                    <div style={{ position: 'relative', display: 'inline-block' }}>
+                                        <img 
+                                            src={attachedImage} 
+                                            alt="Preview" 
+                                            style={{ maxHeight: '120px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', objectFit: 'contain' }} 
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setAttachedImage(null)}
+                                            title="Remove Image"
+                                            style={{
+                                                position: 'absolute', top: '-8px', right: '-8px',
+                                                background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%',
+                                                width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                cursor: 'pointer', fontSize: '14px', lineHeight: 1
+                                            }}
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Bottom toolbar */}
                             <div style={{
                                 display: 'flex', flexWrap: 'wrap', alignItems: 'center',
@@ -835,6 +915,25 @@ export default function TasksPlanner() {
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 15l6-6m0 0l-6-6m6 6H9a6 6 0 000 12h3" />
                                             </svg>
                                         </button>
+                                        
+                                        {/* Image Upload Button */}
+                                        <button
+                                            type="button" onClick={() => imageInputRef.current.click()} title="Attach Image"
+                                            style={{ borderRadius: '8px', padding: '6px', color: 'rgba(255,255,255,0.5)', background: 'none', border: 'none', cursor: 'pointer', transition: 'all 0.15s', marginLeft: '4px' }}
+                                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#fff'; }}
+                                            onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; }}
+                                        >
+                                            <svg style={{ width: '16px', height: '16px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                        </button>
+                                        <input 
+                                            type="file" 
+                                            accept="image/*" 
+                                            ref={imageInputRef} 
+                                            style={{ display: 'none' }} 
+                                            onChange={handleImageUpload} 
+                                        />
                                     </div>
                                 </div>
 
@@ -1169,6 +1268,23 @@ export default function TasksPlanner() {
                                                     <span style={{ lineHeight: 1.4 }}>{item.text}</span>
                                                 </label>
                                             ))}
+                                        </div>
+                                    )}
+
+                                    {/* Attached Image Preview */}
+                                    {task.attachedImage && (
+                                        <div style={{ marginTop: '12px', marginLeft: '32px' }}>
+                                            <img
+                                                src={task.attachedImage}
+                                                alt="Attached"
+                                                style={{
+                                                    maxWidth: '100%',
+                                                    maxHeight: '200px',
+                                                    borderRadius: '8px',
+                                                    border: '1px solid rgba(255,255,255,0.1)',
+                                                    objectFit: 'cover'
+                                                }}
+                                            />
                                         </div>
                                     )}
 

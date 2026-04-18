@@ -15,11 +15,7 @@ import FloatingSessionTimer from '../components/musicPlayer/FloatingSessionTimer
  *  - Subscribes to the Firestore /users/{uid} doc for live name + avatar updates
  *  - Renders nav links and logout button
  *  - Wraps all dashboard child routes via <Outlet />
- *
- * Child routes rendered inside <Outlet />:
- *   /dashboard          → DashboardHome
- *   /dashboard/tasks    → TasksPlanner
- *   /dashboard/profile  → MyProfile
+ *  - Fully responsive: hamburger sidebar on mobile, fixed sidebar on desktop
  */
 const OverviewLayout = () => {
     const [fullName, setFullName] = useState('');
@@ -75,10 +71,17 @@ const OverviewLayout = () => {
         return () => { unsubAuth(); if (unsubFirestore) unsubFirestore(); };
     }, []);
 
+    // Close sidebar on route change (mobile)
+    useEffect(() => {
+        setIsMobileMenuOpen(false);
+    }, [navigate]);
+
     const handleLogout = async () => {
         await signOut(auth);
         navigate('/login');
     };
+
+    const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
     const navLinkStyle = (isActive) => ({
         display: 'flex', alignItems: 'center', gap: '0.75rem',
@@ -91,36 +94,64 @@ const OverviewLayout = () => {
     });
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#1c1848' }}>
+        <div style={{ display: 'flex', minHeight: '100vh', background: '#1c1848', overflow: 'hidden' }}>
 
-            {/* ── Mobile Top Navigation Bar ── hidden on desktop */}
-            <header className="md:hidden fixed top-0 left-0 right-0 z-40 bg-transparent px-4 py-3 flex items-center">
+            {/* ── Mobile Top Navigation Bar ── visible only on mobile */}
+            <header className="mobile-topbar show-mobile" style={{ display: 'none' }}>
                 <button
                     onClick={() => setIsMobileMenuOpen(true)}
-                    onMouseEnter={() => setIsMobileMenuOpen(true)}
-                    className="p-2 text-[#a78bfa] rounded-xl bg-[rgba(167,139,250,0.1)] hover:bg-[rgba(167,139,250,0.2)] transition-colors flex items-center justify-center outline-none border border-[rgba(167,139,250,0.2)] z-50 relative"
+                    style={{
+                        padding: '8px', color: '#a78bfa', borderRadius: '12px',
+                        background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.2)',
+                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        zIndex: 50,
+                    }}
                     aria-label="Open Menu"
                 >
-                    <svg stroke="currentColor" fill="none" strokeWidth="2.5" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="24px" width="24px" xmlns="http://www.w3.org/2000/svg">
+                    <svg stroke="currentColor" fill="none" strokeWidth="2.5" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="22px" width="22px" xmlns="http://www.w3.org/2000/svg">
                         <line x1="3" y1="12" x2="21" y2="12"></line>
                         <line x1="3" y1="6" x2="21" y2="6"></line>
                         <line x1="3" y1="18" x2="21" y2="18"></line>
                     </svg>
                 </button>
-                <img src={logoText} alt="STUZIC" className="h-[150px] sm:h-[180px] w-auto object-contain absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+                <img src={logoText} alt="STUZIC" style={{ height: '40px', width: 'auto', objectFit: 'contain', marginLeft: 'auto', marginRight: 'auto' }} />
             </header>
 
-            {/* ── Sidebar ── hidden on mobile, visible on medium+ screens */}
-            {/* Mobile Overlay */}
-            {isMobileMenuOpen && <div className="md:hidden fixed inset-0 bg-black/50 z-40 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} onMouseEnter={() => setIsMobileMenuOpen(false)} />}
-            <aside 
-                onMouseLeave={() => setIsMobileMenuOpen(false)}
-                className={`flex flex-col fixed left-0 top-0 z-50 h-screen w-64 transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`} style={{
-                borderRight: '1px solid rgba(109,95,231,0.2)',
-                background: 'rgba(10,8,36,0.96)',
-                backdropFilter: 'blur(20px)',
-                boxShadow: '4px 0 24px rgba(0,0,0,0.3)',
-            }}>
+            {/* ── Sidebar Overlay (mobile) ── */}
+            {isMobileMenuOpen && (
+                <div
+                    className="layout-sidebar-overlay"
+                    onClick={closeMobileMenu}
+                />
+            )}
+
+            {/* ── Sidebar ── slides in on mobile, fixed on desktop */}
+            <aside
+                className={`layout-sidebar ${isMobileMenuOpen ? 'open' : ''}`}
+                style={{
+                    position: 'fixed', left: 0, top: 0, zIndex: 50,
+                    display: 'flex', height: '100vh', width: '256px', flexDirection: 'column',
+                    borderRight: '1px solid rgba(109,95,231,0.2)',
+                    background: 'rgba(10,8,36,0.96)',
+                    backdropFilter: 'blur(20px)',
+                    boxShadow: '4px 0 24px rgba(0,0,0,0.3)',
+                }}
+            >
+                {/* Close button (mobile only) */}
+                <button
+                    onClick={closeMobileMenu}
+                    className="show-mobile"
+                    style={{
+                        display: 'none', position: 'absolute', top: '12px', right: '12px',
+                        background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.25)',
+                        color: '#c4b5fd', borderRadius: '10px', width: '32px', height: '32px',
+                        alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 51,
+                    }}
+                    aria-label="Close Menu"
+                >
+                    ✕
+                </button>
+
                 {/* Logo */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.35rem 0.5rem 0' }}>
                     <img src={logoText} alt="STUZIC" style={{ width: '190px', height: 'auto', objectFit: 'contain', maxWidth: '100%' }} />
@@ -131,34 +162,34 @@ const OverviewLayout = () => {
                     <p style={{ marginBottom: '0.5rem', paddingLeft: '1rem', fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#a78bfa' }}>
                         Menu
                     </p>
-                    <NavLink to="/dashboard" end style={({ isActive }) => navLinkStyle(isActive)} onClick={() => setIsMobileMenuOpen(false)}>
+                    <NavLink to="/dashboard" end style={({ isActive }) => navLinkStyle(isActive)} onClick={closeMobileMenu}>
                         <span style={{ fontSize: '1.125rem' }}>🏠</span> Overview
                     </NavLink>
-                    <NavLink to="/dashboard/tasks" style={({ isActive }) => navLinkStyle(isActive)} onClick={() => setIsMobileMenuOpen(false)}>
+                    <NavLink to="/dashboard/tasks" style={({ isActive }) => navLinkStyle(isActive)} onClick={closeMobileMenu}>
                         <span style={{ fontSize: '1.125rem' }}>📋</span> Task Planner
                     </NavLink>
-                    <NavLink to="/dashboard/mood" style={({ isActive }) => navLinkStyle(isActive)} onClick={() => setIsMobileMenuOpen(false)}>
+                    <NavLink to="/dashboard/mood" style={({ isActive }) => navLinkStyle(isActive)} onClick={closeMobileMenu}>
                         <span style={{ fontSize: '1.125rem' }}>🎵</span> Mood & Music
                     </NavLink>
-                    <NavLink to="/dashboard/mood-history" style={({ isActive }) => navLinkStyle(isActive)} onClick={() => setIsMobileMenuOpen(false)}>
+                    <NavLink to="/dashboard/mood-history" style={({ isActive }) => navLinkStyle(isActive)} onClick={closeMobileMenu}>
                         <span style={{ fontSize: '1.125rem' }}>🕰️</span> Mood History
                     </NavLink>
-                    <NavLink to="/dashboard/mood-analytics" style={({ isActive }) => navLinkStyle(isActive)} onClick={() => setIsMobileMenuOpen(false)}>
+                    <NavLink to="/dashboard/mood-analytics" style={({ isActive }) => navLinkStyle(isActive)} onClick={closeMobileMenu}>
                         <span style={{ fontSize: '1.125rem' }}>📊</span> Mood Analytics
                     </NavLink>
-                    <NavLink to="/dashboard/study-session" style={({ isActive }) => navLinkStyle(isActive)} onClick={() => setIsMobileMenuOpen(false)}>
+                    <NavLink to="/dashboard/study-session" style={({ isActive }) => navLinkStyle(isActive)} onClick={closeMobileMenu}>
                         <span style={{ fontSize: '1.125rem' }}>⏱️</span> Study Session
                     </NavLink>
-                    <NavLink to="/dashboard/calendar" style={({ isActive }) => navLinkStyle(isActive)} onClick={() => setIsMobileMenuOpen(false)}>
+                    <NavLink to="/dashboard/calendar" style={({ isActive }) => navLinkStyle(isActive)} onClick={closeMobileMenu}>
                     <span style={{ fontSize: '1.125rem' }}>📅</span> Schedule & Reminder
                     </NavLink>
                 </nav>
 
                 {/* User card + logout */}
-                <div style={{ borderTop: '1px solid rgba(109,95,231,0.18)', padding: '1rem 0.75rem 6.5rem 0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{ borderTop: '1px solid rgba(109,95,231,0.18)', padding: '1rem 0.75rem 1.5rem 0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
                     <NavLink
                         to="/dashboard/profile"
-                        onClick={() => setIsMobileMenuOpen(false)}
+                        onClick={closeMobileMenu}
                         style={({ isActive }) => ({
                             display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'center', gap: '0.75rem',
                             borderRadius: '14px', padding: '12px 14px', textDecoration: 'none',
@@ -190,8 +221,8 @@ const OverviewLayout = () => {
             </aside>
 
             {/* ── Main content area ── offset by sidebar width on desktop */}
-            <main className="md:ml-64 flex-1 min-h-screen pt-[70px] md:pt-0 pb-[100px]" style={{ width: '100%' }}>
-                <div style={{ padding: '2rem' }} className="p-4 md:p-8">
+            <main className="layout-main" style={{ marginLeft: '256px', flex: 1, minHeight: '100vh', width: '100%' }}>
+                <div className="main-content" style={{ padding: '2rem' }}>
                     <Outlet />
                 </div>
             </main>
