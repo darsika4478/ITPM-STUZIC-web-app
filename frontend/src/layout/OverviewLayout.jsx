@@ -94,7 +94,7 @@ const OverviewLayout = () => {
             {/* ── Sidebar ── fixed left panel, always visible */}
             <aside style={{
                 position: 'fixed', left: 0, top: 0, zIndex: 30,
-                display: 'flex', height: '100vh', width: '256px', flexDirection: 'column',
+                display: 'flex', height: '100vh', width: '100%', maxWidth: '256px', flexDirection: 'column',
                 borderRight: '1px solid rgba(109,95,231,0.2)',
                 background: 'rgba(10,8,36,0.96)',
                 backdropFilter: 'blur(20px)',
