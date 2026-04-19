@@ -201,6 +201,8 @@ export default function CalendarUI() {
         return "bg-[#fff3cd] text-[#856404] border-l-[3px] border-[#f97316]";
       case "Deadlines":
         return "bg-[#d1fae5] text-[#065f46] border-l-[3px] border-[#10b981]";
+      case "Exams":
+        return "bg-[#d1fae5] text-[#065f46] border-l-[3px] border-[#10b981]";
       default:
         return "bg-[#ede9fe] text-[#5b21b6] border-l-[3px] border-[#8b5cf6]";
     }
@@ -256,6 +258,7 @@ export default function CalendarUI() {
             { name: "Study Session", color: "#B500B2", count: 2 },
             { name: "Lectures", color: "#f97316", count: 5 },
             { name: "Deadlines", color: "#10b981", count: 3 },
+            { name: "Exams", color: "#8C5A3C", count: 3 },
           ].map((item, i) => (
             <button
               key={i}
