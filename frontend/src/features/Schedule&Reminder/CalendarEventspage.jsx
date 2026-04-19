@@ -15,6 +15,7 @@ function mapEvToInitialValues(ev) {
   const cat = ev?.category || "";
   let type = "Study Session";
   if (raw === "Lecture" || cat === "Lectures") type = "Lecture";
+  else if (raw === "Exam" || cat === "Exams") type = "Exam";
   else if (raw === "Deadline" || cat === "Deadlines") type = "Deadline";
   else if (raw === "Study Session") type = "Study Session";
   return {
@@ -109,6 +110,8 @@ export default function CalendarEventsPopover({
         return "bg-[#fff3cd] text-[#856404] border-l-[3px] border-[#f97316]";
       case "Deadlines":
         return "bg-[#d1fae5] text-[#065f46] border-l-[3px] border-[#10b981]";
+      case "Exams":
+        return "bg-[#f4e8dc] text-[#4a3224] border-l-[3px] border-[#8C5A3C]";
       case "work":
         return "bg-[#e0f2fe] text-[#0369a1] border-l-[3px] border-[#0ea5e9]";
       case "personal":
@@ -150,7 +153,7 @@ export default function CalendarEventsPopover({
                 );
               }
 
-              const canManage = Boolean(ev.id);
+              const canManage = Boolean(ev.id) && !isPastDate;
 
               return (
                 <li
@@ -169,7 +172,7 @@ export default function CalendarEventsPopover({
                         <button
                           type="button"
                           title="Edit"
-                          disabled={!onUpdateEvent}
+                          disabled={!onUpdateEvent || isPastDate}
                           onClick={(e) => {
                             e.stopPropagation();
                             setShowAddEventForm(false);
@@ -182,7 +185,7 @@ export default function CalendarEventsPopover({
                         <button
                           type="button"
                           title="Delete"
-                          disabled={!onDeleteEvent || deletingIdx === idx}
+                          disabled={!onDeleteEvent || deletingIdx === idx || isPastDate}
                           onClick={(e) => handleDeleteClick(e, idx)}
                           className="px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-red-950/50 text-red-200 border border-red-800/60 hover:bg-red-900/50 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
@@ -232,7 +235,7 @@ export default function CalendarEventsPopover({
               className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-white text-black shadow z-10"
               onClick={closeEditForm}
             >
-              ✕
+              
             </button>
             <CalendarAddEventForm
               key={editingEvent.ev.id}
@@ -265,6 +268,11 @@ export default function CalendarEventsPopover({
       >
         Add Event
       </button>
+      {isPastDate ? (
+        <p className="mt-2 text-[11px] text-gray-400">
+          Past events are locked (no edit/delete).
+        </p>
+      ) : null}
     </div>
   );
 }

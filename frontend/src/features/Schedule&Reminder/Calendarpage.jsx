@@ -134,11 +134,62 @@ export default function CalendarUI() {
     setEventsPopover({ dateKey: null, position: { top: 0, left: 0 } });
   };
 
+  const isPastDateKey = (dateKey) => {
+    if (!dateKey) return false;
+    const date = new Date(`${dateKey}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return false;
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return date < todayStart;
+  };
+
+  const getDateSafe = (value) => {
+    if (!value) return null;
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+
+  const getEventRange = (ev) => {
+    if (!ev) return null;
+    if (ev.type === "Deadline") {
+      const point = getDateSafe(ev.deadlineTime);
+      if (!point) return null;
+      return { start: point, end: new Date(point.getTime() + 60 * 1000) };
+    }
+    const start = getDateSafe(ev.startTime);
+    const end = getDateSafe(ev.endTime);
+    if (!start || !end) return null;
+    const normalizedEnd = end > start ? end : new Date(start.getTime() + 60 * 1000);
+    return { start, end: normalizedEnd };
+  };
+
+  const assertNoOverlap = (dateKey, candidatePayload, excludeEventId = null) => {
+    const candidateRange = getEventRange(candidatePayload);
+    if (!candidateRange) return;
+    const dayEvents = eventsByDate[dateKey] || [];
+    for (const ev of dayEvents) {
+      if (!ev || !ev.id) continue;
+      if (excludeEventId && ev.id === excludeEventId) continue;
+      const existingRange = getEventRange(ev);
+      if (!existingRange) continue;
+      const overlap =
+        candidateRange.start < existingRange.end &&
+        existingRange.start < candidateRange.end;
+      if (overlap) {
+        throw new Error(`Time overlaps with "${ev.title || "another event"}".`);
+      }
+    }
+  };
+
   // ✅ Save to top-level calendarEvents with userId
   const handleAddEvent = async (dateKey, payload) => {
     const user = auth.currentUser;
     if (!user) throw new Error("You must be signed in to save events.");
     if (!db) throw new Error("Firebase is not configured. Check your .env file.");
+    if (isPastDateKey(dateKey)) {
+      throw new Error("Cannot create events on past dates.");
+    }
+    assertNoOverlap(dateKey, payload);
     try {
       const docRef = await addDoc(collection(db, "calendarEvents"), {
         userId: user.uid,
@@ -159,10 +210,14 @@ export default function CalendarUI() {
   };
 
   // ✅ Update existing event
-  const handleUpdateEvent = async (_dateKey, eventId, payload) => {
+  const handleUpdateEvent = async (dateKey, eventId, payload) => {
     const user = auth.currentUser;
     if (!user) throw new Error("You must be signed in to update events.");
     if (!eventId) throw new Error("Missing event id.");
+    if (isPastDateKey(dateKey)) {
+      throw new Error("Past events cannot be edited.");
+    }
+    assertNoOverlap(dateKey, payload, eventId);
     try {
       await updateDoc(doc(db, "calendarEvents", eventId), {
         type: payload.type,
@@ -183,6 +238,9 @@ export default function CalendarUI() {
   const handleDeleteEvent = async (dateKey, idx) => {
     const user = auth.currentUser;
     if (!user) throw new Error("You must be signed in to delete events.");
+    if (isPastDateKey(dateKey)) {
+      throw new Error("Past events cannot be deleted.");
+    }
     const ev = eventsByDate[dateKey]?.[idx];
     if (!ev?.id) throw new Error("Cannot delete this event.");
     try {
@@ -202,7 +260,7 @@ export default function CalendarUI() {
       case "Deadlines":
         return "bg-[#d1fae5] text-[#065f46] border-l-[3px] border-[#10b981]";
       case "Exams":
-        return "bg-[#d1fae5] text-[#065f46] border-l-[3px] border-[#10b981]";
+        return "bg-[#f4e8dc] text-[#4a3224] border-l-[3px] border-[#8C5A3C]";
       default:
         return "bg-[#ede9fe] text-[#5b21b6] border-l-[3px] border-[#8b5cf6]";
     }
