@@ -210,6 +210,7 @@ export default function EventForm({
           >
             <option>Study Session</option>
             <option>Lecture</option>
+            <option value="Exam">Exams</option>
             <option>Deadline</option>
           </select>
           {type === "Study Session" && (
@@ -230,7 +231,7 @@ export default function EventForm({
           <p className="text-[11px] text-[#a89fdd] mt-1">Minimum 3 characters.</p>
         </div>
 
-        {/* Start + End for Study Session / Lecture */}
+        {/* Start + End for Study Session / Lecture / Exam */}
         {type !== "Deadline" && (
           <>
             <div>
@@ -253,7 +254,7 @@ export default function EventForm({
               />
             </div>
 
-            {/* Live duration preview for Study Session */}
+            {/* Live duration preview for Study Session only */}
             {type === "Study Session" && startTime && endTime && (() => {
               const start = new Date(combineDateTime(startTime));
               const end = new Date(combineDateTime(endTime));
