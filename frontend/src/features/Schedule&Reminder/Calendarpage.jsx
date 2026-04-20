@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import {
   addDoc,
@@ -12,8 +12,28 @@ import {
   where,
 } from "firebase/firestore";
 import { auth, db } from "../../config/firebase";
-import { buildEventsMapFromSnapshot } from "./calendarEventHelpers.js";
+import { buildEventsMapFromSnapshot, formatHHMM } from "./calendarEventHelpers.js";
 import CalendarEventsPopover from "./CalendarEventspage.jsx";
+
+function formatEventStartEnd(ev) {
+  if (!ev) return "";
+  if (ev.type === "Deadline" && ev.deadlineTime) {
+    const d = new Date(ev.deadlineTime);
+    return Number.isNaN(d.getTime()) ? (ev.time || "") : formatHHMM(d);
+  }
+  const start = ev.startTime ? new Date(ev.startTime) : null;
+  const end = ev.endTime ? new Date(ev.endTime) : null;
+  if (
+    start &&
+    !Number.isNaN(start.getTime()) &&
+    end &&
+    !Number.isNaN(end.getTime())
+  ) {
+    return `${formatHHMM(start)} - ${formatHHMM(end)}`;
+  }
+  if (start && !Number.isNaN(start.getTime())) return formatHHMM(start);
+  return ev.time || "";
+}
 
 export default function CalendarUI() {
   const days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -27,6 +47,8 @@ export default function CalendarUI() {
   });
   const [eventsByDate, setEventsByDate] = useState({});
   const [calendarRulesError, setCalendarRulesError] = useState(null);
+  /** @type {[string | null, React.Dispatch<React.SetStateAction<string | null>>]} */
+  const [categoryFilterModal, setCategoryFilterModal] = useState(null);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -95,15 +117,18 @@ export default function CalendarUI() {
   const goPrevMonth = () => {
     setCurrentDate(new Date(year, month - 1, 1));
     setEventsPopover({ dateKey: null, position: { top: 0, left: 0 } });
+    setCategoryFilterModal(null);
   };
   const goNextMonth = () => {
     setCurrentDate(new Date(year, month + 1, 1));
     setEventsPopover({ dateKey: null, position: { top: 0, left: 0 } });
+    setCategoryFilterModal(null);
   };
   const goToday = () => {
     setCurrentDate(today);
     setSelectedDate(today);
     setEventsPopover({ dateKey: null, position: { top: 0, left: 0 } });
+    setCategoryFilterModal(null);
   };
 
   const formatDateKey = (dateObj) => {
@@ -251,8 +276,76 @@ export default function CalendarUI() {
     }
   };
 
-  const getEventColor = (category) => {
-    switch (category) {
+  const normalizeEventLabel = (label = "") => {
+    const value = String(label).trim().toLowerCase();
+    if (value === "lecture" || value === "lectures") return "Lectures";
+    if (value === "deadline" || value === "deadlines") return "Deadlines";
+    if (value === "exam" || value === "exams") return "Exams";
+    return "Study Session";
+  };
+
+  const CATEGORY_ITEMS = [
+    { name: "Study Session", color: "#A855F7" },
+    { name: "Lectures", color: "#f97316" },
+    { name: "Deadlines", color: "#10b981" },
+    { name: "Exams", color: "#78350F" },
+  ];
+
+  const { upcomingByCategory, categoryCounts } = useMemo(() => {
+    const buckets = {
+      "Study Session": [],
+      "Lectures": [],
+      "Deadlines": [],
+      "Exams": [],
+    };
+    for (const [dateKey, events] of Object.entries(eventsByDate || {})) {
+      if (isPastDateKey(dateKey)) continue;
+      if (!Array.isArray(events)) continue;
+      for (const ev of events) {
+        const cat = normalizeEventLabel(ev?.category || ev?.type);
+        if (buckets[cat]) buckets[cat].push({ ...ev, dateKey });
+      }
+    }
+    for (const k of Object.keys(buckets)) {
+      buckets[k].sort((a, b) => {
+        const byDate = (a.dateKey || "").localeCompare(b.dateKey || "");
+        if (byDate !== 0) return byDate;
+        return (a.time || "").localeCompare(b.time || "");
+      });
+    }
+    const counts = {
+      "Study Session": buckets["Study Session"].length,
+      Lectures: buckets.Lectures.length,
+      Deadlines: buckets.Deadlines.length,
+      Exams: buckets.Exams.length,
+    };
+    return { upcomingByCategory: buckets, categoryCounts: counts };
+  }, [eventsByDate]);
+
+  useEffect(() => {
+    if (!categoryFilterModal) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") setCategoryFilterModal(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [categoryFilterModal]);
+
+  const formatDateKeyForDisplay = (dateKey) => {
+    if (!dateKey) return "";
+    const d = new Date(`${dateKey}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return dateKey;
+    return d.toLocaleDateString("default", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
+  const getEventColor = (eventLike) => {
+    const normalized = normalizeEventLabel(eventLike?.category || eventLike?.type);
+    switch (normalized) {
       case "Study Session":
         return "bg-[#FFECC0] text-[#B500B2] border-l-[3px] border-[#B500B2]";
       case "Lectures":
@@ -312,14 +405,11 @@ export default function CalendarUI() {
             Scheduled
           </p>
 
-          {[
-            { name: "Study Session", color: "#B500B2", count: 2 },
-            { name: "Lectures", color: "#f97316", count: 5 },
-            { name: "Deadlines", color: "#10b981", count: 3 },
-            { name: "Exams", color: "#8C5A3C", count: 3 },
-          ].map((item, i) => (
+          {CATEGORY_ITEMS.map((item) => (
             <button
-              key={i}
+              key={item.name}
+              type="button"
+              onClick={() => setCategoryFilterModal(item.name)}
               className="w-full flex items-center mb-2 px-4 py-[10px] 
                 bg-[#696FC7] text-white 
                 uppercase tracking-widest text-sm font-medium
@@ -331,7 +421,7 @@ export default function CalendarUI() {
             >
               <div className="w-4 h-4 rounded mr-3 shrink-0" style={{ background: item.color }} />
               <span className="flex-1 text-left">{item.name}</span>
-              <span className="text-xs">{item.count}</span>
+              <span className="text-xs">{categoryCounts[item.name] ?? 0}</span>
             </button>
           ))}
         </div>
@@ -344,8 +434,8 @@ export default function CalendarUI() {
 
           {eventsByDate[selectedKey] ? (
             eventsByDate[selectedKey].map((ev, i) => (
-              <div key={i} className="bg-white p-2 rounded mb-2 shadow border-l-[3px] border-[#7067b3] text-sm text-[#7067b3]">
-                <strong className="text-[#7067b3] mr-2">{ev.time}</strong>
+              <div key={i} className={`p-2 rounded mb-2 shadow text-sm ${getEventColor(ev)}`}>
+                <strong className="mr-2">{formatEventStartEnd(ev)}</strong>
                 {ev.title}
               </div>
             ))
@@ -420,7 +510,7 @@ export default function CalendarUI() {
                 {eventsByDate[key]?.map((ev, i) => (
                   <div
                     key={i}
-                    className={`text-xs p-1 rounded mt-1 ${getEventColor(ev.category)}`}
+                    className={`text-xs p-1 rounded mt-1 ${getEventColor(ev)}`}
                   >
                     <span className="font-semibold mr-1">{ev.time}</span>
                     {ev.title}
@@ -450,6 +540,63 @@ export default function CalendarUI() {
           onUpdateEvent={handleUpdateEvent}
           onDeleteEvent={handleDeleteEvent}
         />
+
+        {categoryFilterModal ? (
+          <div
+            className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/55"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="category-filter-title"
+            onClick={() => setCategoryFilterModal(null)}
+          >
+            <div
+              className="w-full max-w-md max-h-[min(70vh,520px)] overflow-hidden rounded-2xl border border-[#5b52b5] bg-[#28244d] shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-3 border-b border-[#5b52b5] px-5 py-4">
+                <div>
+                  <p id="category-filter-title" className="text-lg font-semibold text-white">
+                    {categoryFilterModal}
+                  </p>
+                  <p className="mt-1 text-xs text-[#a89fdd]">
+                    Upcoming events only (past days are hidden)
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCategoryFilterModal(null)}
+                  className="rounded-lg px-2 py-1 text-sm text-[#a89fdd] hover:bg-white/10 hover:text-white"
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="max-h-[min(58vh,440px)] overflow-y-auto px-5 py-4">
+                {(upcomingByCategory[categoryFilterModal] || []).length === 0 ? (
+                  <p className="text-sm text-[#94a3b8] italic">No upcoming events in this category.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {upcomingByCategory[categoryFilterModal].map((ev) => (
+                      <li
+                        key={`${ev.dateKey}-${ev.id ?? ev.time}-${ev.title}`}
+                        className={`rounded-lg px-3 py-2 text-sm ${getEventColor(ev)}`}
+                      >
+                        <div className="text-[11px] font-medium opacity-90">
+                          {formatDateKeyForDisplay(ev.dateKey)}
+                        </div>
+                        <div className="mt-0.5">
+                          <span className="font-semibold">{formatEventStartEnd(ev)}</span>
+                          <span className="mx-2">·</span>
+                          <span>{ev.title}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );
