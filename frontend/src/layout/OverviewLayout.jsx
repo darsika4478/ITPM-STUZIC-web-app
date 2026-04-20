@@ -97,7 +97,7 @@ const OverviewLayout = () => {
         <div style={{ display: 'flex', minHeight: '100vh', background: '#1c1848', overflow: 'hidden' }}>
 
             {/* ── Mobile Top Navigation Bar ── visible only on mobile */}
-            <header className="mobile-topbar show-mobile" style={{ display: 'none' }}>
+            <header className="mobile-topbar show-mobile">
                 <button
                     onClick={() => setIsMobileMenuOpen(true)}
                     style={{
@@ -142,7 +142,7 @@ const OverviewLayout = () => {
                     onClick={closeMobileMenu}
                     className="show-mobile"
                     style={{
-                        display: 'none', position: 'absolute', top: '12px', right: '12px',
+                        position: 'absolute', top: '12px', right: '12px',
                         background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.25)',
                         color: '#c4b5fd', borderRadius: '10px', width: '32px', height: '32px',
                         alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 51,
@@ -221,7 +221,7 @@ const OverviewLayout = () => {
             </aside>
 
             {/* ── Main content area ── offset by sidebar width on desktop */}
-            <main className="layout-main" style={{ marginLeft: '256px', flex: 1, minHeight: '100vh', width: '100%' }}>
+            <main className="layout-main w-full flex-1 min-h-screen ml-[256px] max-md:ml-0 transition-all duration-300">
                 <div className="main-content" style={{ padding: '2rem' }}>
                     <Outlet />
                 </div>

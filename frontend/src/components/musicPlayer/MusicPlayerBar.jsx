@@ -33,7 +33,7 @@ export default function MusicPlayerBar() {
   };
 
   return (
-    <div className="fixed bottom-0 md:bottom-0 left-0 md:left-64 right-0 z-[100] bg-[#1A1D2E]/95 backdrop-blur-xl border-t border-purple-400/20 px-4 md:px-8 py-3 md:py-4 flex items-center justify-between shadow-[0_-10px_40px_rgba(0,0,0,0.6)] animate-slideUp">
+    <div className="music-player-bar fixed bottom-0 md:bottom-0 left-0 md:left-64 right-0 z-[100] bg-[#1A1D2E]/95 backdrop-blur-xl border-t border-purple-400/20 px-3 sm:px-4 md:px-8 py-2 sm:py-3 md:py-4 flex items-center justify-between shadow-[0_-10px_40px_rgba(0,0,0,0.6)] animate-slideUp">
       {/* Track Info */}
       <div className="flex items-center gap-3 md:gap-5 w-auto md:w-1/3 min-w-0 flex-1 md:flex-initial pr-2">
         <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-lg border border-white/10 relative overflow-hidden group">

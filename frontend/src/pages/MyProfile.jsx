@@ -369,16 +369,16 @@ const MyProfile = () => {
     return (
         // Negative margin trick: extends background to fill the full content area
         // (overrides the 2rem padding applied by DashboardLayout)
-        <div style={{
+        <div className="responsive-page" style={{
             margin: '-2rem', padding: '2rem', minHeight: '100vh',
             background: 'linear-gradient(135deg, #1c1848 0%, #231f5c 50%, #2b2570 100%)',
         }}>
-            <div style={{ maxWidth: '680px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.25rem', paddingBottom: '2.5rem' }}>
+            <div style={{ maxWidth: '680px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.25rem', paddingBottom: '2.5rem', minWidth: 0 }}>
 
                 
 
                 {/* ── Avatar + Profile Info card ── */}
-                <div style={{...cardStyle, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem 2.5rem', background: 'rgba(30,24,72,0.6)', border: '1px solid rgba(167,139,250,0.15)'}}>
+                <div className="responsive-card" style={{...cardStyle, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem 1.5rem', background: 'rgba(30,24,72,0.6)', border: '1px solid rgba(167,139,250,0.15)'}}>
                     {/* Avatar block */}
                     <div style={{ marginBottom: '1.5rem' }}>
                         <button
@@ -589,7 +589,7 @@ const MyProfile = () => {
                 {/* ── Delete Confirmation Modal ── */}
                 {showDeleteModal && (
                     <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(10,8,36,0.7)', padding: '1rem', backdropFilter: 'blur(4px)' }}>
-                        <div style={{ width: '100%', maxWidth: '28rem', borderRadius: '20px', border: '1px solid rgba(248,113,113,0.25)', background: 'rgba(20,15,55,0.95)', padding: '1.5rem', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', backdropFilter: 'blur(20px)' }}>
+                        <div className="responsive-modal" style={{ width: '100%', maxWidth: '28rem', borderRadius: '20px', border: '1px solid rgba(248,113,113,0.25)', background: 'rgba(20,15,55,0.95)', padding: '1.5rem', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', backdropFilter: 'blur(20px)' }}>
                             <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#f87171', margin: 0 }}>Delete Account</h3>
                             <p style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#c4b5fd' }}>
                                 This will permanently delete your account, all tasks, and uploaded data.

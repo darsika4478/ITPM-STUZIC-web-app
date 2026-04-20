@@ -142,18 +142,18 @@ const StudySessionPage = () => {
 
   return (
     <div className="w-full max-w-6xl mx-auto pb-24">
-      <h1 className="text-4xl font-bold mb-8 text-white">Study Session</h1>
+      <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-6 md:mb-8 text-white">Study Session</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
         {/* Timer Display */}
         <div className="bg-gradient-to-br from-[#3C436B] to-[#585296] rounded-3xl p-8 border border-[#8F8BB6]/30 shadow-2xl h-full flex flex-col justify-center">
           <div className="text-center">
             <h2 className="text-[#B6B4BB] text-sm font-semibold mb-4 uppercase tracking-wider">Session Timer</h2>
-            <div className="w-full text-white font-bold font-mono mb-6 bg-[#272D3E] rounded-2xl py-6 shadow-inner border border-[#585296]/30 flex items-center justify-center min-h-[120px] overflow-hidden">
+            <div className="w-full text-white font-bold font-mono mb-6 bg-[#272D3E] rounded-2xl py-4 sm:py-6 shadow-inner border border-[#585296]/30 flex items-center justify-center min-h-[80px] sm:min-h-[120px] overflow-hidden">
               <div className={`text-center whitespace-nowrap overflow-hidden text-ellipsis ${
                 studyTimeLeft >= 3600 
-                  ? 'text-5xl sm:text-5xl md:text-6xl' 
-                  : 'text-6xl sm:text-7xl'
+                  ? 'text-3xl sm:text-5xl md:text-6xl' 
+                  : 'text-4xl sm:text-6xl md:text-7xl'
               }`}>{formatTime(studyTimeLeft)}</div>
             </div>
             
@@ -178,7 +178,7 @@ const StudySessionPage = () => {
               )}
             </div>
 
-            <div className="flex gap-3 justify-center">
+            <div className="flex flex-wrap gap-3 justify-center">
               {!studySessionActive ? (
                 <button
                   onClick={handleStartSession}

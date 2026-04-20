@@ -9,6 +9,7 @@ const AdminLayout = () => {
     const [fullName, setFullName] = useState('');
     const [initials, setInitials] = useState('');
     const [avatarURL, setAvatarURL] = useState('');
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -53,6 +54,8 @@ const AdminLayout = () => {
         navigate('/admin/login');
     };
 
+    const closeMobileMenu = () => setIsMobileMenuOpen(false);
+
     const navLinkStyle = (isActive) => ({
         display: 'flex', alignItems: 'center', gap: '0.75rem',
         borderRadius: '12px', padding: '10px 16px',
@@ -64,17 +67,69 @@ const AdminLayout = () => {
     });
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: '#0f0a2e' }}>
+        <div style={{ display: 'flex', minHeight: '100vh', background: '#0f0a2e', overflow: 'hidden' }}>
 
-            {/* Admin Sidebar */}
-            <aside className="hidden md:flex w-[260px] flex-col fixed left-0 top-0 z-30 h-screen border-r border-[#f8717126] bg-[rgba(8,5,25,0.97)] backdrop-blur-[20px] shadow-[4px_0_24px_rgba(0,0,0,0.4)]" style={{
-                position: 'fixed', left: 0, top: 0, zIndex: 30,
-                display: 'flex', height: '100vh', width: '100%', flexDirection: 'column',
-                borderRight: '1px solid rgba(248,113,113,0.15)',
-                background: 'rgba(8,5,25,0.97)',
-                backdropFilter: 'blur(20px)',
-                boxShadow: '4px 0 24px rgba(0,0,0,0.4)',
-            }}>
+            {/* ── Mobile Top Bar ── */}
+            <header className="mobile-topbar show-mobile" style={{ background: 'rgba(8,5,25,0.95)', borderBottom: '1px solid rgba(248,113,113,0.15)' }}>
+                <button
+                    onClick={() => setIsMobileMenuOpen(true)}
+                    style={{
+                        padding: '8px', color: '#f87171', borderRadius: '12px',
+                        background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)',
+                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                    aria-label="Open Menu"
+                >
+                    <svg stroke="currentColor" fill="none" strokeWidth="2.5" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="22px" width="22px" xmlns="http://www.w3.org/2000/svg">
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
+                <div style={{ marginLeft: 'auto', marginRight: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <img src={logoText} alt="STUZIC" style={{ height: '36px', width: 'auto', objectFit: 'contain' }} />
+                    <span style={{ fontSize: '0.55rem', fontWeight: 700, color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.1em', background: 'rgba(248,113,113,0.12)', padding: '2px 8px', borderRadius: '8px', border: '1px solid rgba(248,113,113,0.25)' }}>
+                        🛡️ Admin
+                    </span>
+                </div>
+            </header>
+
+            {/* ── Sidebar Overlay (mobile) ── */}
+            {isMobileMenuOpen && (
+                <div
+                    className="layout-sidebar-overlay"
+                    onClick={closeMobileMenu}
+                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', zIndex: 40 }}
+                />
+            )}
+
+            {/* ── Admin Sidebar ── slides in on mobile, fixed on desktop */}
+            <aside
+                className={`admin-sidebar ${isMobileMenuOpen ? 'open' : ''}`}
+                style={{
+                    position: 'fixed', left: 0, top: 0, zIndex: 50,
+                    display: 'flex', height: '100vh', width: '260px', flexDirection: 'column',
+                    borderRight: '1px solid rgba(248,113,113,0.15)',
+                    background: 'rgba(8,5,25,0.97)',
+                    backdropFilter: 'blur(20px)',
+                    boxShadow: '4px 0 24px rgba(0,0,0,0.4)',
+                }}
+            >
+                {/* Close button (mobile only) */}
+                <button
+                    onClick={closeMobileMenu}
+                    className="show-mobile"
+                    style={{
+                        position: 'absolute', top: '12px', right: '12px',
+                        background: 'rgba(248,113,113,0.15)', border: '1px solid rgba(248,113,113,0.25)',
+                        color: '#fca5a5', borderRadius: '10px', width: '32px', height: '32px',
+                        alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 51,
+                    }}
+                    aria-label="Close Menu"
+                >
+                    ✕
+                </button>
+
                 {/* Logo + Admin badge */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0.35rem 0.5rem 0' }}>
                     <img src={logoText} alt="STUZIC" style={{ width: '170px', height: 'auto', objectFit: 'contain' }} />
@@ -97,28 +152,28 @@ const AdminLayout = () => {
                     <p style={{ marginBottom: '0.5rem', paddingLeft: '1rem', fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#f87171' }}>
                         Management
                     </p>
-                    <NavLink to="/admin/dashboard" style={({ isActive }) => navLinkStyle(isActive)}>
+                    <NavLink to="/admin/dashboard" style={({ isActive }) => navLinkStyle(isActive)} onClick={closeMobileMenu}>
                         <span style={{ fontSize: '1.125rem' }}>📊</span> Dashboard
                     </NavLink>
-                    <NavLink to="/admin/users" style={({ isActive }) => navLinkStyle(isActive)}>
+                    <NavLink to="/admin/users" style={({ isActive }) => navLinkStyle(isActive)} onClick={closeMobileMenu}>
                         <span style={{ fontSize: '1.125rem' }}>👥</span> User Management
                     </NavLink>
-                    <NavLink to="/admin/tasks" style={({ isActive }) => navLinkStyle(isActive)}>
+                    <NavLink to="/admin/tasks" style={({ isActive }) => navLinkStyle(isActive)} onClick={closeMobileMenu}>
                         <span style={{ fontSize: '1.125rem' }}>📋</span> Tasks
                     </NavLink>
-                    <NavLink to="/admin/mood-reports" style={({ isActive }) => navLinkStyle(isActive)}>
+                    <NavLink to="/admin/mood-reports" style={({ isActive }) => navLinkStyle(isActive)} onClick={closeMobileMenu}>
                         <span style={{ fontSize: '1.125rem' }}>🎭</span> Mood Reports
                     </NavLink>
-                    <NavLink to="/admin/sessions" style={({ isActive }) => navLinkStyle(isActive)}>
+                    <NavLink to="/admin/sessions" style={({ isActive }) => navLinkStyle(isActive)} onClick={closeMobileMenu}>
                         <span style={{ fontSize: '1.125rem' }}>⏱️</span> Sessions
                     </NavLink>
-                    <NavLink to="/admin/announcements" style={({ isActive }) => navLinkStyle(isActive)}>
+                    <NavLink to="/admin/announcements" style={({ isActive }) => navLinkStyle(isActive)} onClick={closeMobileMenu}>
                         <span style={{ fontSize: '1.125rem' }}>📢</span> Announcements
                     </NavLink>
                 </nav>
 
                 {/* Admin user card + logout */}
-                <div style={{ borderTop: '1px solid rgba(248,113,113,0.12)', padding: '1rem 0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{ borderTop: '1px solid rgba(248,113,113,0.12)', padding: '1rem 0.75rem 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
                     <div style={{
                         display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'center', gap: '0.75rem',
                         borderRadius: '14px', padding: '12px 14px',
@@ -166,31 +221,11 @@ const AdminLayout = () => {
             </aside>
 
             {/* Main content */}
-            <main className="md:ml-[260px] flex-1 min-h-screen pb-[90px] md:pb-0" style={{ width: '100%' }}>
-                <div style={{ padding: '2rem' }} className="p-4 md:p-8">
+            <main className="admin-layout-main w-full flex-1 min-h-screen ml-[260px] max-md:ml-0 transition-all duration-300">
+                <div className="main-content" style={{ padding: '2rem' }}>
                     <Outlet />
                 </div>
             </main>
-
-            {/* Mobile Bottom Navigation (Hidden on desktop) */}
-            <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around bg-[rgba(8,5,25,0.97)] backdrop-blur-[20px] border-t border-[rgba(248,113,113,0.15)] pb-safe pt-2 px-2 shadow-[0_-4px_24px_rgba(0,0,0,0.4)]">
-                {[
-                    { to: "/admin/dashboard", icon: "📊", label: "Panel" },
-                    { to: "/admin/users", icon: "👥", label: "Users" },
-                    { to: "/admin/tasks", icon: "📋", label: "Tasks" },
-                    { to: "/admin/mood-reports", icon: "🎭", label: "Moods" },
-                    { to: "/admin/sessions", icon: "⏱️", label: "Stats" }
-                ].map((item) => (
-                    <NavLink
-                        key={item.to}
-                        to={item.to}
-                        className={({ isActive }) => `flex flex-col items-center justify-center p-2 rounded-xl text-[10px] font-semibold select-none transition-all ${isActive ? 'text-[#fff] bg-[rgba(248,113,113,0.2)] shadow-[0_4px_12px_rgba(248,113,113,0.3)]' : 'text-[#fca5a5]/80'}`}
-                    >
-                        <span className="text-xl mb-1">{item.icon}</span>
-                        {item.label}
-                    </NavLink>
-                ))}
-            </nav>
         </div>
     );
 };

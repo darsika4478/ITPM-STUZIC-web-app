@@ -601,11 +601,11 @@ export default function TasksPlanner() {
     };
 
     return (
-        <div style={{
+        <div className="responsive-page" style={{
             margin: '-2rem', padding: '2rem', minHeight: '100vh',
             background: 'linear-gradient(135deg, #1c1848 0%, #231f5c 50%, #2b2570 100%)',
         }}>
-            <div style={{ maxWidth: '896px', margin: '0 auto' }}>
+            <div style={{ maxWidth: '896px', margin: '0 auto', overflow: 'hidden' }}>
 
                 {/* ── Header ── */}
                 <div style={{ marginBottom: '2rem' }}>
@@ -1387,6 +1387,7 @@ export default function TasksPlanner() {
                         <div style={{ position: 'absolute', inset: 0 }} onClick={closeEditModal} />
                         <form
                             onSubmit={handleUpdateTask}
+                            className="responsive-modal"
                             style={{
                                 position: 'relative', width: '100%', maxWidth: '32rem',
                                 overflow: 'hidden', borderRadius: '20px',

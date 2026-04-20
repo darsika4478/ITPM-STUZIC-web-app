@@ -187,7 +187,7 @@ export default function OverviewHome() {
   );
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8 pb-12">
+    <div className="mx-auto max-w-6xl space-y-8 pb-12 responsive-container">
 
       {/* ── ZONE 1: RIGHT NOW ── */}
       <GreetingBanner tasks={tasks} todayMood={todayMood} moodStreak={moodStreak} />
@@ -258,22 +258,23 @@ export default function OverviewHome() {
       )}
 
       {/* 3-Column Grid for Mood Summary, Task Progress, Session Stats */}
-      <div style={{
+      <div className="responsive-grid-1" style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
         gap: '1rem',
         marginBottom: '2rem'
       }}>
         
         {/* 2. Today's Mood Summary */}
-        <div style={{
+        <div className="responsive-card" style={{
           background: 'rgba(20,14,50,0.6)',
           borderRadius: '18px',
           border: '1px solid rgba(109,95,231,0.15)',
           padding: '1.5rem',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'center'
+          justifyContent: 'center',
+          minWidth: 0, overflow: 'hidden'
         }}>
           <h3 style={{ color: '#a78bfa', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 1rem 0' }}>Today's Mood</h3>
           {todayMood && todayMood.mood ? (
@@ -308,14 +309,15 @@ export default function OverviewHome() {
         </div>
 
         {/* 3. Task Completion Progress Bar */}
-        <div style={{
+        <div className="responsive-card" style={{
           background: 'rgba(20,14,50,0.6)',
           borderRadius: '18px',
           border: '1px solid rgba(109,95,231,0.15)',
           padding: '1.5rem',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'center'
+          justifyContent: 'center',
+          minWidth: 0, overflow: 'hidden'
         }}>
           <h3 style={{ color: '#a78bfa', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 1rem 0' }}>Task Progress</h3>
           {taskStats ? (
@@ -351,14 +353,15 @@ export default function OverviewHome() {
         </div>
 
         {/* 4. Study Session Stats (This Week) */}
-        <div style={{
+        <div className="responsive-card" style={{
           background: 'rgba(20,14,50,0.6)',
           borderRadius: '18px',
           border: '1px solid rgba(109,95,231,0.15)',
           padding: '1.5rem',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'center'
+          justifyContent: 'center',
+          minWidth: 0, overflow: 'hidden'
         }}>
           <h3 style={{ color: '#a78bfa', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 1rem 0' }}>This Week's Focus</h3>
           {sessionsStats.count > 0 ? (
