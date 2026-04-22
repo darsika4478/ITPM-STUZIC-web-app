@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import {
   addDoc,
@@ -49,6 +49,9 @@ export default function CalendarUI() {
   const [calendarRulesError, setCalendarRulesError] = useState(null);
   /** @type {[string | null, React.Dispatch<React.SetStateAction<string | null>>]} */
   const [categoryFilterModal, setCategoryFilterModal] = useState(null);
+  const [inAppNotificationsEnabled, setInAppNotificationsEnabled] = useState(false);
+  const [inAppNotifications, setInAppNotifications] = useState([]);
+  const notifiedReminderIdsRef = useRef(new Set());
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -343,6 +346,49 @@ export default function CalendarUI() {
     });
   };
 
+  useEffect(() => {
+    if (!inAppNotificationsEnabled) return;
+
+    const checkReminders = () => {
+      const nowMs = Date.now();
+      for (const [dateKey, events] of Object.entries(eventsByDate || {})) {
+        if (isPastDateKey(dateKey)) continue;
+        if (!Array.isArray(events)) continue;
+
+        for (const ev of events) {
+          if (!ev?.reminder) continue;
+          const reminderDate = new Date(ev.reminder);
+          const reminderMs = reminderDate.getTime();
+          if (Number.isNaN(reminderMs)) continue;
+
+          // Fire once when reminder time arrives (30s tolerance window).
+          if (reminderMs > nowMs || nowMs - reminderMs > 30000) continue;
+
+          const reminderId = ev.id
+            ? `${ev.id}:${ev.reminder}`
+            : `${dateKey}:${ev.title}:${ev.reminder}`;
+          if (notifiedReminderIdsRef.current.has(reminderId)) continue;
+
+          const title = ev.title ? `Reminder: ${ev.title}` : "Calendar Reminder";
+          const body = ev.type === "Deadline"
+            ? `Deadline at ${formatEventStartEnd(ev)}`
+            : `Event at ${formatEventStartEnd(ev)}`;
+
+          const popupId = `${reminderId}:${nowMs}`;
+          setInAppNotifications((prev) => [...prev, { id: popupId, title, body }]);
+          window.setTimeout(() => {
+            setInAppNotifications((prev) => prev.filter((item) => item.id !== popupId));
+          }, 6000);
+          notifiedReminderIdsRef.current.add(reminderId);
+        }
+      }
+    };
+
+    checkReminders();
+    const timerId = window.setInterval(checkReminders, 15000);
+    return () => window.clearInterval(timerId);
+  }, [eventsByDate, inAppNotificationsEnabled]);
+
   const getEventColor = (eventLike) => {
     const normalized = normalizeEventLabel(eventLike?.category || eventLike?.type);
     switch (normalized) {
@@ -464,6 +510,14 @@ export default function CalendarUI() {
             </button>
             <button onClick={goToday} className="bg-[#696FC7] text-white px-5 py-2 rounded-full hover:bg-[#8F8BB6]">
               Today
+            </button>
+            <button
+              type="button"
+              onClick={() => setInAppNotificationsEnabled((prev) => !prev)}
+              className="bg-[#696FC7] text-white px-5 py-2 rounded-full hover:bg-[#8F8BB6] flex items-center gap-2"
+            >
+              🔔
+              {inAppNotificationsEnabled ? "Notifications On" : "Notifications Off"}
             </button>
           </div>
 
@@ -597,6 +651,18 @@ export default function CalendarUI() {
             </div>
           </div>
         ) : null}
+
+        <div className="fixed top-5 right-5 z-100 space-y-2 pointer-events-none">
+          {inAppNotifications.map((n) => (
+            <div
+              key={n.id}
+              className="pointer-events-auto w-[280px] rounded-xl border border-[#5b52b5] bg-[#28244d] px-4 py-3 text-white shadow-xl"
+            >
+              <p className="text-sm font-semibold">{n.title}</p>
+              <p className="mt-1 text-xs text-[#c5bff2]">{n.body}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
