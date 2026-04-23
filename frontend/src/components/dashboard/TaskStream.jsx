@@ -3,7 +3,6 @@ import TaskStreamCard from "./TaskStreamCard";
 
 export default function TaskStream({ tasks = [] }) {
   const navigate = useNavigate();
-  const now = new Date();
 
   const sorted = [...tasks].sort((a, b) => {
     if (a.completed !== b.completed) return a.completed ? 1 : -1;

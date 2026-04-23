@@ -1499,9 +1499,10 @@ export default function TasksPlanner() {
                                     Edit Task
                                 </button>
                                 <button
-                                    onClick={() => {
-                                        setConfirmDelete(viewingTask.id);
+                                    onClick={async () => {
+                                        const taskId = viewingTask.id;
                                         setViewingTask(null);
+                                        await handleDeleteTask(taskId);
                                     }}
                                     style={{
                                         background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#fca5a5', borderRadius: '8px',

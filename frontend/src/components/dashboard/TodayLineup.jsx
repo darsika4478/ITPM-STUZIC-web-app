@@ -12,10 +12,11 @@ export default function TodayLineup({ tasks = [] }) {
   const now = new Date();
   const todayStr = now.toISOString().split("T")[0];
   const todayFormatted = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  const activeTasks = tasks.filter((t) => !t.isDeleted);
 
-  const todayTasks = tasks.filter((t) => t.dueDate === todayStr);
-  const doneToday = tasks.filter((t) => t.completed && t.dueDate === todayStr).length;
-  const overdue = tasks.filter((t) => {
+  const todayTasks = activeTasks.filter((t) => t.dueDate === todayStr);
+  const doneToday = activeTasks.filter((t) => t.completed && t.dueDate === todayStr).length;
+  const overdue = activeTasks.filter((t) => {
     if (t.completed || !t.dueDate) return false;
     return new Date(t.dueDate) < new Date(now.toDateString());
   }).length;
@@ -32,8 +33,11 @@ export default function TodayLineup({ tasks = [] }) {
     const titleText = (t.title || "").trim();
     if (titleText) return titleText;
     
-    if (Array.isArray(t.checklistItems) && t.checklistItems.length > 0) {
-      const firstChecklist = t.checklistItems.find((item) => (item.text || "").trim());
+    const normalizedChecklist = Array.isArray(t.checklistItems)
+      ? t.checklistItems.filter((item) => (item?.text || "").trim())
+      : [];
+    if (normalizedChecklist.length > 0) {
+      const firstChecklist = normalizedChecklist.find((item) => (item.text || "").trim());
       if (firstChecklist?.text) return firstChecklist.text.trim();
     }
     return "Untitled task";
