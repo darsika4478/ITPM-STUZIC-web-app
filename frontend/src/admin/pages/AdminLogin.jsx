@@ -20,7 +20,7 @@ const AdminLogin = () => {
             try {
                 const userDoc = await getDoc(doc(db, 'users', user.uid));
                 if (userDoc.exists() && userDoc.data().role === 'admin') {
-                    navigate('/admin/users');
+                    navigate('/admin/dashboard');
                 }
             } catch {
                 // ignore
@@ -55,7 +55,7 @@ const AdminLogin = () => {
                 return;
             }
 
-            navigate('/admin/users');
+            navigate('/admin/dashboard');
         } catch {
             setFormError('Invalid email or password.');
         }

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth';
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../config/firebase';
 import AuthHeader from '../components/user-management/AuthHeader';
 import { validateEmailDomain } from '../utils/emailValidation';
@@ -123,11 +123,18 @@ const Login = () => {
             const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
             
             // Check if user is an admin
-            const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
+            const userDocRef = doc(db, 'users', userCredential.user.uid);
+            const userDoc = await getDoc(userDocRef);
             if (userDoc.exists() && userDoc.data().role === 'admin') {
                 await signOut(auth);
                 setFormError('Admin accounts cannot log in here. Please use the Admin Panel login.');
                 return;
+            }
+
+            try {
+                await updateDoc(userDocRef, { lastLogin: serverTimestamp() });
+            } catch (updateErr) {
+                console.error('Failed to update last login:', updateErr);
             }
 
             navigate('/dashboard');
@@ -144,11 +151,18 @@ const Login = () => {
             const result = await signInWithPopup(auth, googleProvider);
             await syncGoogleUser(result.user);
 
-            const userDoc = await getDoc(doc(db, 'users', result.user.uid));
+            const userDocRef = doc(db, 'users', result.user.uid);
+            const userDoc = await getDoc(userDocRef);
             if (userDoc.exists() && userDoc.data().role === 'admin') {
                 await signOut(auth);
                 setFormError('Admin accounts cannot log in here. Please use the Admin Panel login.');
                 return;
+            }
+
+            try {
+                await updateDoc(userDocRef, { lastLogin: serverTimestamp() });
+            } catch (updateErr) {
+                console.error('Failed to update last login:', updateErr);
             }
 
             navigate('/dashboard');

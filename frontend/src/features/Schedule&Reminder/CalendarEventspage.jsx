@@ -2,15 +2,45 @@
 import { useEffect, useRef, useState } from "react";
 import CalendarAddEventForm from "./CalendarAddEventForm.jsx";
 
+function isoToTimeInput(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+/** Map Firestore-shaped UI event from calendarEventHelpers to form fields */
+function mapEvToInitialValues(ev) {
+  const raw = ev?.type || "";
+  const cat = ev?.category || "";
+  let type = "Study Session";
+  if (raw === "Lecture" || cat === "Lectures") type = "Lecture";
+  else if (raw === "Exam" || cat === "Exams") type = "Exam";
+  else if (raw === "Deadline" || cat === "Deadlines") type = "Deadline";
+  else if (raw === "Study Session") type = "Study Session";
+  return {
+    type,
+    title: ev?.title || "",
+    startTime: isoToTimeInput(ev?.startTime),
+    endTime: isoToTimeInput(ev?.endTime),
+    deadlineTime: isoToTimeInput(ev?.deadlineTime),
+    reminder: isoToTimeInput(ev?.reminder),
+  };
+}
+
 export default function CalendarEventsPopover({
   dateKey,
   position,
   eventsByDate,
   onClose,
   onAddEvent,
+  onUpdateEvent,
+  onDeleteEvent,
 }) {
   const popRef = useRef(null);
   const [showAddEventForm, setShowAddEventForm] = useState(false);
+  const [editingEvent, setEditingEvent] = useState(null);
+  const [deletingIdx, setDeletingIdx] = useState(null);
 
   useEffect(() => {
     if (!dateKey) return;
@@ -26,9 +56,11 @@ export default function CalendarEventsPopover({
   useEffect(() => {
     if (!dateKey) {
       setShowAddEventForm(false);
+      setEditingEvent(null);
       return;
     }
     setShowAddEventForm(false);
+    setEditingEvent(null);
   }, [dateKey]);
 
   if (!dateKey) return null;
@@ -52,6 +84,24 @@ export default function CalendarEventsPopover({
     setShowAddEventForm(false);
   };
 
+  const closeEditForm = () => {
+    setEditingEvent(null);
+  };
+
+  const handleDeleteClick = async (e, idx) => {
+    e.stopPropagation();
+    if (typeof onDeleteEvent !== "function") return;
+    if (!window.confirm("Delete this event?")) return;
+    setDeletingIdx(idx);
+    try {
+      await onDeleteEvent(dateKey, idx);
+    } catch {
+      /* parent / Firestore may surface error */
+    } finally {
+      setDeletingIdx(null);
+    }
+  };
+
   const getEventAccent = (category) => {
     switch (category) {
       case "Study Session":
@@ -60,6 +110,8 @@ export default function CalendarEventsPopover({
         return "bg-[#fff3cd] text-[#856404] border-l-[3px] border-[#f97316]";
       case "Deadlines":
         return "bg-[#d1fae5] text-[#065f46] border-l-[3px] border-[#10b981]";
+      case "Exams":
+        return "bg-[#f4e8dc] text-[#4a3224] border-l-[3px] border-[#8C5A3C]";
       case "work":
         return "bg-[#e0f2fe] text-[#0369a1] border-l-[3px] border-[#0ea5e9]";
       case "personal":
@@ -74,7 +126,7 @@ export default function CalendarEventsPopover({
   return (
     <div
       ref={popRef}
-      className="absolute bg-[#28244d] border border-[#b9b6d9] text-white p-4 rounded-xl shadow-lg w-72 z-50"
+      className="absolute bg-[#28244d] border border-[#b9b6d9] text-white p-4 rounded-xl shadow-lg w-[min(100vw-2rem,20rem)] z-50"
       style={{ top: position?.top ?? 0, left: position?.left ?? 0 }}
       onClick={(e) => e.stopPropagation()}
     >
@@ -101,16 +153,46 @@ export default function CalendarEventsPopover({
                 );
               }
 
+              const canManage = Boolean(ev.id) && !isPastDate;
+
               return (
                 <li
                   key={ev.id || idx}
                   className={`text-xs p-2 rounded ${getEventAccent(ev.category)}`}
                 >
-                  <div className="min-w-0">
-                    {ev.time ? (
-                      <span className="font-semibold mr-2">{ev.time}</span>
+                  <div className="flex items-start justify-between gap-2 min-w-0">
+                    <div className="min-w-0 flex-1">
+                      {ev.time ? (
+                        <span className="font-semibold mr-2">{ev.time}</span>
+                      ) : null}
+                      <span className="wrap-break-word">{ev.title || "Event"}</span>
+                    </div>
+                    {canManage ? (
+                      <div className="flex shrink-0 gap-1">
+                        <button
+                          type="button"
+                          title="Edit"
+                          disabled={!onUpdateEvent || isPastDate}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowAddEventForm(false);
+                            setEditingEvent({ ev, idx });
+                          }}
+                          className="px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-[#3b3670] text-[#c4b5fd] border border-[#5b52b5] hover:bg-[#4a4490] disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          title="Delete"
+                          disabled={!onDeleteEvent || deletingIdx === idx || isPastDate}
+                          onClick={(e) => handleDeleteClick(e, idx)}
+                          className="px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-red-950/50 text-red-200 border border-red-800/60 hover:bg-red-900/50 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          {deletingIdx === idx ? "…" : "Delete"}
+                        </button>
+                      </div>
                     ) : null}
-                    {ev.title || "Event"}
                   </div>
                 </li>
               );
@@ -145,6 +227,33 @@ export default function CalendarEventsPopover({
         </div>
       ) : null}
 
+      {editingEvent && selectedDate ? (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/40 p-4">
+          <div className="relative w-full max-w-md">
+            <button
+              type="button"
+              className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-white text-black shadow z-10"
+              onClick={closeEditForm}
+            >
+              
+            </button>
+            <CalendarAddEventForm
+              key={editingEvent.ev.id}
+              isEditing
+              initialValues={mapEvToInitialValues(editingEvent.ev)}
+              selectedDate={selectedDate}
+              onSuccessfulSave={closeEditForm}
+              onSave={async (payload) => {
+                if (typeof onUpdateEvent !== "function") {
+                  throw new Error("Calendar update is not wired (onUpdateEvent missing).");
+                }
+                await onUpdateEvent(dateKey, editingEvent.ev.id, payload);
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
+
       <button
         type="button"
         disabled={isPastDate}
@@ -159,6 +268,11 @@ export default function CalendarEventsPopover({
       >
         Add Event
       </button>
+      {isPastDate ? (
+        <p className="mt-2 text-[11px] text-gray-400">
+          Past events are locked (no edit/delete).
+        </p>
+      ) : null}
     </div>
   );
 }

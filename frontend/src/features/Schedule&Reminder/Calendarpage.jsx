@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import {
   addDoc,
@@ -12,8 +12,28 @@ import {
   where,
 } from "firebase/firestore";
 import { auth, db } from "../../config/firebase";
-import { buildEventsMapFromSnapshot } from "./calendarEventHelpers.js";
+import { buildEventsMapFromSnapshot, formatHHMM } from "./calendarEventHelpers.js";
 import CalendarEventsPopover from "./CalendarEventspage.jsx";
+
+function formatEventStartEnd(ev) {
+  if (!ev) return "";
+  if (ev.type === "Deadline" && ev.deadlineTime) {
+    const d = new Date(ev.deadlineTime);
+    return Number.isNaN(d.getTime()) ? (ev.time || "") : formatHHMM(d);
+  }
+  const start = ev.startTime ? new Date(ev.startTime) : null;
+  const end = ev.endTime ? new Date(ev.endTime) : null;
+  if (
+    start &&
+    !Number.isNaN(start.getTime()) &&
+    end &&
+    !Number.isNaN(end.getTime())
+  ) {
+    return `${formatHHMM(start)} - ${formatHHMM(end)}`;
+  }
+  if (start && !Number.isNaN(start.getTime())) return formatHHMM(start);
+  return ev.time || "";
+}
 
 export default function CalendarUI() {
   const days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -27,6 +47,11 @@ export default function CalendarUI() {
   });
   const [eventsByDate, setEventsByDate] = useState({});
   const [calendarRulesError, setCalendarRulesError] = useState(null);
+  /** @type {[string | null, React.Dispatch<React.SetStateAction<string | null>>]} */
+  const [categoryFilterModal, setCategoryFilterModal] = useState(null);
+  const [inAppNotificationsEnabled, setInAppNotificationsEnabled] = useState(false);
+  const [inAppNotifications, setInAppNotifications] = useState([]);
+  const notifiedReminderIdsRef = useRef(new Set());
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -95,15 +120,18 @@ export default function CalendarUI() {
   const goPrevMonth = () => {
     setCurrentDate(new Date(year, month - 1, 1));
     setEventsPopover({ dateKey: null, position: { top: 0, left: 0 } });
+    setCategoryFilterModal(null);
   };
   const goNextMonth = () => {
     setCurrentDate(new Date(year, month + 1, 1));
     setEventsPopover({ dateKey: null, position: { top: 0, left: 0 } });
+    setCategoryFilterModal(null);
   };
   const goToday = () => {
     setCurrentDate(today);
     setSelectedDate(today);
     setEventsPopover({ dateKey: null, position: { top: 0, left: 0 } });
+    setCategoryFilterModal(null);
   };
 
   const formatDateKey = (dateObj) => {
@@ -134,11 +162,62 @@ export default function CalendarUI() {
     setEventsPopover({ dateKey: null, position: { top: 0, left: 0 } });
   };
 
+  const isPastDateKey = (dateKey) => {
+    if (!dateKey) return false;
+    const date = new Date(`${dateKey}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return false;
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return date < todayStart;
+  };
+
+  const getDateSafe = (value) => {
+    if (!value) return null;
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+
+  const getEventRange = (ev) => {
+    if (!ev) return null;
+    if (ev.type === "Deadline") {
+      const point = getDateSafe(ev.deadlineTime);
+      if (!point) return null;
+      return { start: point, end: new Date(point.getTime() + 60 * 1000) };
+    }
+    const start = getDateSafe(ev.startTime);
+    const end = getDateSafe(ev.endTime);
+    if (!start || !end) return null;
+    const normalizedEnd = end > start ? end : new Date(start.getTime() + 60 * 1000);
+    return { start, end: normalizedEnd };
+  };
+
+  const assertNoOverlap = (dateKey, candidatePayload, excludeEventId = null) => {
+    const candidateRange = getEventRange(candidatePayload);
+    if (!candidateRange) return;
+    const dayEvents = eventsByDate[dateKey] || [];
+    for (const ev of dayEvents) {
+      if (!ev || !ev.id) continue;
+      if (excludeEventId && ev.id === excludeEventId) continue;
+      const existingRange = getEventRange(ev);
+      if (!existingRange) continue;
+      const overlap =
+        candidateRange.start < existingRange.end &&
+        existingRange.start < candidateRange.end;
+      if (overlap) {
+        throw new Error(`Time overlaps with "${ev.title || "another event"}".`);
+      }
+    }
+  };
+
   // ✅ Save to top-level calendarEvents with userId
   const handleAddEvent = async (dateKey, payload) => {
     const user = auth.currentUser;
     if (!user) throw new Error("You must be signed in to save events.");
     if (!db) throw new Error("Firebase is not configured. Check your .env file.");
+    if (isPastDateKey(dateKey)) {
+      throw new Error("Cannot create events on past dates.");
+    }
+    assertNoOverlap(dateKey, payload);
     try {
       const docRef = await addDoc(collection(db, "calendarEvents"), {
         userId: user.uid,
@@ -159,10 +238,14 @@ export default function CalendarUI() {
   };
 
   // ✅ Update existing event
-  const handleUpdateEvent = async (_dateKey, eventId, payload) => {
+  const handleUpdateEvent = async (dateKey, eventId, payload) => {
     const user = auth.currentUser;
     if (!user) throw new Error("You must be signed in to update events.");
     if (!eventId) throw new Error("Missing event id.");
+    if (isPastDateKey(dateKey)) {
+      throw new Error("Past events cannot be edited.");
+    }
+    assertNoOverlap(dateKey, payload, eventId);
     try {
       await updateDoc(doc(db, "calendarEvents", eventId), {
         type: payload.type,
@@ -183,6 +266,9 @@ export default function CalendarUI() {
   const handleDeleteEvent = async (dateKey, idx) => {
     const user = auth.currentUser;
     if (!user) throw new Error("You must be signed in to delete events.");
+    if (isPastDateKey(dateKey)) {
+      throw new Error("Past events cannot be deleted.");
+    }
     const ev = eventsByDate[dateKey]?.[idx];
     if (!ev?.id) throw new Error("Cannot delete this event.");
     try {
@@ -193,14 +279,127 @@ export default function CalendarUI() {
     }
   };
 
-  const getEventColor = (category) => {
-    switch (category) {
+  const normalizeEventLabel = (label = "") => {
+    const value = String(label).trim().toLowerCase();
+    if (value === "lecture" || value === "lectures") return "Lectures";
+    if (value === "deadline" || value === "deadlines") return "Deadlines";
+    if (value === "exam" || value === "exams") return "Exams";
+    return "Study Session";
+  };
+
+  const CATEGORY_ITEMS = [
+    { name: "Study Session", color: "#A855F7" },
+    { name: "Lectures", color: "#f97316" },
+    { name: "Deadlines", color: "#10b981" },
+    { name: "Exams", color: "#78350F" },
+  ];
+
+  const { upcomingByCategory, categoryCounts } = useMemo(() => {
+    const buckets = {
+      "Study Session": [],
+      "Lectures": [],
+      "Deadlines": [],
+      "Exams": [],
+    };
+    for (const [dateKey, events] of Object.entries(eventsByDate || {})) {
+      if (isPastDateKey(dateKey)) continue;
+      if (!Array.isArray(events)) continue;
+      for (const ev of events) {
+        const cat = normalizeEventLabel(ev?.category || ev?.type);
+        if (buckets[cat]) buckets[cat].push({ ...ev, dateKey });
+      }
+    }
+    for (const k of Object.keys(buckets)) {
+      buckets[k].sort((a, b) => {
+        const byDate = (a.dateKey || "").localeCompare(b.dateKey || "");
+        if (byDate !== 0) return byDate;
+        return (a.time || "").localeCompare(b.time || "");
+      });
+    }
+    const counts = {
+      "Study Session": buckets["Study Session"].length,
+      Lectures: buckets.Lectures.length,
+      Deadlines: buckets.Deadlines.length,
+      Exams: buckets.Exams.length,
+    };
+    return { upcomingByCategory: buckets, categoryCounts: counts };
+  }, [eventsByDate]);
+
+  useEffect(() => {
+    if (!categoryFilterModal) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") setCategoryFilterModal(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [categoryFilterModal]);
+
+  const formatDateKeyForDisplay = (dateKey) => {
+    if (!dateKey) return "";
+    const d = new Date(`${dateKey}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return dateKey;
+    return d.toLocaleDateString("default", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
+  useEffect(() => {
+    if (!inAppNotificationsEnabled) return;
+
+    const checkReminders = () => {
+      const nowMs = Date.now();
+      for (const [dateKey, events] of Object.entries(eventsByDate || {})) {
+        if (isPastDateKey(dateKey)) continue;
+        if (!Array.isArray(events)) continue;
+
+        for (const ev of events) {
+          if (!ev?.reminder) continue;
+          const reminderDate = new Date(ev.reminder);
+          const reminderMs = reminderDate.getTime();
+          if (Number.isNaN(reminderMs)) continue;
+
+          // Fire once when reminder time arrives (30s tolerance window).
+          if (reminderMs > nowMs || nowMs - reminderMs > 30000) continue;
+
+          const reminderId = ev.id
+            ? `${ev.id}:${ev.reminder}`
+            : `${dateKey}:${ev.title}:${ev.reminder}`;
+          if (notifiedReminderIdsRef.current.has(reminderId)) continue;
+
+          const title = ev.title ? `Reminder: ${ev.title}` : "Calendar Reminder";
+          const body = ev.type === "Deadline"
+            ? `Deadline at ${formatEventStartEnd(ev)}`
+            : `Event at ${formatEventStartEnd(ev)}`;
+
+          const popupId = `${reminderId}:${nowMs}`;
+          setInAppNotifications((prev) => [...prev, { id: popupId, title, body }]);
+          window.setTimeout(() => {
+            setInAppNotifications((prev) => prev.filter((item) => item.id !== popupId));
+          }, 6000);
+          notifiedReminderIdsRef.current.add(reminderId);
+        }
+      }
+    };
+
+    checkReminders();
+    const timerId = window.setInterval(checkReminders, 15000);
+    return () => window.clearInterval(timerId);
+  }, [eventsByDate, inAppNotificationsEnabled]);
+
+  const getEventColor = (eventLike) => {
+    const normalized = normalizeEventLabel(eventLike?.category || eventLike?.type);
+    switch (normalized) {
       case "Study Session":
         return "bg-[#FFECC0] text-[#B500B2] border-l-[3px] border-[#B500B2]";
       case "Lectures":
         return "bg-[#fff3cd] text-[#856404] border-l-[3px] border-[#f97316]";
       case "Deadlines":
         return "bg-[#d1fae5] text-[#065f46] border-l-[3px] border-[#10b981]";
+      case "Exams":
+        return "bg-[#f4e8dc] text-[#4a3224] border-l-[3px] border-[#8C5A3C]";
       default:
         return "bg-[#ede9fe] text-[#5b21b6] border-l-[3px] border-[#8b5cf6]";
     }
@@ -252,13 +451,11 @@ export default function CalendarUI() {
             Scheduled
           </p>
 
-          {[
-            { name: "Study Session", color: "#B500B2", count: 2 },
-            { name: "Lectures", color: "#f97316", count: 5 },
-            { name: "Deadlines", color: "#10b981", count: 3 },
-          ].map((item, i) => (
+          {CATEGORY_ITEMS.map((item) => (
             <button
-              key={i}
+              key={item.name}
+              type="button"
+              onClick={() => setCategoryFilterModal(item.name)}
               className="w-full flex items-center mb-2 px-4 py-[10px] 
                 bg-[#696FC7] text-white 
                 uppercase tracking-widest text-sm font-medium
@@ -270,7 +467,7 @@ export default function CalendarUI() {
             >
               <div className="w-4 h-4 rounded mr-3 shrink-0" style={{ background: item.color }} />
               <span className="flex-1 text-left">{item.name}</span>
-              <span className="text-xs">{item.count}</span>
+              <span className="text-xs">{categoryCounts[item.name] ?? 0}</span>
             </button>
           ))}
         </div>
@@ -283,8 +480,8 @@ export default function CalendarUI() {
 
           {eventsByDate[selectedKey] ? (
             eventsByDate[selectedKey].map((ev, i) => (
-              <div key={i} className="bg-white p-2 rounded mb-2 shadow border-l-[3px] border-[#7067b3] text-sm text-[#7067b3]">
-                <strong className="text-[#7067b3] mr-2">{ev.time}</strong>
+              <div key={i} className={`p-2 rounded mb-2 shadow text-sm ${getEventColor(ev)}`}>
+                <strong className="mr-2">{formatEventStartEnd(ev)}</strong>
                 {ev.title}
               </div>
             ))
@@ -313,6 +510,14 @@ export default function CalendarUI() {
             </button>
             <button onClick={goToday} className="bg-[#696FC7] text-white px-5 py-2 rounded-full hover:bg-[#8F8BB6]">
               Today
+            </button>
+            <button
+              type="button"
+              onClick={() => setInAppNotificationsEnabled((prev) => !prev)}
+              className="bg-[#696FC7] text-white px-5 py-2 rounded-full hover:bg-[#8F8BB6] flex items-center gap-2"
+            >
+              🔔
+              {inAppNotificationsEnabled ? "Notifications On" : "Notifications Off"}
             </button>
           </div>
 
@@ -359,7 +564,7 @@ export default function CalendarUI() {
                 {eventsByDate[key]?.map((ev, i) => (
                   <div
                     key={i}
-                    className={`text-xs p-1 rounded mt-1 ${getEventColor(ev.category)}`}
+                    className={`text-xs p-1 rounded mt-1 ${getEventColor(ev)}`}
                   >
                     <span className="font-semibold mr-1">{ev.time}</span>
                     {ev.title}
@@ -389,6 +594,75 @@ export default function CalendarUI() {
           onUpdateEvent={handleUpdateEvent}
           onDeleteEvent={handleDeleteEvent}
         />
+
+        {categoryFilterModal ? (
+          <div
+            className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/55"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="category-filter-title"
+            onClick={() => setCategoryFilterModal(null)}
+          >
+            <div
+              className="w-full max-w-md max-h-[min(70vh,520px)] overflow-hidden rounded-2xl border border-[#5b52b5] bg-[#28244d] shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-3 border-b border-[#5b52b5] px-5 py-4">
+                <div>
+                  <p id="category-filter-title" className="text-lg font-semibold text-white">
+                    {categoryFilterModal}
+                  </p>
+                  <p className="mt-1 text-xs text-[#a89fdd]">
+                    Upcoming events only (past days are hidden)
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCategoryFilterModal(null)}
+                  className="rounded-lg px-2 py-1 text-sm text-[#a89fdd] hover:bg-white/10 hover:text-white"
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="max-h-[min(58vh,440px)] overflow-y-auto px-5 py-4">
+                {(upcomingByCategory[categoryFilterModal] || []).length === 0 ? (
+                  <p className="text-sm text-[#94a3b8] italic">No upcoming events in this category.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {upcomingByCategory[categoryFilterModal].map((ev) => (
+                      <li
+                        key={`${ev.dateKey}-${ev.id ?? ev.time}-${ev.title}`}
+                        className={`rounded-lg px-3 py-2 text-sm ${getEventColor(ev)}`}
+                      >
+                        <div className="text-[11px] font-medium opacity-90">
+                          {formatDateKeyForDisplay(ev.dateKey)}
+                        </div>
+                        <div className="mt-0.5">
+                          <span className="font-semibold">{formatEventStartEnd(ev)}</span>
+                          <span className="mx-2">·</span>
+                          <span>{ev.title}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="fixed top-5 right-5 z-100 space-y-2 pointer-events-none">
+          {inAppNotifications.map((n) => (
+            <div
+              key={n.id}
+              className="pointer-events-auto w-[280px] rounded-xl border border-[#5b52b5] bg-[#28244d] px-4 py-3 text-white shadow-xl"
+            >
+              <p className="text-sm font-semibold">{n.title}</p>
+              <p className="mt-1 text-xs text-[#c5bff2]">{n.body}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
