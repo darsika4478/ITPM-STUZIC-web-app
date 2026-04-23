@@ -29,6 +29,7 @@ const MoodHistoryPage = () => {
     const [moodHistory, setMoodHistory] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [currentUser, setCurrentUser] = useState(auth.currentUser);
+    const [displayedCount, setDisplayedCount] = useState(5);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -64,8 +65,15 @@ const MoodHistoryPage = () => {
         const d = date instanceof Date ? date : new Date(date);
         return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
     };
+
+    const displayedHistory = moodHistory.slice(0, displayedCount);
+    const hasMoreEntries = moodHistory.length > displayedCount;
+
+    const handleShowMore = () => {
+        setDisplayedCount(prev => Math.min(prev + 5, moodHistory.length));
+    };
     return (
-        <div className="relative w-full h-full min-h-[calc(100vh-4rem)] rounded-3xl overflow-hidden shadow-2xl flex flex-col items-center pt-10 px-4 md:px-12 z-0 font-sans">
+        <div className="relative w-full h-full min-h-[calc(100vh-4rem)] rounded-3xl overflow-hidden shadow-2xl flex flex-col items-center pt-10 px-4 md:px-12 z-0 font-sans bg-linear-to-br from-slate-900 via-purple-900 to-slate-900">
 
             {/* Animated Background Container */}
             <div className="absolute inset-0 -z-10 bg-transparent">
@@ -76,7 +84,7 @@ const MoodHistoryPage = () => {
                     <div className="absolute top-[10%] left-[20%] w-1.5 h-1.5 bg-white rounded-full animate-ping opacity-70" style={{ animationDuration: '3s' }} />
                     <div className="absolute top-[30%] left-[80%] w-2 h-2 bg-white rounded-full animate-pulse opacity-50" style={{ animationDuration: '4s' }} />
                     <div className="absolute top-[70%] left-[10%] w-1 h-1 bg-white rounded-full animate-ping opacity-80" style={{ animationDuration: '2.5s' }} />
-                    <div className="absolute top-[50%] left-[60%] w-[10px] h-[10px] bg-white rounded-full animate-pulse opacity-40 blur-[1px]" style={{ animationDuration: '5s' }} />
+                    <div className="absolute top-[50%] left-[60%] w-2.5 h-2.5 bg-white rounded-full animate-pulse opacity-40 blur-[1px]" style={{ animationDuration: '5s' }} />
                     <div className="absolute top-[20%] left-[70%] text-white opacity-40 text-sm animate-pulse">✨</div>
                     <div className="absolute top-[40%] left-[30%] text-white opacity-30 text-xs animate-ping">✨</div>
                 </div>
@@ -90,65 +98,73 @@ const MoodHistoryPage = () => {
                 </svg>
             </div>
 
-            {/* Header Content */}
-            <div className="w-full max-w-4xl flex justify-start mb-8 z-10">
-                <h1 className="text-2xl md:text-3xl font-semibold tracking-wide text-white drop-shadow-md">
-                    Mood History
+            {/* Header Content with Enhanced Styling */}
+            <div className="w-full max-w-4xl flex flex-col gap-2 mb-8 z-10">
+                <h1 className="text-3xl md:text-4xl font-bold tracking-wider text-transparent bg-clip-text bg-linear-to-r from-purple-200 via-purple-100 to-pink-200 drop-shadow-lg">
+                    📊 Mood History
                 </h1>
+                <p className="text-sm text-purple-300/70">Track your emotional journey over time</p>
             </div>
 
-            {/* Glassmorphic Table Wrapper */}
-            <div className="w-full max-w-4xl rounded-2xl border border-white/20 shadow-[0_8px_32px_0_rgba(31,38,135,0.37)] backdrop-blur-md bg-white/10 z-10 overflow-hidden">
+            {/* Glassmorphic Table Wrapper with Enhanced Styling */}
+            <div className="w-full max-w-4xl rounded-3xl border border-white/15 shadow-[0_8px_32px_0_rgba(139,92,246,0.4)] backdrop-blur-xl bg-linear-to-br from-white/10 to-white/5 z-10 overflow-hidden transition-all duration-300">
 
                 {/* Table Header Wrapper */}
-                <div className="grid grid-cols-[1fr_1fr_3fr] md:grid-cols-[20%_20%_60%] px-6 py-4 border-b border-white/10 text-[#f0ecff] font-semibold text-sm md:text-base tracking-wide bg-gradient-to-r from-white/5 to-transparent">
-                    <div className="text-center md:text-left">Date</div>
-                    <div className="text-center">Mood</div>
-                    <div className="text-left pl-4">Description</div>
+                <div className="grid grid-cols-[1fr_1fr_3fr] md:grid-cols-[20%_20%_60%] px-6 md:px-8 py-5 border-b border-white/10 text-[#f0ecff] font-bold text-sm md:text-base tracking-widest bg-linear-to-r from-purple-600/30 via-transparent to-transparent">
+                    <div className="text-center md:text-left">📅 Date</div>
+                    <div className="text-center">😊 Mood</div>
+                    <div className="text-left pl-4">✨ Details</div>
                 </div>
 
                 {/* Table Body Content */}
                 <div className="flex flex-col">
                     {isLoading ? (
-                        <div className="px-6 py-10 text-center text-[#f0ecff] animate-pulse">
-                            Loading your mood journey...
+                        <div className="px-6 md:px-8 py-12 text-center text-[#f0ecff] animate-pulse">
+                            <div className="flex items-center justify-center gap-2">
+                                <span className="inline-block w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></span>
+                                <span className="inline-block w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></span>
+                                <span className="inline-block w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
+                            </div>
+                            <p className="mt-3">Loading your mood journey...</p>
                         </div>
-                    ) : moodHistory.length === 0 ? (
-                        <div className="px-6 py-10 text-center text-[#f0ecff] opacity-60">
-                            No mood entries found. Start by recording your mood!
+                    ) : displayedHistory.length === 0 ? (
+                        <div className="px-6 md:px-8 py-12 text-center">
+                            <div className="text-5xl mb-3">🌱</div>
+                            <p className="text-[#f0ecff] opacity-70 text-sm md:text-base">No mood entries found. Start by recording your mood!</p>
                         </div>
                     ) : (
-                        moodHistory.map((item, index) => (
+                        displayedHistory.map((item, index) => (
                             <div
                                 key={item.id}
                                 className={`
                                     grid grid-cols-[1fr_1fr_3fr] md:grid-cols-[20%_20%_60%] items-center 
-                                    px-6 py-5 md:py-6 transition-colors duration-200 
-                                    hover:bg-white/5
-                                    ${index !== moodHistory.length - 1 ? 'border-b border-white/10' : ''}
+                                    px-6 md:px-8 py-6 md:py-7 transition-all duration-200 
+                                    hover:bg-white/8 hover:shadow-md hover:scale-[1.01]
+                                    ${index !== displayedHistory.length - 1 ? 'border-b border-white/5' : ''}
+                                    ${index % 2 === 0 ? 'bg-white/2' : 'bg-transparent'}
                                 `}
                             >
                                 {/* Date */}
-                                <div className="text-[#f0ecff] text-xs md:text-sm font-medium tracking-wider text-center md:text-left">
+                                <div className="text-xs md:text-sm font-semibold tracking-wider text-center md:text-left bg-linear-to-r from-purple-300 to-transparent bg-clip-text text-transparent">
                                     {formatDate(item.recordedAt || item.createdAt || item.date)}
                                 </div>
 
-                                {/* Center Mood Emoji */}
+                                {/* Center Mood Emoji with Glow */}
                                 <div className="flex justify-center">
-                                    <span className="text-3xl md:text-4xl drop-shadow-lg filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]">
+                                    <span className="text-4xl md:text-5xl filter drop-shadow-[0_4px_8px_rgba(168,85,247,0.4)] hover:scale-125 transition-transform duration-200">
                                         {item.moodEmoji || getEmojiForValue(item.mood || item.moodValue)}
                                     </span>
                                 </div>
 
                                 {/* Description Block */}
                                 <div className="flex items-center justify-start pl-4 pr-2">
-                                    <div className="flex flex-col gap-0.5 md:gap-1">
-                                        <span className="text-[#f0ecff] font-semibold text-sm md:text-base tracking-wide">
-                                            Mood level {item.mood || item.moodValue} <span className="text-[#c4b5fd] font-normal text-xs md:text-sm">— {getPlaylistName(item.mood || item.moodValue)}</span>
+                                    <div className="flex flex-col gap-1 md:gap-2">
+                                        <span className="text-[#f0ecff] font-bold text-sm md:text-base tracking-wide">
+                                            Mood level {item.mood || item.moodValue} <span className="text-purple-300 font-normal text-xs md:text-sm">— {getPlaylistName(item.mood || item.moodValue)}</span>
                                         </span>
                                         {(item.preferences?.activity || item.activity) && (
-                                            <span className="text-white/40 text-[10px] md:text-xs">
-                                                Doing: {item.preferences?.activity || item.activity}
+                                            <span className="text-purple-200/50 text-[10px] md:text-xs flex items-center gap-1">
+                                                <span>🎯</span> Doing: {item.preferences?.activity || item.activity}
                                             </span>
                                         )}
                                     </div>
@@ -157,6 +173,23 @@ const MoodHistoryPage = () => {
                         ))
                     )}
                 </div>
+
+                {/* Show More Button */}
+                {hasMoreEntries && displayedHistory.length > 0 && (
+                    <div className="px-6 md:px-8 py-6 border-t border-white/5 bg-linear-to-r from-purple-500/10 to-transparent">
+                        <button
+                            onClick={handleShowMore}
+                            className="w-full py-3 px-4 rounded-lg font-semibold text-sm md:text-base
+                                bg-linear-to-r from-purple-400 to-purple-800 hover:from-purple-600 hover:to-purple-900
+                                text-white shadow-lg hover:shadow-xl
+                                transition-all duration-200 transform hover:scale-105 active:scale-95
+                                flex items-center justify-center gap-2"
+                        >
+                            <span>📖 Show More</span>
+                            <span className="text-xs opacity-70">({moodHistory.length - displayedCount} more)</span>
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Scoped CSS for wave animations */}
