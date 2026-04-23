@@ -56,7 +56,7 @@ export default function App() {
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route element={<AdminGuard />}>
         <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<Navigate to="users" replace />} />
+          <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="users" element={<AdminUsersPage />} />
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="tasks" element={<AdminTasksPage />} />

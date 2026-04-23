@@ -1,7 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { getPlaylistByMood, DUMMY_SESSIONS } from '../data/dummyTracks';
+import { getPlaylistByMood } from '../data/dummyTracks';
 import { MusicPlayerContext } from './MusicPlayerContextSetup';
 import * as musicService from '../firebase/musicService';
+import * as sessionService from '../firebase/sessionService';
+import { auth } from '../config/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export const MusicPlayerProvider = ({ children, initialMood = 'focus', playlistData = null }) => {
   const [mood, setMood] = useState(initialMood);
@@ -22,8 +25,24 @@ export const MusicPlayerProvider = ({ children, initialMood = 'focus', playlistD
   const [moodData, setMoodData] = useState(playlistData?.moodData || null);
   
   // Session tracking
-  const [sessions, setSessions] = useState(DUMMY_SESSIONS);
+  const [sessions, setSessions] = useState([]);
   const [sessionStartTime, setSessionStartTime] = useState(null);
+  
+  // Study Session State (Globalized)
+  const [studySessionActive, setStudySessionActive] = useState(false);
+  const [studyTimeLeft, setStudyTimeLeft] = useState(30 * 60);
+  const [studyDuration, setStudyDuration] = useState(30);
+  const [studySessionId, setStudySessionId] = useState(null);
+  const [studyConfig, setStudyConfig] = useState({
+    sessionType: 'Deep Work',
+    goal: '',
+    subject: '',
+    topic: '',
+    focusLevel: 'Medium',
+    breakReminder: true
+  });
+  const [studySongsPlayed, setStudySongsPlayed] = useState([]);
+  const [showStudyEndedModal, setShowStudyEndedModal] = useState(false);
 
   // Player controls - Moved up to avoid ReferenceErrors
   const togglePlay = useCallback(() => {
@@ -124,6 +143,66 @@ export const MusicPlayerProvider = ({ children, initialMood = 'focus', playlistD
       audio.removeEventListener('error', handleError);
     };
   }, [isRepeat, playNext]); // playNext is wrapped in useCallback below
+
+  // Fetch sessions from backend
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const userSessions = await sessionService.getSessions(user.uid);
+          setSessions(userSessions);
+        } catch (err) {
+          console.error('[MusicPlayerProvider] Failed to fetch sessions:', err);
+        }
+      } else {
+        setSessions([]);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Study Session Timer Effect (Global)
+  useEffect(() => {
+    let interval = null;
+    if (studySessionActive && studyTimeLeft > 0) {
+      interval = setInterval(() => {
+        setStudyTimeLeft(prev => prev - 1);
+      }, 1000);
+    } else if (studyTimeLeft === 0 && studySessionActive) {
+      // End session logic
+      setStudySessionActive(false);
+      setShowStudyEndedModal(true);
+      
+      if (studySessionId) {
+        const elapsedSeconds = sessionStartTime 
+          ? Math.floor((new Date() - sessionStartTime) / 1000)
+          : 0;
+        sessionService.endSession(studySessionId, elapsedSeconds);
+        setStudySessionId(null);
+      }
+    }
+    return () => clearInterval(interval);
+  }, [studySessionActive, studyTimeLeft, studySessionId, sessionStartTime]);
+
+  // Track songs played during study session
+  const currentTrack = playlist[currentIndex];
+  useEffect(() => {
+    if (studySessionActive && currentTrack && sessionStartTime) {
+      const existingSong = studySongsPlayed.find(s => s.id === currentTrack.id);
+      if (!existingSong) {
+        const currentTime = new Date();
+        const elapsedSeconds = Math.floor((currentTime - sessionStartTime) / 1000);
+        setStudySongsPlayed(prev => [...prev, {
+          id: currentTrack.id,
+          title: currentTrack.title,
+          artist: currentTrack.artist,
+          startTime: elapsedSeconds,
+          playedAt: currentTime.toLocaleTimeString()
+        }]);
+      }
+    }
+  }, [currentTrack, studySessionActive, sessionStartTime, studySongsPlayed]);
 
   // Initialize playlist with mood data if provided
   useEffect(() => {
@@ -233,6 +312,22 @@ export const MusicPlayerProvider = ({ children, initialMood = 'focus', playlistD
     addSession,
     sessionStartTime,
     setSessionStartTime,
+
+    // Global Study Session
+    studySessionActive,
+    setStudySessionActive,
+    studyTimeLeft,
+    setStudyTimeLeft,
+    studyDuration,
+    setStudyDuration,
+    studyConfig,
+    setStudyConfig,
+    studySongsPlayed,
+    setStudySongsPlayed,
+    studySessionId,
+    setStudySessionId,
+    showStudyEndedModal,
+    setShowStudyEndedModal
   };
 
   return (

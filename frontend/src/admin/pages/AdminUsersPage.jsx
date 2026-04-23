@@ -2,6 +2,34 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { collection, deleteDoc, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
 
+const formatLastLogin = (timestamp) => {
+    if (!timestamp) return 'Never';
+    const date = timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
+    if (isNaN(date.getTime())) return 'Never';
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
+const getLoginColor = (timestamp) => {
+    if (!timestamp) return '#a78bfa';
+    const date = timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
+    if (isNaN(date.getTime())) return '#a78bfa';
+    const diffMs = Date.now() - date.getTime();
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffDays === 0) return '#10b981';
+    if (diffDays < 7) return '#f59e0b';
+    return '#a78bfa';
+};
+
 const AdminUsersPage = () => {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -16,8 +44,39 @@ const AdminUsersPage = () => {
     const fetchUsers = useCallback(async () => {
         setLoading(true);
         try {
-            const snap = await getDocs(collection(db, 'users'));
-            const rows = snap.docs.map((item) => ({ id: item.id, ...item.data() }));
+            const [usersSnap, moodsSnap, sessionsSnap] = await Promise.all([
+                getDocs(collection(db, 'users')),
+                getDocs(collection(db, 'moods')),
+                getDocs(collection(db, 'sessions')),
+            ]);
+
+            const moodsData = moodsSnap.docs.map(doc => ({ ...doc.data() }));
+            const sessionsData = sessionsSnap.docs.map(doc => ({ ...doc.data() }));
+
+            const rows = usersSnap.docs.map((item) => {
+                const userData = { id: item.id, ...item.data() };
+                
+                if (userData.lastLogin) {
+                    userData.lastActive = userData.lastLogin;
+                } else {
+                    const userMoods = moodsData.filter(m => m.userId === item.id);
+                    const userSessions = sessionsData.filter(s => s.userId === item.id);
+                    
+                    const latestMood = userMoods.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))[0];
+                    const latestSession = userSessions.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))[0];
+                    
+                    const moodTime = latestMood?.createdAt?.toMillis?.() || 0;
+                    const sessionTime = latestSession?.createdAt?.toMillis?.() || 0;
+                    
+                    if (moodTime || sessionTime) {
+                        userData.lastActive = moodTime > sessionTime ? latestMood.createdAt : latestSession.createdAt;
+                    } else {
+                        userData.lastActive = null;
+                    }
+                }
+                
+                return userData;
+            });
             rows.sort((a, b) => {
                 const aTime = a.createdAt?.toMillis?.() || 0;
                 const bTime = b.createdAt?.toMillis?.() || 0;
@@ -48,14 +107,15 @@ const AdminUsersPage = () => {
     }, [users, search]);
 
     const exportToCSV = () => {
-        const headers = ['Name', 'Email', 'Role', 'Joined'];
+        const headers = ['Name', 'Email', 'Role', 'Joined', 'Last Login'];
         const csvContent = [
             headers.join(','),
             ...filteredUsers.map(u => [
                 `"${u.name || 'N/A'}"`,
                 `"${u.email || 'N/A'}"`,
                 u.role || 'user',
-                `"${u.createdAt?.toDate?.() ? u.createdAt.toDate().toLocaleDateString('en-US') : 'N/A'}"`
+                `"${u.createdAt?.toDate?.() ? u.createdAt.toDate().toLocaleDateString('en-US') : 'N/A'}"`,
+                `"${formatLastLogin(u.lastActive)}"`
             ].join(','))
         ].join('\n');
         
@@ -178,7 +238,7 @@ const AdminUsersPage = () => {
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr>
-                                {['Name', 'Email', 'Role', 'Joined', 'Actions'].map((column) => (
+                                {['Name', 'Email', 'Joined', 'Last Login', 'Actions'].map((column) => (
                                     <th key={column} style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.75rem', color: '#a78bfa', borderBottom: '1px solid rgba(109,95,231,0.2)', textTransform: 'uppercase' }}>
                                         {column}
                                     </th>
@@ -193,22 +253,13 @@ const AdminUsersPage = () => {
                                     <tr key={user.id}>
                                         <td style={{ padding: '0.75rem', color: '#f0ecff', borderBottom: '1px solid rgba(109,95,231,0.08)' }}>{user.name || 'N/A'}</td>
                                         <td style={{ padding: '0.75rem', color: '#c4b5fd', borderBottom: '1px solid rgba(109,95,231,0.08)' }}>{user.email || 'N/A'}</td>
-                                        <td style={{ padding: '0.75rem', borderBottom: '1px solid rgba(109,95,231,0.08)' }}>
-                                            <span style={{
-                                                padding: '3px 10px',
-                                                borderRadius: '8px',
-                                                fontSize: '0.7rem',
-                                                fontWeight: 600,
-                                                background: userRole === 'admin' ? 'rgba(248,113,113,0.15)' : 'rgba(109,95,231,0.15)',
-                                                color: userRole === 'admin' ? '#f87171' : '#a78bfa',
-                                            }}>
-                                                {userRole}
-                                            </span>
-                                        </td>
                                         <td style={{ padding: '0.75rem', color: '#a78bfa', borderBottom: '1px solid rgba(109,95,231,0.08)' }}>
                                             {user.createdAt?.toDate?.()
                                                 ? user.createdAt.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                                                 : 'N/A'}
+                                        </td>
+                                        <td style={{ padding: '0.75rem', color: getLoginColor(user.lastActive), borderBottom: '1px solid rgba(109,95,231,0.08)' }}>
+                                            {formatLastLogin(user.lastActive)}
                                         </td>
                                         <td style={{ padding: '0.75rem', borderBottom: '1px solid rgba(109,95,231,0.08)' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>

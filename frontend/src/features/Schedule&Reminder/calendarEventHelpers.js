@@ -16,7 +16,9 @@ export function firestoreDocToUiEvent(docSnap) {
       ? "Lectures"
       : d.type === "Deadline"
         ? "Deadlines"
-        : "Study Session";
+        : d.type === "Exam"
+          ? "Exams"
+          : "Study Session";
   return {
     id: docSnap.id,
     time,

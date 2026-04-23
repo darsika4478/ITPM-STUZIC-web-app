@@ -1,32 +1,35 @@
 import { useState, useEffect } from 'react';
 import { useMusicPlayer } from '../context/useMusicPlayer';
 import SessionConfigForm from '../components/MusicSessionModule/SessionConfigForm';
+import { auth } from '../config/firebase';
+import * as sessionService from '../firebase/sessionService';
 
 const StudySessionPage = () => {
-  const { nowPlaying } = useMusicPlayer();
+  const { 
+    nowPlaying,
+    studySessionActive,
+    setStudySessionActive,
+    studyTimeLeft,
+    setStudyTimeLeft,
+    studyDuration,
+    setStudyDuration,
+    studyConfig,
+    setStudyConfig,
+    studySongsPlayed,
+    setStudySongsPlayed,
+    studySessionId,
+    setStudySessionId,
+    showStudyEndedModal,
+    setShowStudyEndedModal,
+    sessionStartTime,
+    setSessionStartTime
+  } = useMusicPlayer();
   
-  // Timer state
-  const [sessionDuration, setSessionDuration] = useState(30); // minutes
-  const [isActive, setIsActive] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(30 * 60); // seconds
   const [timeError, setTimeError] = useState('');
+  const [isPaused, setIsPaused] = useState(false);
 
   const MIN_DURATION = 1;
   const MAX_DURATION = 480; // 8 hours
-  
-  // Song tracking
-  const [songsPlayed, setSongsPlayed] = useState([]);
-  const [sessionStartTime, setSessionStartTime] = useState(null);
-  
-  // Session details from config form
-  const [sessionConfig, setSessionConfig] = useState({
-    sessionType: 'Deep Work',
-    goal: '',
-    subject: '',
-    topic: '',
-    focusLevel: 'Medium',
-    breakReminder: true
-  });
 
   // Format time display
   const formatTime = (seconds) => {
@@ -39,69 +42,76 @@ const StudySessionPage = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Track when a new song starts playing
-  useEffect(() => {
-    if (isActive && nowPlaying && sessionStartTime) {
-      const existingSong = songsPlayed.find(s => s.id === nowPlaying.id);
-      if (!existingSong) {
-        const currentTime = new Date();
-        const elapsedSeconds = Math.floor((currentTime - sessionStartTime) / 1000);
-        setSongsPlayed([...songsPlayed, {
-          id: nowPlaying.id,
-          title: nowPlaying.title,
-          artist: nowPlaying.artist,
-          startTime: elapsedSeconds,
-          playedAt: currentTime.toLocaleTimeString()
-        }]);
-      }
-    }
-  }, [nowPlaying, isActive, sessionStartTime, songsPlayed]);
-
-  // Timer countdown
-  useEffect(() => {
-    let interval = null;
-    if (isActive && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft(prev => prev - 1);
-      }, 1000);
-    } else if (timeLeft === 0 && isActive) {
-      setIsActive(false);
-    }
-    return () => clearInterval(interval);
-  }, [isActive, timeLeft]);
-
   const handleStartSession = () => {
+    // If resuming from pause
+    if (isPaused && studyTimeLeft > 0) {
+      setIsPaused(false);
+      setSessionStartTime(new Date()); // Update start time for resume
+      setStudySessionActive(true);
+      return;
+    }
+
     // Basic validation before starting
     if (timeError) {
       alert(`Invalid duration: ${timeError}`);
       return;
     }
 
-    if (!sessionConfig.goal.trim() || !sessionConfig.subject.trim() || !sessionConfig.topic.trim()) {
+    if (!studyConfig.goal.trim() || !studyConfig.subject.trim() || !studyConfig.topic.trim()) {
       alert('Please complete all session configuration fields (Goal, Subject, and Topic) before starting!');
       return;
     }
     
-    setTimeLeft(sessionDuration * 60);
+    setStudyTimeLeft(studyDuration * 60);
     setSessionStartTime(new Date());
-    setSongsPlayed([]);
-    setIsActive(true);
+    setStudySongsPlayed([]);
+    setStudySessionActive(true);
+    setIsPaused(false);
+
+    // Start backend session
+    if (auth.currentUser) {
+      const moodValue = 3; // Default or derive from player
+      const sessionData = {
+        title: `Study: ${studyConfig.goal}`,
+        goal: studyConfig.goal,
+        subject: studyConfig.subject,
+        topic: studyConfig.topic,
+        sessionType: studyConfig.sessionType,
+        activity: 'studying'
+      };
+      
+      sessionService.startSession(
+        auth.currentUser.uid,
+        moodValue,
+        sessionData
+      ).then(id => setStudySessionId(id));
+    }
   };
 
-  const handleConfigSubmit = (config) => {
-    setSessionConfig(config);
-    // You could show a small toast or notification here
-  };
-
-  const handleStopSession = () => {
-    setIsActive(false);
+  const handlePauseSession = () => {
+    setStudySessionActive(false);
+    setIsPaused(true);
   };
 
   const handleResetSession = () => {
-    setIsActive(false);
-    setTimeLeft(sessionDuration * 60);
+    setStudySessionActive(false);
+    setIsPaused(false);
+    setStudyTimeLeft(studyDuration * 60);
     setSessionStartTime(null);
-    setSongsPlayed([]);
+    setStudySongsPlayed([]);
+    
+    // End backend session if active
+    if (studySessionId) {
+      const elapsedSeconds = sessionStartTime 
+        ? Math.floor((new Date() - sessionStartTime) / 1000)
+        : 0;
+      sessionService.endSession(studySessionId, elapsedSeconds);
+      setStudySessionId(null);
+    }
+  };
+
+  const handleConfigSubmit = (config) => {
+    setStudyConfig(config);
   };
 
   const handleDurationChange = (e) => {
@@ -109,12 +119,12 @@ const StudySessionPage = () => {
     const newDuration = parseInt(val);
     
     if (val === '') {
-      setSessionDuration('');
+      setStudyDuration('');
       setTimeError('Duration is required');
       return;
     }
 
-    setSessionDuration(newDuration);
+    setStudyDuration(newDuration);
 
     if (isNaN(newDuration)) {
       setTimeError('Please enter a valid number');
@@ -124,40 +134,42 @@ const StudySessionPage = () => {
       setTimeError(`Maximum duration is ${MAX_DURATION} minutes (8 hours)`);
     } else {
       setTimeError('');
-      if (!isActive) {
-        setTimeLeft(newDuration * 60);
+      if (!studySessionActive) {
+        setStudyTimeLeft(newDuration * 60);
       }
     }
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto">
+    <div className="w-full max-w-6xl mx-auto pb-24">
       <h1 className="text-4xl font-bold mb-8 text-white">Study Session</h1>
 
-      {/* Main Timer Section */}
-      {/* Primary Session Controls */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
         {/* Timer Display */}
         <div className="bg-gradient-to-br from-[#3C436B] to-[#585296] rounded-3xl p-8 border border-[#8F8BB6]/30 shadow-2xl h-full flex flex-col justify-center">
           <div className="text-center">
             <h2 className="text-[#B6B4BB] text-sm font-semibold mb-4 uppercase tracking-wider">Session Timer</h2>
-            <div className="text-7xl font-bold text-white font-mono mb-6 bg-[#272D3E] rounded-2xl py-6 shadow-inner border border-[#585296]/30">
-              {formatTime(timeLeft)}
+            <div className="w-full text-white font-bold font-mono mb-6 bg-[#272D3E] rounded-2xl py-6 shadow-inner border border-[#585296]/30 flex items-center justify-center min-h-[120px] overflow-hidden">
+              <div className={`text-center whitespace-nowrap overflow-hidden text-ellipsis ${
+                studyTimeLeft >= 3600 
+                  ? 'text-5xl sm:text-5xl md:text-6xl' 
+                  : 'text-6xl sm:text-7xl'
+              }`}>{formatTime(studyTimeLeft)}</div>
             </div>
             
-            {/* Duration Input */}
             <div className="mb-6 relative">
               <label className="text-[#B6B4BB] text-sm block mb-3">Session Duration (minutes)</label>
               <input
                 type="number"
                 min={MIN_DURATION}
                 max={MAX_DURATION}
-                value={sessionDuration}
+                value={studyDuration}
                 onChange={handleDurationChange}
-                disabled={isActive}
-                className={`w-full px-4 py-3 bg-[#272D3E] border rounded-lg text-white text-center font-semibold focus:outline-none transition-all ${
+                disabled={studySessionActive}
+                className={`w-full px-4 py-3 bg-[#272D3E] border rounded-lg text-white text-center font-semibold focus:outline-none transition-all overflow-hidden ${
                   timeError ? 'border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.2)]' : 'border-[#585296]/50 focus:border-[#8F8BB6]'
                 } disabled:opacity-50`}
+                style={{ fontSize: '1rem' }}
               />
               {timeError && (
                 <p className="text-red-400 text-[10px] mt-1 absolute -bottom-4 left-0 right-0 text-center animate-pulse">
@@ -166,21 +178,20 @@ const StudySessionPage = () => {
               )}
             </div>
 
-            {/* Controls */}
             <div className="flex gap-3 justify-center">
-              {!isActive ? (
+              {!studySessionActive ? (
                 <button
                   onClick={handleStartSession}
                   className="px-6 py-3 bg-[#585296] hover:bg-[#6d5fe7] text-white font-semibold rounded-lg transition-all transform hover:scale-105 active:scale-95 shadow-lg border border-white/10"
                 >
-                  ▶ Start Session
+                  {isPaused ? '▶ Resume Session' : '▶ Start Session'}
                 </button>
               ) : (
                 <button
-                  onClick={handleStopSession}
+                  onClick={handlePauseSession}
                   className="px-6 py-3 bg-red-600/80 hover:bg-red-700 text-white font-semibold rounded-lg transition-all transform hover:scale-105 active:scale-95 shadow-lg border border-white/10"
                 >
-                  ⏸ Stop Session
+                  ⏸ Pause Session
                 </button>
               )}
               <button
@@ -191,10 +202,9 @@ const StudySessionPage = () => {
               </button>
             </div>
 
-            {/* Status */}
             <div className="mt-6 pt-6 border-t border-[#8F8BB6]/20">
               <p className="text-[#B6B4BB] text-sm flex items-center justify-center gap-2">
-                {isActive ? (
+                {studySessionActive ? (
                   <>
                     <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
                     <span>Session Active - GO!</span>
@@ -214,7 +224,7 @@ const StudySessionPage = () => {
         <div className="lg:col-span-1">
           <SessionConfigForm 
             onConfigSubmit={handleConfigSubmit} 
-            isSessionActive={isActive} 
+            isSessionActive={studySessionActive} 
           />
         </div>
 
@@ -222,13 +232,13 @@ const StudySessionPage = () => {
         <div className="bg-gradient-to-br from-[#3C436B] to-[#585296] rounded-3xl p-8 border border-[#8F8BB6]/30 shadow-2xl flex flex-col">
           <div className="flex-1">
             <h2 className="text-[#B6B4BB] text-sm font-semibold mb-4 uppercase tracking-wider">Now Playing</h2>
-            {nowPlaying && isActive ? (
+            {nowPlaying && studySessionActive ? (
               <div className="bg-[#272D3E] rounded-2xl p-6 text-center border border-[#585296]/30">
                 <div className="text-5xl mb-4 animate-bounce-slow">🎵</div>
                 <h3 className="text-xl font-bold text-white mb-2 line-clamp-1">{nowPlaying.title}</h3>
                 <p className="text-[#B6B4BB] mb-4 line-clamp-1">{nowPlaying.artist}</p>
                 <div className="inline-block px-3 py-1 bg-[#585296]/50 rounded-full text-xs text-[#8F8BB6] font-medium">
-                  {sessionConfig.sessionType}
+                  {studyConfig.sessionType}
                 </div>
               </div>
             ) : (
@@ -236,20 +246,20 @@ const StudySessionPage = () => {
                 <div>
                   <p className="mb-2">🎵</p>
                   <p className="text-sm">
-                    {isActive ? 'No track currently playing' : 'Start a session to sync music'}
+                    {studySessionActive ? 'No track currently playing' : 'Start a session to sync music'}
                   </p>
                 </div>
               </div>
             )}
           </div>
 
-          {sessionConfig.goal && (
+          {studyConfig.goal && (
             <div className="mt-6 pt-6 border-t border-[#8F8BB6]/20">
               <h4 className="text-[#B6B4BB] text-xs font-semibold mb-2 uppercase">Current Session</h4>
-              <p className="text-white text-lg font-medium italic mb-1">"{sessionConfig.goal}"</p>
+              <p className="text-white text-lg font-medium italic mb-1">"{studyConfig.goal}"</p>
               <div className="flex gap-2 text-xs">
-                <span className="text-[#8F8BB6] bg-[#272D3E] px-2 py-0.5 rounded">📚 {sessionConfig.subject}</span>
-                <span className="text-[#8F8BB6] bg-[#272D3E] px-2 py-0.5 rounded">🎯 {sessionConfig.topic}</span>
+                <span className="text-[#8F8BB6] bg-[#272D3E] px-2 py-0.5 rounded">📚 {studyConfig.subject}</span>
+                <span className="text-[#8F8BB6] bg-[#272D3E] px-2 py-0.5 rounded">🎯 {studyConfig.topic}</span>
               </div>
             </div>
           )}
@@ -259,12 +269,12 @@ const StudySessionPage = () => {
       {/* Songs Played Section */}
       <div className="bg-gradient-to-br from-[#3C436B] to-[#585296] rounded-3xl p-8 border border-[#8F8BB6]/30 shadow-2xl">
         <h2 className="text-[#B6B4BB] text-sm font-semibold mb-6 uppercase tracking-wider">
-          🎵 Songs Played ({songsPlayed.length})
+          🎵 Songs Played ({studySongsPlayed.length})
         </h2>
 
-        {songsPlayed.length > 0 ? (
+        {studySongsPlayed.length > 0 ? (
           <div className="space-y-3">
-            {songsPlayed.map((song, index) => (
+            {studySongsPlayed.map((song, index) => (
               <div
                 key={index}
                 className="bg-[#272D3E] rounded-xl p-4 border border-[#585296]/30 hover:border-[#8F8BB6]/50 transition-colors"
@@ -286,36 +296,87 @@ const StudySessionPage = () => {
             ))}
           </div>
         ) : (
-          <div className="bg-[#272D3E] rounded-xl p-8 text-center">
-            <p className="text-[#8F8BB6]">No songs played yet. Start a session and begin listening!</p>
+          <div className="bg-[#272D3E] rounded-xl p-8 text-center text-[#8F8BB6]">
+            No songs played yet.
           </div>
         )}
       </div>
 
       {/* Session Summary */}
-      {songsPlayed.length > 0 && (
+      {studySongsPlayed.length > 0 && (
         <div className="mt-8 bg-[#272D3E] rounded-3xl p-6 border border-[#8F8BB6]/20">
           <h3 className="text-white font-semibold mb-4">Session Summary</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-[#3C436B] rounded-lg p-4 text-center">
               <p className="text-[#B6B4BB] text-xs uppercase mb-2">Total Songs</p>
-              <p className="text-2xl font-bold text-white">{songsPlayed.length}</p>
+              <p className="text-2xl font-bold text-white">{studySongsPlayed.length}</p>
             </div>
             <div className="bg-[#3C436B] rounded-lg p-4 text-center">
               <p className="text-[#B6B4BB] text-xs uppercase mb-2">Duration</p>
-              <p className="text-2xl font-bold text-white">{sessionDuration}m</p>
+              <p className="text-2xl font-bold text-white">{studyDuration}m</p>
             </div>
             <div className="bg-[#3C436B] rounded-lg p-4 text-center">
               <p className="text-[#B6B4BB] text-xs uppercase mb-2">Status</p>
-              <p className="text-2xl font-bold text-white">{isActive ? '🔴' : '✅'}</p>
+              <p className="text-2xl font-bold text-white">{studySessionActive ? '🔴' : '✅'}</p>
             </div>
             <div className="bg-[#3C436B] rounded-lg p-4 text-center">
               <p className="text-[#B6B4BB] text-xs uppercase mb-2">Time Left</p>
-              <p className="text-2xl font-bold text-white">{formatTime(timeLeft)}</p>
+              <p className="text-2xl font-bold text-white">{formatTime(studyTimeLeft)}</p>
             </div>
           </div>
         </div>
       )}
+
+      {/* Session Complete Modal */}
+      {showStudyEndedModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-md bg-gradient-to-br from-[#3C436B] to-[#585296] rounded-[32px] p-10 border border-white/20 shadow-[0_20px_100px_rgba(0,0,0,0.8)] text-center relative overflow-hidden">
+            <div className="absolute -top-24 -left-24 w-48 h-48 bg-purple-500/20 rounded-full blur-3xl"></div>
+            <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-indigo-500/20 rounded-full blur-3xl"></div>
+
+            <div className="relative">
+              <div className="text-7xl mb-6 animate-bounce-slow">✨🏆✨</div>
+              <h2 className="text-3xl font-black text-white mb-2">Session Complete!</h2>
+              <p className="text-purple-100/70 mb-8">
+                Fantastic work! You've finished your <span className="text-white font-bold">{studyConfig.sessionType}</span> session.
+              </p>
+              
+              <div className="bg-black/20 rounded-2xl p-6 mb-8 border border-white/5 shadow-inner">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-[10px] text-purple-300/40 uppercase font-bold tracking-widest mb-1">Focus Time</p>
+                    <p className="text-xl font-bold text-white">{studyDuration}m</p>
+                  </div>
+                   <div>
+                    <p className="text-[10px] text-purple-300/40 uppercase font-bold tracking-widest mb-1">Songs Listened</p>
+                    <p className="text-xl font-bold text-white">{studySongsPlayed.length}</p>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  setShowStudyEndedModal(false);
+                  handleResetSession();
+                }}
+                className="w-full py-4 bg-white text-[#1c1848] font-black rounded-2xl shadow-xl hover:scale-105 active:scale-95 transition-all text-lg"
+              >
+                Done for now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
+        .animate-bounce-slow { animation: bounce 3s infinite; }
+        @keyframes bounce {
+          0%, 100% { transform: translateY(-5%); animation-timing-function: cubic-bezier(0.8,0,1,1); }
+          50% { transform: none; animation-timing-function: cubic-bezier(0,0,0.2,1); }
+        }
+      `}</style>
     </div>
   );
 };

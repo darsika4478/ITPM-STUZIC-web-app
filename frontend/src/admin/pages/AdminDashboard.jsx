@@ -2,6 +2,32 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 
+const formatLastLogin = (timestamp) => {
+    if (!timestamp) return 'Never';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
+const getLoginColor = (timestamp) => {
+    if (!timestamp) return '#a78bfa';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const diffMs = Date.now() - date;
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffDays === 0) return '#10b981';
+    if (diffDays < 7) return '#f59e0b';
+    return '#a78bfa';
+};
+
 const AdminDashboard = () => {
     const [rawData, setRawData] = useState({
         users: [],
@@ -85,6 +111,31 @@ const AdminDashboard = () => {
             recentUsers: rawData.users.slice(0, 5)
         };
     }, [rawData, periodDate]);
+
+    const enrichedRecentUsers = useMemo(() => {
+        const enriched = rawData.users.map(user => {
+            let lastActive = user.lastLogin || null;
+            
+            if (!lastActive) {
+                const userActivity = [...rawData.moods, ...rawData.sessions]
+                    .filter(item => item.userId === user.id)
+                    .map(item => item.createdAt?.toMillis?.() || 0)
+                    .filter(t => t > 0);
+                
+                if (userActivity.length > 0) {
+                    const maxTime = Math.max(...userActivity);
+                    // Create a pseudo-timestamp object for formatLastLogin
+                    lastActive = { toDate: () => new Date(maxTime) };
+                }
+            }
+            
+            const lastActiveMs = lastActive?.toMillis?.() || lastActive?.toDate?.()?.getTime() || 0;
+            return { ...user, lastActive, lastActiveMs };
+        });
+        
+        enriched.sort((a, b) => b.lastActiveMs - a.lastActiveMs);
+        return enriched.slice(0, 5);
+    }, [rawData]);
 
     const userActivity = useMemo(() => {
         const now = new Date();
@@ -228,7 +279,7 @@ const AdminDashboard = () => {
                 </div>
             </div>
 
-            {/* Recent users table */}
+            {/* Recently active users table */}
             <div style={{
                 padding: '1.5rem',
                 borderRadius: '18px',
@@ -237,15 +288,15 @@ const AdminDashboard = () => {
                 backdropFilter: 'blur(10px)',
             }}>
                 <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f0ecff', margin: '0 0 1rem' }}>
-                    Recent Users
+                    Recently Active Users
                 </h2>
-                {stats.recentUsers.length === 0 ? (
+                {enrichedRecentUsers.length === 0 ? (
                     <p style={{ color: '#a78bfa', fontSize: '0.875rem' }}>No users found.</p>
                 ) : (
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr>
-                                {['Name', 'Email', 'Role', 'Joined'].map((h) => (
+                                {['Name', 'Email', 'Joined', 'Last Login'].map((h) => (
                                     <th key={h} style={{
                                         textAlign: 'left', padding: '0.75rem 1rem',
                                         fontSize: '0.75rem', fontWeight: 600, color: '#a78bfa',
@@ -256,31 +307,27 @@ const AdminDashboard = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {stats.recentUsers.map((user) => (
-                                <tr key={user.id}>
-                                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#f0ecff', borderBottom: '1px solid rgba(109,95,231,0.08)' }}>
-                                        {user.name || 'N/A'}
-                                    </td>
-                                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#c4b5fd', borderBottom: '1px solid rgba(109,95,231,0.08)' }}>
-                                        {user.email || 'N/A'}
-                                    </td>
-                                    <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid rgba(109,95,231,0.08)' }}>
-                                        <span style={{
-                                            padding: '3px 10px', borderRadius: '8px', fontSize: '0.7rem', fontWeight: 600,
-                                            background: user.role === 'admin' ? 'rgba(248,113,113,0.15)' : 'rgba(109,95,231,0.15)',
-                                            color: user.role === 'admin' ? '#f87171' : '#a78bfa',
-                                        }}>
-                                            {user.role || 'user'}
-                                        </span>
-                                    </td>
-                                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', color: '#a78bfa', borderBottom: '1px solid rgba(109,95,231,0.08)' }}>
-                                        {user.createdAt?.toDate?.()
-                                            ? user.createdAt.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                                            : 'N/A'
-                                        }
-                                    </td>
-                                </tr>
-                            ))}
+                            {enrichedRecentUsers.map((user) => {
+                                return (
+                                    <tr key={user.id}>
+                                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#f0ecff', borderBottom: '1px solid rgba(109,95,231,0.08)' }}>
+                                            {user.name || 'N/A'}
+                                        </td>
+                                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.875rem', color: '#c4b5fd', borderBottom: '1px solid rgba(109,95,231,0.08)' }}>
+                                            {user.email || 'N/A'}
+                                        </td>
+                                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', color: '#a78bfa', borderBottom: '1px solid rgba(109,95,231,0.08)' }}>
+                                            {user.createdAt?.toDate?.()
+                                                ? user.createdAt.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                                                : 'N/A'
+                                            }
+                                        </td>
+                                        <td style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', color: getLoginColor(user.lastActive), borderBottom: '1px solid rgba(109,95,231,0.08)', fontWeight: 500 }}>
+                                            {formatLastLogin(user.lastActive)}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 )}

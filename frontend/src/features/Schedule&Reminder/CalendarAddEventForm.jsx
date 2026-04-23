@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from "react";
 
-export default function EventForm({ onSave, selectedDate, onSuccessfulSave }) {
+export default function EventForm({
+  onSave,
+  selectedDate,
+  onSuccessfulSave,
+  initialValues = null,
+  isEditing = false,
+}) {
   const [type, setType] = useState("Study Session");
   const [title, setTitle] = useState("");
   const [startTime, setStartTime] = useState("");
@@ -24,6 +30,17 @@ export default function EventForm({ onSave, selectedDate, onSuccessfulSave }) {
     : null;
 
   useEffect(() => {
+    if (isEditing && initialValues) {
+      setType(initialValues.type || "Study Session");
+      setTitle(initialValues.title || "");
+      setStartTime(initialValues.startTime || "");
+      setEndTime(initialValues.endTime || "");
+      setDeadlineTime(initialValues.deadlineTime || "");
+      setReminder(initialValues.reminder || "");
+      setError("");
+      setSuccess(false);
+      return;
+    }
     setType("Study Session");
     setTitle("");
     setStartTime("");
@@ -32,7 +49,7 @@ export default function EventForm({ onSave, selectedDate, onSuccessfulSave }) {
     setReminder("");
     setError("");
     setSuccess(false);
-  }, [selectedDate]);
+  }, [selectedDate, isEditing]);
 
   const combineDateTime = (time) => {
     if (!time || !datePrefix) return "";
@@ -54,7 +71,7 @@ export default function EventForm({ onSave, selectedDate, onSuccessfulSave }) {
       selectedDate.getDate()
     );
 
-    if (selectedDayStart < todayStart)
+    if (!isEditing && selectedDayStart < todayStart)
       return "Cannot create events on past dates.";
 
     if (type !== "Deadline") {
@@ -66,7 +83,7 @@ export default function EventForm({ onSave, selectedDate, onSuccessfulSave }) {
       if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()))
         return "Please enter valid start and end times.";
 
-      if (start < now)
+      if (!isEditing && start < now)
         return "Start time cannot be in the past.";
       if (start >= end)
         return "End time must be after start time.";
@@ -83,7 +100,7 @@ export default function EventForm({ onSave, selectedDate, onSuccessfulSave }) {
         const r = new Date(combineDateTime(reminder));
         if (Number.isNaN(r.getTime()))
           return "Please enter a valid reminder time.";
-        if (r < now)
+        if (!isEditing && r < now)
           return "Reminder cannot be in the past.";
         if (r >= start)
           return "Reminder must be set before the start time.";
@@ -95,14 +112,14 @@ export default function EventForm({ onSave, selectedDate, onSuccessfulSave }) {
       const deadline = new Date(combineDateTime(deadlineTime));
       if (Number.isNaN(deadline.getTime()))
         return "Please enter a valid deadline time.";
-      if (deadline < now)
+      if (!isEditing && deadline < now)
         return "Deadline cannot be in the past.";
 
       if (reminder) {
         const r = new Date(combineDateTime(reminder));
         if (Number.isNaN(r.getTime()))
           return "Please enter a valid reminder time.";
-        if (r < now)
+        if (!isEditing && r < now)
           return "Reminder cannot be in the past.";
         if (r >= deadline)
           return "Reminder must be set before the deadline.";
@@ -169,7 +186,7 @@ export default function EventForm({ onSave, selectedDate, onSuccessfulSave }) {
       {formattedDate ? (
         <div className="bg-[#3b3670] border border-[#5b52b5] rounded-xl px-4 py-3 mb-5">
           <p className="text-[11px] uppercase tracking-widest text-[#a89fdd] font-semibold mb-0.5">
-            Adding event for
+            {isEditing ? "Editing event on" : "Adding event for"}
           </p>
           <p className="text-base font-semibold text-white">{formattedDate}</p>
         </div>
@@ -179,7 +196,7 @@ export default function EventForm({ onSave, selectedDate, onSuccessfulSave }) {
         </div>
       )}
 
-      <h2 className="text-xl font-semibold mb-4">Add Event</h2>
+      <h2 className="text-xl font-semibold mb-4">{isEditing ? "Edit Event" : "Add Event"}</h2>
 
       <form onSubmit={handleSubmit} className="space-y-4">
 
@@ -193,6 +210,7 @@ export default function EventForm({ onSave, selectedDate, onSuccessfulSave }) {
           >
             <option>Study Session</option>
             <option>Lecture</option>
+            <option value="Exam">Exams</option>
             <option>Deadline</option>
           </select>
           {type === "Study Session" && (
@@ -213,7 +231,7 @@ export default function EventForm({ onSave, selectedDate, onSuccessfulSave }) {
           <p className="text-[11px] text-[#a89fdd] mt-1">Minimum 3 characters.</p>
         </div>
 
-        {/* Start + End for Study Session / Lecture */}
+        {/* Start + End for Study Session / Lecture / Exam */}
         {type !== "Deadline" && (
           <>
             <div>
@@ -236,7 +254,7 @@ export default function EventForm({ onSave, selectedDate, onSuccessfulSave }) {
               />
             </div>
 
-            {/* Live duration preview for Study Session */}
+            {/* Live duration preview for Study Session only */}
             {type === "Study Session" && startTime && endTime && (() => {
               const start = new Date(combineDateTime(startTime));
               const end = new Date(combineDateTime(endTime));
@@ -299,7 +317,7 @@ export default function EventForm({ onSave, selectedDate, onSuccessfulSave }) {
           disabled={!selectedDate}
           className="w-full bg-[#696FC7] text-white py-2 rounded-lg hover:bg-[#8F8BB6] disabled:opacity-40 disabled:cursor-not-allowed transition"
         >
-          Save Event
+          {isEditing ? "Update Event" : "Save Event"}
         </button>
 
       </form>
