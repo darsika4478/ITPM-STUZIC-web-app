@@ -185,7 +185,7 @@ const MoodHistoryPage = () => {
                                 transition-all duration-200 transform hover:scale-105 active:scale-95
                                 flex items-center justify-center gap-2"
                         >
-                            <span>📖 Show More</span>
+                            <span>📖 Show More...</span>
                             <span className="text-xs opacity-70">({moodHistory.length - displayedCount} more)</span>
                         </button>
                     </div>
