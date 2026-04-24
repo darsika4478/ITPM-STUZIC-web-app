@@ -12,10 +12,17 @@ export default function QuickCapture() {
   const [highPriority, setHighPriority] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const normalizeChecklistItems = (items) =>
+    (Array.isArray(items) ? items : [])
+      .map((item) => ({
+        text: (item?.text || "").trim(),
+        checked: Boolean(item?.checked ?? item?.completed),
+      }))
+      .filter((item) => item.text.length > 0);
 
   const handleAddSubtask = () => {
     if (subtaskInput.trim()) {
-      setChecklistItems([...checklistItems, { text: subtaskInput.trim(), completed: false }]);
+      setChecklistItems([...checklistItems, { text: subtaskInput.trim(), checked: false }]);
       setSubtaskInput("");
     }
   };
@@ -35,24 +42,34 @@ export default function QuickCapture() {
 
   const handleAdd = async () => {
     if (!title.trim() || saving) return;
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const normalizedChecklist = normalizeChecklistItems(checklistItems);
+    if (isChecklist && normalizedChecklist.length === 0) return;
+
     setSaving(true);
     try {
       await addDoc(collection(db, "tasks"), {
         title: title.trim(),
         description: null,
         contentType: isChecklist ? "checklist" : "note",
-        checklistItems: isChecklist ? checklistItems : [],
+        checklistItems: isChecklist ? normalizedChecklist : [],
         isDeleted: false,
         deletedAt: null,
         dueDate: dueToday ? new Date().toISOString().split("T")[0] : null,
         priority: highPriority ? "High" : "Medium",
         completed: false,
-        userId: auth.currentUser.uid,
+        attachedImages: [],
+        userId: user.uid,
         createdAt: serverTimestamp(),
       });
       setTitle("");
       setChecklistItems([]);
+      setSubtaskInput("");
       setIsChecklist(false);
+      setDueToday(false);
+      setHighPriority(false);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 2000);
     } catch (err) {
@@ -65,6 +82,9 @@ export default function QuickCapture() {
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !isChecklist) handleAdd();
   };
+  const canSaveSimple = !!title.trim() && !saving && !!auth.currentUser;
+  const canSaveChecklist =
+    !!title.trim() && normalizeChecklistItems(checklistItems).length > 0 && !saving && !!auth.currentUser;
 
   return (
     <GlassCard>
@@ -98,7 +118,7 @@ export default function QuickCapture() {
           {!isChecklist && (
             <button
               onClick={handleAdd}
-              disabled={!title.trim() || saving}
+              disabled={!canSaveSimple}
               className="rounded-xl bg-[var(--c3)] px-4 text-lg font-bold text-white transition hover:bg-[var(--c2)] disabled:opacity-30"
             >
               +
@@ -147,7 +167,7 @@ export default function QuickCapture() {
             
             <button
               onClick={handleAdd}
-              disabled={!title.trim() || checklistItems.length === 0 || saving}
+              disabled={!canSaveChecklist}
               className="w-full rounded-lg bg-[var(--c3)] px-4 py-2 text-xs font-bold text-white transition hover:bg-[var(--c2)] disabled:opacity-30"
             >
               {saving ? 'Saving...' : 'Save Checklist Task'}

@@ -22,6 +22,7 @@ const Login = () => {
     // Form field state
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
 
     // Field-level validation errors (e.g. empty email)
     const [errors, setErrors] = useState({});
@@ -288,6 +289,44 @@ const Login = () => {
                 backdropFilter: 'blur(24px)',
                 border: '1px solid rgba(167,139,250,0.22)',
             }}>
+                {/* Close to home button */}
+                <button
+                    type="button"
+                    aria-label="Back to home"
+                    onClick={() => navigate('/')}
+                    style={{
+                        position: 'absolute',
+                        top: '1.35rem',
+                        right: '1.35rem',
+                        width: '32px',
+                        height: '32px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: 'rgba(109,95,231,0.2)',
+                        border: '1px solid rgba(167,139,250,0.45)',
+                        borderRadius: '999px',
+                        cursor: 'pointer',
+                        color: '#c4b5fd',
+                        fontSize: '1.25rem',
+                        lineHeight: 1,
+                        padding: 0,
+                        transition: 'background 0.2s, color 0.2s, border-color 0.2s',
+                    }}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(109,95,231,0.35)';
+                        e.currentTarget.style.borderColor = 'rgba(167,139,250,0.7)';
+                        e.currentTarget.style.color = '#f0ecff';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'rgba(109,95,231,0.2)';
+                        e.currentTarget.style.borderColor = 'rgba(167,139,250,0.45)';
+                        e.currentTarget.style.color = '#c4b5fd';
+                    }}
+                >
+                    ×
+                </button>
+
                 {/* Logo + tagline */}
                 <AuthHeader variant="login" />
 
@@ -307,6 +346,12 @@ const Login = () => {
                             title="Please enter a valid lowercase email address"
                             value={email}
                             onChange={(e) => setEmail(e.target.value.toLowerCase())}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleSubmit(e);
+                                }
+                            }}
                             placeholder="name@stuzic.lk"
                             style={inputStyle}
                             onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
@@ -340,17 +385,52 @@ const Login = () => {
                                 Forgot password?
                             </button>
                         </div>
-                        <input
-                            id="password"
-                            type="password"
-                            required
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Your password"
-                            style={inputStyle}
-                            onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
-                            onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'}
-                        />
+                        <div style={{ position: 'relative' }}>
+                            <input
+                                id="password"
+                                type={showPassword ? "text" : "password"}
+                                required
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        handleSubmit(e);
+                                    }
+                                }}
+                                placeholder="Your password"
+                                style={{ ...inputStyle, paddingRight: '40px' }}
+                                onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
+                                onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                style={{
+                                    position: 'absolute',
+                                    right: '12px',
+                                    top: '50%',
+                                    transform: 'translateY(-50%)',
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#c4b5fd',
+                                    cursor: 'pointer',
+                                    padding: '4px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.color = '#fff'}
+                                onMouseLeave={(e) => e.currentTarget.style.color = '#c4b5fd'}
+                                aria-label={showPassword ? "Hide password" : "Show password"}
+                            >
+                                {showPassword ? (
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22"/></svg>
+                                ) : (
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                )}
+                            </button>
+                        </div>
                         {errors.password && <p style={{ marginTop: '4px', fontSize: '0.75rem', color: '#f87171' }}>{errors.password}</p>}
                     </div>
 

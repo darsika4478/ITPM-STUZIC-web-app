@@ -1,8 +1,26 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import logoText from '../../assets/logo-text.png';
 
 export default function LandingHeader() {
+    const [isVisible, setIsVisible] = useState(true);
+    const [lastScrollY, setLastScrollY] = useState(0);
+
+    useEffect(() => {
+        const handleScroll = () => {
+            const currentScrollY = window.scrollY;
+            if (currentScrollY > 80 && currentScrollY > lastScrollY) {
+                setIsVisible(false);
+            } else {
+                setIsVisible(true);
+            }
+            setLastScrollY(currentScrollY);
+        };
+
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, [lastScrollY]);
+
     return (
         <nav style={{
             position: 'fixed', 
@@ -14,15 +32,17 @@ export default function LandingHeader() {
             alignItems: 'center', 
             justifyContent: 'space-between',
             padding: '1.25rem 4.5rem',
-            background: 'rgba(28, 24, 72, 0.85)',
-            backdropFilter: 'blur(16px)',
-            borderBottom: '1px solid rgba(167, 139, 250, 0.12)',
-            boxShadow: '0 4px 30px rgba(0, 0, 0, 0.3)'
+            background: 'transparent',
+            backdropFilter: 'none',
+            borderBottom: 'none',
+            boxShadow: 'none',
+            transform: isVisible ? 'translateY(0)' : 'translateY(-100%)',
+            transition: 'transform 0.3s ease-in-out'
         }}>
             {/* Left: Logo */}
             <div style={{ flex: '1 1 0', display: 'flex', justifyContent: 'flex-start' }}>
                 <Link to="/" style={{ display: 'flex', alignItems: 'center' }}>
-                    <img src={logoText} alt="STUZIC" style={{ height: '65px', width: 'auto', objectFit: 'contain' }} />
+                    <img src={logoText} alt="STUZIC" style={{ height: '160px', width: 'auto', objectFit: 'contain', margin: '-40px 0' }} />
                 </Link>
             </div>
             

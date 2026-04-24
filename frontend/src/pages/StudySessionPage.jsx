@@ -6,7 +6,8 @@ import * as sessionService from '../firebase/sessionService';
 
 const StudySessionPage = () => {
   const { 
-    nowPlaying,
+    currentTrack,
+    isPlaying,
     studySessionActive,
     setStudySessionActive,
     studyTimeLeft,
@@ -229,14 +230,14 @@ const StudySessionPage = () => {
         </div>
 
         {/* Currently Playing & Active Goal */}
-        <div className="bg-gradient-to-br from-[#3C436B] to-[#585296] rounded-3xl p-8 border border-[#8F8BB6]/30 shadow-2xl flex flex-col">
+        <div className="bg-linear-to-br from-[#3C436B] to-[#585296] rounded-3xl p-8 border border-[#8F8BB6]/30 shadow-2xl flex flex-col">
           <div className="flex-1">
             <h2 className="text-[#B6B4BB] text-sm font-semibold mb-4 uppercase tracking-wider">Now Playing</h2>
-            {nowPlaying && studySessionActive ? (
+            {currentTrack && studySessionActive && isPlaying ? (
               <div className="bg-[#272D3E] rounded-2xl p-6 text-center border border-[#585296]/30">
                 <div className="text-5xl mb-4 animate-bounce-slow">🎵</div>
-                <h3 className="text-xl font-bold text-white mb-2 line-clamp-1">{nowPlaying.title}</h3>
-                <p className="text-[#B6B4BB] mb-4 line-clamp-1">{nowPlaying.artist}</p>
+                <h3 className="text-xl font-bold text-white mb-2 line-clamp-1">{currentTrack.title}</h3>
+                <p className="text-[#B6B4BB] mb-4 line-clamp-1">{currentTrack.artist}</p>
                 <div className="inline-block px-3 py-1 bg-[#585296]/50 rounded-full text-xs text-[#8F8BB6] font-medium">
                   {studyConfig.sessionType}
                 </div>
@@ -246,7 +247,7 @@ const StudySessionPage = () => {
                 <div>
                   <p className="mb-2">🎵</p>
                   <p className="text-sm">
-                    {studySessionActive ? 'No track currently playing' : 'Start a session to sync music'}
+                    {studySessionActive ? 'Start music or select a track' : 'Start a session to sync music'}
                   </p>
                 </div>
               </div>

@@ -28,8 +28,11 @@ export default function TasksPlanner() {
     const [adding, setAdding] = useState(false);
     const [showForm, setShowForm] = useState(false);
     const [showBin, setShowBin] = useState(false);
-    const [attachedImage, setAttachedImage] = useState(null);
+    const [attachedImages, setAttachedImages] = useState([]);
+    const [viewerImage, setViewerImage] = useState(null);
+    const [viewingTask, setViewingTask] = useState(null);
     const imageInputRef = useRef(null);
+    const editImageInputRef = useRef(null);
     const composerChecklistRefs = useRef({});
     const editChecklistRefs = useRef({});
 
@@ -86,7 +89,7 @@ export default function TasksPlanner() {
     const [error, setError] = useState("");
     const [activeTab, setActiveTab] = useState("All");
     const [searchQuery, setSearchQuery] = useState("");
-    const [filterPriority, setFilterPriority] = useState("All");
+    // filterPriority merged into activeTab
 
     // Edit task state
     const [editingTask, setEditingTask] = useState(null);
@@ -97,6 +100,7 @@ export default function TasksPlanner() {
     const [editChecklistDraft, setEditChecklistDraft] = useState("");
     const [editDueDate, setEditDueDate] = useState("");
     const [editPriority, setEditPriority] = useState("Medium");
+    const [editAttachedImages, setEditAttachedImages] = useState([]);
     const [updating, setUpdating] = useState(false);
 
     const createChecklistItem = useCallback((text = "", checked = false) => ({
@@ -274,54 +278,78 @@ export default function TasksPlanner() {
         return () => unsubscribe();
     }, [getDateMs]);
 
-    const handleImageUpload = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+    const MAX_IMAGES_SIZE_BYTES = 1000000; // ~1MB
+    const processImageFile = (file) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 800;
+                    const MAX_HEIGHT = 800;
+                    let width = img.width;
+                    let height = img.height;
 
-        if (!file.type.startsWith('image/')) {
-            alert("Please upload an image file");
-            return;
+                    if (width > height) {
+                        if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+                    } else {
+                        if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+                    resolve(dataUrl);
+                };
+                img.onerror = reject;
+                img.src = event.target.result;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    };
+
+    const handleFilesUpload = async (files, setter, currentImages) => {
+        const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+        if (imageFiles.length === 0) return;
+
+        let totalSize = currentImages.reduce((acc, img) => acc + (typeof img === 'string' ? img.length : 0), 0);
+        let newImages = [];
+
+        for (const file of imageFiles) {
+            try {
+                const base64Str = await processImageFile(file);
+                if (totalSize + base64Str.length > MAX_IMAGES_SIZE_BYTES) {
+                    alert("Image capacity limit (~1MB) reached to save on free storage space! Cannot add more images.");
+                    break;
+                }
+                newImages.push(base64Str);
+                totalSize += base64Str.length;
+            } catch (err) {
+                console.error("Error processing image", err);
+            }
         }
 
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const img = new Image();
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 800;
-                const MAX_HEIGHT = 800;
-                let width = img.width;
-                let height = img.height;
+        if (newImages.length > 0) {
+            setter(prev => [...prev, ...newImages]);
+        }
+    };
 
-                if (width > height) {
-                    if (width > MAX_WIDTH) {
-                        height *= MAX_WIDTH / width;
-                        width = MAX_WIDTH;
-                    }
-                } else {
-                    if (height > MAX_HEIGHT) {
-                        width *= MAX_HEIGHT / height;
-                        height = MAX_HEIGHT;
-                    }
-                }
+    const handleImageUpload = async (e) => {
+        const files = e.target.files;
+        if (!files) return;
+        await handleFilesUpload(files, setAttachedImages, attachedImages);
+        e.target.value = null; // Reset input
+    };
 
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
-
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
-                
-                if (dataUrl.length > 1048576) {
-                    alert("Image is still too large after compression. Please try a smaller image.");
-                    return;
-                }
-                
-                setAttachedImage(dataUrl);
-            };
-            img.src = event.target.result;
-        };
-        reader.readAsDataURL(file);
+    const handleEditImageUpload = async (e) => {
+        const files = e.target.files;
+        if (!files) return;
+        await handleFilesUpload(files, setEditAttachedImages, editAttachedImages);
         e.target.value = null; // Reset input
     };
 
@@ -355,12 +383,12 @@ export default function TasksPlanner() {
                 completed: false,
                 userId: auth.currentUser.uid,
                 createdAt: serverTimestamp(),
-                attachedImage: attachedImage || null,
+                attachedImages: attachedImages,
             });
             setTitle(""); setDescription(""); setChecklistItems([]); setChecklistDraft("");
             setComposerMode("note");
             setDueDate(""); setPriority("Medium");
-            setAttachedImage(null);
+            setAttachedImages([]);
             setShowForm(false);
         } catch (err) {
             console.error("Error adding task:", err);
@@ -447,6 +475,7 @@ export default function TasksPlanner() {
         setEditChecklistDraft("");
         setEditDueDate(task.dueDate || "");
         setEditPriority(task.priority || "Medium");
+        setEditAttachedImages(task.attachedImages || (task.attachedImage ? [task.attachedImage] : []));
     };
 
     const closeEditModal = () => {
@@ -454,6 +483,7 @@ export default function TasksPlanner() {
         setEditTitle(""); setEditDescription(""); setEditChecklistItems([]); setEditChecklistDraft("");
         setEditComposerMode("note");
         setEditDueDate(""); setEditPriority("Medium");
+        setEditAttachedImages([]);
         setUpdating(false);
     };
 
@@ -479,6 +509,7 @@ export default function TasksPlanner() {
                 checklistItems: editComposerMode === "checklist" ? normalizedEditChecklist : [],
                 dueDate: editDueDate || null,
                 priority: editPriority,
+                attachedImages: editAttachedImages,
             });
             closeEditModal();
         } catch (err) {
@@ -520,27 +551,27 @@ export default function TasksPlanner() {
 
     const getPriorityBadgeStyle = (p) => {
         switch (p) {
-            case "High":   return { background: 'rgba(239,68,68,0.15)',   color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' };
-            case "Medium": return { background: 'rgba(245,158,11,0.15)',  color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)' };
-            case "Low":    return { background: 'rgba(34,197,94,0.15)',   color: '#4ade80', border: '1px solid rgba(34,197,94,0.3)' };
-            default:       return { background: 'rgba(156,163,175,0.15)', color: '#9ca3af' };
+            case "High": return { background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' };
+            case "Medium": return { background: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)' };
+            case "Low": return { background: 'rgba(34,197,94,0.15)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.3)' };
+            default: return { background: 'rgba(156,163,175,0.15)', color: '#9ca3af' };
         }
     };
 
     const getPriorityDotColor = (p) => {
         switch (p) {
-            case "High":   return '#ef4444';
+            case "High": return '#ef4444';
             case "Medium": return '#f59e0b';
-            case "Low":    return '#22c55e';
-            default:       return '#6b7280';
+            case "Low": return '#22c55e';
+            default: return '#6b7280';
         }
     };
 
     const getPriorityStripStyle = (p) => {
         switch (p) {
-            case "High":   return { background: 'linear-gradient(to right, #ef4444, #f87171)' };
+            case "High": return { background: 'linear-gradient(to right, #ef4444, #f87171)' };
             case "Medium": return { background: 'linear-gradient(to right, #f59e0b, #fbbf24)' };
-            default:       return { background: 'linear-gradient(to right, #22c55e, #4ade80)' };
+            default: return { background: 'linear-gradient(to right, #22c55e, #4ade80)' };
         }
     };
 
@@ -555,7 +586,7 @@ export default function TasksPlanner() {
         return new Date(dateStr) < new Date(new Date().toDateString());
     };
 
-    const deletedTasks   = tasks
+    const deletedTasks = tasks
         .filter((t) => t.isDeleted)
         .sort((a, b) => (getDateMs(b.deletedAt) || 0) - (getDateMs(a.deletedAt) || 0));
 
@@ -566,10 +597,12 @@ export default function TasksPlanner() {
     const overdueVisibleTasks = visibleTasks.filter((t) => !t.completed && isOverdue(t.dueDate));
 
     const filteredTasks = visibleTasks.filter((t) => {
-        if (activeTab === "Active"    && t.completed) return false;
+        if (activeTab === "Active" && t.completed) return false;
         if (activeTab === "Completed" && !t.completed) return false;
-        if (activeTab === "Overdue"   && (t.completed || !isOverdue(t.dueDate))) return false;
-        if (filterPriority !== "All"  && t.priority !== filterPriority) return false;
+        if (activeTab === "Overdue" && (t.completed || !isOverdue(t.dueDate))) return false;
+        if (activeTab === "High" && t.priority !== "High") return false;
+        if (activeTab === "Medium" && t.priority !== "Medium") return false;
+        if (activeTab === "Low" && t.priority !== "Low") return false;
         if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase();
             return getTaskSearchText(t).includes(q);
@@ -653,6 +686,11 @@ export default function TasksPlanner() {
                     ) : (
                         <form
                             onSubmit={handleAddTask}
+                            onPaste={(e) => {
+                                if (e.clipboardData && e.clipboardData.files && e.clipboardData.files.length > 0) {
+                                    handleFilesUpload(e.clipboardData.files, setAttachedImages, attachedImages);
+                                }
+                            }}
                             style={{
                                 overflow: 'hidden', borderRadius: '16px',
                                 border: '1px solid rgba(255,255,255,0.15)',
@@ -817,28 +855,30 @@ export default function TasksPlanner() {
                                 </div>
                             )}
 
-                            {attachedImage && (
-                                <div style={{ padding: '0 1rem 1rem', display: 'flex', alignItems: 'flex-start' }}>
-                                    <div style={{ position: 'relative', display: 'inline-block' }}>
-                                        <img 
-                                            src={attachedImage} 
-                                            alt="Preview" 
-                                            style={{ maxHeight: '120px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', objectFit: 'contain' }} 
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setAttachedImage(null)}
-                                            title="Remove Image"
-                                            style={{
-                                                position: 'absolute', top: '-8px', right: '-8px',
-                                                background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%',
-                                                width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                cursor: 'pointer', fontSize: '14px', lineHeight: 1
-                                            }}
-                                        >
-                                            ×
-                                        </button>
-                                    </div>
+                            {attachedImages.length > 0 && (
+                                <div style={{ padding: '0 1rem 1rem', display: 'flex', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+                                    {attachedImages.map((img, idx) => (
+                                        <div key={idx} style={{ position: 'relative', display: 'inline-block' }}>
+                                            <img
+                                                src={img}
+                                                alt="Preview"
+                                                style={{ maxHeight: '120px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', objectFit: 'contain' }}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setAttachedImages(prev => prev.filter((_, i) => i !== idx))}
+                                                title="Remove Image"
+                                                style={{
+                                                    position: 'absolute', top: '-8px', right: '-8px',
+                                                    background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%',
+                                                    width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    cursor: 'pointer', fontSize: '14px', lineHeight: 1
+                                                }}
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
 
@@ -852,9 +892,9 @@ export default function TasksPlanner() {
                                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem' }}>
                                     {["Low", "Medium", "High"].map((p) => {
                                         const activeStyles = {
-                                            Low:    { background: 'rgba(34,197,94,0.25)',  color: '#4ade80', border: '1px solid rgba(34,197,94,0.4)' },
+                                            Low: { background: 'rgba(34,197,94,0.25)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.4)' },
                                             Medium: { background: 'rgba(245,158,11,0.25)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.4)' },
-                                            High:   { background: 'rgba(239,68,68,0.25)',  color: '#f87171', border: '1px solid rgba(239,68,68,0.4)' },
+                                            High: { background: 'rgba(239,68,68,0.25)', color: '#f87171', border: '1px solid rgba(239,68,68,0.4)' },
                                         };
                                         const inactiveStyle = { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.1)' };
                                         const dots = { Low: "🟢", Medium: "🟡", High: "🔴" };
@@ -915,7 +955,7 @@ export default function TasksPlanner() {
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 15l6-6m0 0l-6-6m6 6H9a6 6 0 000 12h3" />
                                             </svg>
                                         </button>
-                                        
+
                                         {/* Image Upload Button */}
                                         <button
                                             type="button" onClick={() => imageInputRef.current.click()} title="Attach Image"
@@ -927,12 +967,13 @@ export default function TasksPlanner() {
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                             </svg>
                                         </button>
-                                        <input 
-                                            type="file" 
-                                            accept="image/*" 
-                                            ref={imageInputRef} 
-                                            style={{ display: 'none' }} 
-                                            onChange={handleImageUpload} 
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            multiple
+                                            ref={imageInputRef}
+                                            style={{ display: 'none' }}
+                                            onChange={handleImageUpload}
                                         />
                                     </div>
                                 </div>
@@ -979,10 +1020,10 @@ export default function TasksPlanner() {
                 {/* ── Stats Row ── */}
                 <div style={{ marginBottom: '2rem', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem' }}>
                     {[
-                        { label: "Total",     value: visibleTasks.length,          color: '#f0ecff', icon: "📊" },
-                        { label: "Active",    value: activeVisibleTasks.length,    color: '#fbbf24', icon: "⏳" },
+                        { label: "Total", value: visibleTasks.length, color: '#f0ecff', icon: "📊" },
+                        { label: "Active", value: activeVisibleTasks.length, color: '#fbbf24', icon: "⏳" },
                         { label: "Completed", value: completedVisibleTasks.length, color: '#4ade80', icon: "✅" },
-                        { label: "Overdue",   value: overdueVisibleTasks.length,   color: '#f87171', icon: "🔴" },
+                        { label: "Overdue", value: overdueVisibleTasks.length, color: '#f87171', icon: "🔴" },
                     ].map((s) => (
                         <div key={s.label} style={{ ...cardStyle, padding: '1.25rem 1rem', textAlign: 'center' }}>
                             <span style={{ fontSize: '1.25rem' }}>{s.icon}</span>
@@ -995,19 +1036,19 @@ export default function TasksPlanner() {
                 {/* ── Filter & Search Bar ── */}
                 <div style={{ ...cardStyle, marginBottom: '1.5rem', padding: '1rem' }}>
                     {/* Tabs */}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '1rem' }}>
                         {[
-                            { key: "All",       label: "All",       count: visibleTasks.length,          icon: "📊" },
-                            { key: "Active",    label: "Active",    count: activeVisibleTasks.length,    icon: "⏳" },
+                            { key: "All", label: "All", count: visibleTasks.length, icon: "📊" },
+                            { key: "Active", label: "Active", count: activeVisibleTasks.length, icon: "⏳" },
                             { key: "Completed", label: "Completed", count: completedVisibleTasks.length, icon: "✅" },
-                            { key: "Overdue",   label: "Overdue",   count: overdueVisibleTasks.length,   icon: "🔴" },
+                            { key: "Overdue", label: "Overdue", count: overdueVisibleTasks.length, icon: "🔴" },
                         ].map((tab) => (
                             <button
                                 key={tab.key}
-                                onClick={() => setActiveTab(tab.key)}
+                                onClick={() => setActiveTab(activeTab === tab.key ? 'All' : tab.key)}
                                 style={{
-                                    display: 'flex', alignItems: 'center', gap: '6px',
-                                    borderRadius: '12px', padding: '8px 16px',
+                                    display: 'flex', alignItems: 'center', gap: '4px',
+                                    borderRadius: '12px', padding: '8px 12px',
                                     fontSize: '0.875rem', fontWeight: 500,
                                     border: 'none', cursor: 'pointer', transition: 'all 0.15s',
                                     ...(activeTab === tab.key
@@ -1028,9 +1069,47 @@ export default function TasksPlanner() {
                                 </span>
                             </button>
                         ))}
+
+                        <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)', margin: '0 4px', alignSelf: 'stretch' }} />
+
+                        {[
+                            { key: 'High', label: 'High', count: visibleTasks.filter(t => t.priority === 'High').length, icon: '🔴' },
+                            { key: 'Medium', label: 'Medium', count: visibleTasks.filter(t => t.priority === 'Medium').length, icon: '🟡' },
+                            { key: 'Low', label: 'Low', count: visibleTasks.filter(t => t.priority === 'Low').length, icon: '🟢' }
+                        ].map(prio => (
+                            <button
+                                key={prio.key}
+                                type="button"
+                                onClick={() => setActiveTab(activeTab === prio.key ? 'All' : prio.key)}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '4px',
+                                    borderRadius: '12px', padding: '8px 12px',
+                                    fontSize: '0.875rem', fontWeight: 500,
+                                    border: '1px solid',
+                                    borderColor: activeTab === prio.key ? 'transparent' : 'rgba(167,139,250,0.15)',
+                                    cursor: 'pointer', transition: 'all 0.15s',
+                                    ...(activeTab === prio.key
+                                        ? { background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)', color: '#fff', boxShadow: '0 4px 16px rgba(109,95,231,0.3)' }
+                                        : { background: 'rgba(255,255,255,0.02)', color: '#c4b5fd' }
+                                    ),
+                                }}
+                                title={activeTab === prio.key ? "Click to clear filter" : `Filter by ${prio.key} priority`}
+                            >
+                                <span style={{ fontSize: '12px' }}>{prio.icon}</span>
+                                {prio.label}
+                                <span style={{
+                                    marginLeft: '2px', borderRadius: '999px', padding: '2px 6px',
+                                    fontSize: '10px', fontWeight: 700,
+                                    background: activeTab === prio.key ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.05)',
+                                    color: activeTab === prio.key ? '#fff' : '#a78bfa',
+                                }}>
+                                    {prio.count}
+                                </span>
+                            </button>
+                        ))}
                     </div>
 
-                    {/* Search & Priority */}
+                    {/* Search & Bin */}
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
                         <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
                             <svg
@@ -1057,18 +1136,6 @@ export default function TasksPlanner() {
                                 >✕</button>
                             )}
                         </div>
-                        <select
-                            value={filterPriority}
-                            onChange={(e) => setFilterPriority(e.target.value)}
-                            style={{ ...inputStyle, width: 'auto', cursor: 'pointer' }}
-                            onFocus={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.8)'}
-                            onBlur={(e) => e.target.style.borderColor = 'rgba(167,139,250,0.35)'}
-                        >
-                            <option value="All"    style={{ background: '#1c1848' }}>All Priorities</option>
-                            <option value="High"   style={{ background: '#1c1848' }}>🔴 High</option>
-                            <option value="Medium" style={{ background: '#1c1848' }}>🟡 Medium</option>
-                            <option value="Low"    style={{ background: '#1c1848' }}>🟢 Low</option>
-                        </select>
                         <button
                             type="button"
                             onClick={() => setShowBin(true)}
@@ -1135,7 +1202,7 @@ export default function TasksPlanner() {
                         {filteredTasks.map((task) => (
                             <div
                                 key={task.id}
-                                className="group"
+                                className="group relative"
                                 style={{
                                     position: 'relative', overflow: 'hidden',
                                     borderRadius: '20px',
@@ -1144,6 +1211,11 @@ export default function TasksPlanner() {
                                     backdropFilter: 'blur(20px)',
                                     transition: 'transform 0.15s, box-shadow 0.15s, border-color 0.15s',
                                     opacity: task.completed ? 0.65 : 1,
+                                    cursor: 'pointer'
+                                }}
+                                onClick={(e) => {
+                                    if (['BUTTON', 'INPUT', 'SVG', 'PATH', 'LABEL'].includes(e.target.tagName.toUpperCase())) return;
+                                    setViewingTask(task);
                                 }}
                                 onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = 'rgba(167,139,250,0.35)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(0,0,0,0.35)'; }}
                                 onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'rgba(167,139,250,0.15)'; e.currentTarget.style.boxShadow = 'none'; }}
@@ -1271,22 +1343,34 @@ export default function TasksPlanner() {
                                         </div>
                                     )}
 
-                                    {/* Attached Image Preview */}
-                                    {task.attachedImage && (
+                                    {/* Attached Image Previews */}
+                                    {(task.attachedImages && task.attachedImages.length > 0) ? (
+                                        <div style={{ marginTop: '12px', marginLeft: '32px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                            {task.attachedImages.map((img, idx) => (
+                                                <div key={idx}>
+                                                    <img
+                                                        src={img}
+                                                        alt="Attached"
+                                                        style={{
+                                                            maxWidth: '120px', maxHeight: '100px', borderRadius: '8px',
+                                                            border: '1px solid rgba(255,255,255,0.1)', objectFit: 'cover'
+                                                        }}
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : task.attachedImage ? (
                                         <div style={{ marginTop: '12px', marginLeft: '32px' }}>
                                             <img
                                                 src={task.attachedImage}
                                                 alt="Attached"
                                                 style={{
-                                                    maxWidth: '100%',
-                                                    maxHeight: '200px',
-                                                    borderRadius: '8px',
-                                                    border: '1px solid rgba(255,255,255,0.1)',
-                                                    objectFit: 'cover'
+                                                    maxWidth: '120px', maxHeight: '100px', borderRadius: '8px',
+                                                    border: '1px solid rgba(255,255,255,0.1)', objectFit: 'cover'
                                                 }}
                                             />
                                         </div>
-                                    )}
+                                    ) : null}
 
                                     {/* Footer badges */}
                                     <div style={{ marginTop: '1rem', marginLeft: '32px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
@@ -1381,12 +1465,137 @@ export default function TasksPlanner() {
                     </div>
                 )}
 
+                {/* ── View Task Details Modal ── */}
+                {viewingTask && !editingTask && (
+                    <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: 'rgba(10,8,36,0.85)', backdropFilter: 'blur(8px)' }}>
+                        <div style={{ position: 'absolute', inset: 0 }} onClick={() => setViewingTask(null)} />
+                        <div
+                            style={{
+                                position: 'relative', width: '100%', maxWidth: '42rem',
+                                borderRadius: '24px', border: '1px solid rgba(167,139,250,0.3)',
+                                background: 'rgba(20,15,55,0.95)', boxShadow: '0 25px 60px rgba(0,0,0,0.6)',
+                                padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem',
+                                maxHeight: '85vh', overflowY: 'auto'
+                            }}
+                        >
+                            <div style={{ position: 'absolute', top: '16px', right: '16px', display: 'flex', gap: '8px' }}>
+                                <button
+                                    onClick={() => {
+                                        const task = viewingTask;
+                                        setViewingTask(null);
+                                        openEditModal(task);
+                                    }}
+                                    style={{
+                                        background: 'rgba(109,95,231,0.15)', border: '1px solid rgba(167,139,250,0.3)', color: '#c4b5fd', borderRadius: '8px',
+                                        padding: '4px 12px', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
+                                        display: 'flex', alignItems: 'center', gap: '6px'
+                                    }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(109,95,231,0.25)'; e.currentTarget.style.color = '#f0ecff'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(109,95,231,0.15)'; e.currentTarget.style.color = '#c4b5fd'; }}
+                                >
+                                    <svg style={{ width: '14px', height: '14px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                    Edit Task
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        const taskId = viewingTask.id;
+                                        setViewingTask(null);
+                                        await handleDeleteTask(taskId);
+                                    }}
+                                    style={{
+                                        background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#fca5a5', borderRadius: '8px',
+                                        padding: '4px 12px', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
+                                        display: 'flex', alignItems: 'center', gap: '6px'
+                                    }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239,68,68,0.25)'; e.currentTarget.style.color = '#fff'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(239,68,68,0.15)'; e.currentTarget.style.color = '#fca5a5'; }}
+                                >
+                                    <svg style={{ width: '14px', height: '14px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                    Delete
+                                </button>
+                                <button
+                                    onClick={() => setViewingTask(null)}
+                                    style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: '50%', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                >×</button>
+                            </div>
+
+                            <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f0ecff', margin: 0, paddingRight: '7rem' }}>
+                                {getTaskTitle(viewingTask)}
+                            </h2>
+
+                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', borderRadius: '8px', padding: '4px 10px', fontSize: '0.75rem', fontWeight: 600, ...getPriorityBadgeStyle(viewingTask.priority) }}>
+                                    <span style={{ height: '8px', width: '8px', borderRadius: '50%', background: getPriorityDotColor(viewingTask.priority) }} />
+                                    {viewingTask.priority} Priority
+                                </span>
+                                {(viewingTask.dueDate) && (
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', borderRadius: '8px', padding: '4px 10px', fontSize: '0.75rem', background: 'rgba(255,255,255,0.08)', color: '#c4b5fd' }}>
+                                        📅 Due: {formatDate(viewingTask.dueDate)}
+                                    </span>
+                                )}
+                            </div>
+
+                            <div style={{ marginTop: '0.5rem', width: '100%', height: '1px', background: 'rgba(255,255,255,0.1)' }} />
+
+                            {viewingTask.contentType !== 'checklist' && viewingTask.description && (
+                                <p style={{ fontSize: '1rem', lineHeight: '1.7', color: '#e2e8f0', margin: '0.5rem 0', whiteSpace: 'pre-wrap' }}>
+                                    {viewingTask.description}
+                                </p>
+                            )}
+
+                            {viewingTask.contentType === 'checklist' && getTaskChecklistItems(viewingTask).length > 0 && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', margin: '0.5rem 0' }}>
+                                    {getTaskChecklistItems(viewingTask).map((item, i) => (
+                                        <label key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#f0ecff', fontSize: '1rem', opacity: item.checked ? 0.6 : 1, textDecoration: item.checked ? 'line-through' : 'none' }}>
+                                            <input type="checkbox" checked={!!item.checked} readOnly style={{ accentColor: '#8b5cf6', width: '18px', height: '18px' }} />
+                                            <span style={{ lineHeight: 1.5 }}>{item.text}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            )}
+
+                            {((viewingTask.attachedImages && viewingTask.attachedImages.length > 0) || viewingTask.attachedImage) && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginTop: '1rem' }}>
+                                    {(viewingTask.attachedImages || [viewingTask.attachedImage]).map((img, idx) => img ? (
+                                        <img
+                                            key={idx} src={img} alt="Attached"
+                                            onClick={() => setViewerImage(img)}
+                                            style={{ maxHeight: '200px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.15)', cursor: 'zoom-in' }}
+                                        />
+                                    ) : null)}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* ── Image Zoom Viewer Modal ── */}
+                {viewerImage && (
+                    <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(10px)' }}>
+                        <div style={{ position: 'absolute', inset: 0 }} onClick={() => setViewerImage(null)} />
+                        <button
+                            onClick={() => setViewerImage(null)}
+                            style={{ position: 'absolute', top: '24px', right: '24px', background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: '50%', width: '40px', height: '40px', fontSize: '1.5rem', cursor: 'pointer', zIndex: 101 }}
+                        >×</button>
+                        <img src={viewerImage} alt="Zoomed" style={{ position: 'relative', maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '12px' }} />
+                    </div>
+                )}
+
                 {/* ── Edit Task Modal ── */}
                 {editingTask && (
                     <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: 'rgba(10,8,36,0.7)', backdropFilter: 'blur(4px)' }}>
                         <div style={{ position: 'absolute', inset: 0 }} onClick={closeEditModal} />
                         <form
                             onSubmit={handleUpdateTask}
+                            onPaste={(e) => {
+                                if (e.clipboardData && e.clipboardData.files && e.clipboardData.files.length > 0) {
+                                    handleFilesUpload(e.clipboardData.files, setEditAttachedImages, editAttachedImages);
+                                }
+                            }}
                             style={{
                                 position: 'relative', width: '100%', maxWidth: '32rem',
                                 overflow: 'hidden', borderRadius: '20px',
@@ -1550,6 +1759,33 @@ export default function TasksPlanner() {
                                     )}
                                 </div>
 
+                                {editAttachedImages.length > 0 && (
+                                    <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+                                        {editAttachedImages.map((img, idx) => (
+                                            <div key={idx} style={{ position: 'relative', display: 'inline-block' }}>
+                                                <img
+                                                    src={img}
+                                                    alt="Preview"
+                                                    style={{ maxHeight: '100px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', objectFit: 'contain' }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setEditAttachedImages(prev => prev.filter((_, i) => i !== idx))}
+                                                    title="Remove Image"
+                                                    style={{
+                                                        position: 'absolute', top: '-8px', right: '-8px',
+                                                        background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%',
+                                                        width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        cursor: 'pointer', fontSize: '14px', lineHeight: 1
+                                                    }}
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
                                 <div style={{ marginBottom: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
                                     <div style={{ flex: 1, minWidth: '160px' }}>
                                         <label style={labelStyle}>Due Date</label>
@@ -1575,9 +1811,9 @@ export default function TasksPlanner() {
                                         <div style={{ display: 'flex', gap: '8px' }}>
                                             {["Low", "Medium", "High"].map((p) => {
                                                 const activeStyles = {
-                                                    Low:    { border: '1px solid rgba(34,197,94,0.5)',  background: 'rgba(34,197,94,0.2)',  color: '#4ade80' },
+                                                    Low: { border: '1px solid rgba(34,197,94,0.5)', background: 'rgba(34,197,94,0.2)', color: '#4ade80' },
                                                     Medium: { border: '1px solid rgba(245,158,11,0.5)', background: 'rgba(245,158,11,0.2)', color: '#fbbf24' },
-                                                    High:   { border: '1px solid rgba(239,68,68,0.5)',  background: 'rgba(239,68,68,0.2)',  color: '#f87171' },
+                                                    High: { border: '1px solid rgba(239,68,68,0.5)', background: 'rgba(239,68,68,0.2)', color: '#f87171' },
                                                 };
                                                 const dots = { Low: "🟢", Medium: "🟡", High: "🔴" };
                                                 return (
@@ -1600,33 +1836,55 @@ export default function TasksPlanner() {
                                     </div>
                                 </div>
 
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.75rem' }}>
-                                    <button
-                                        type="button" onClick={closeEditModal}
-                                        style={{ borderRadius: '12px', padding: '10px 20px', fontSize: '0.875rem', fontWeight: 500, color: '#c4b5fd', border: '1.5px solid rgba(167,139,250,0.3)', background: 'transparent', cursor: 'pointer', transition: 'all 0.15s' }}
-                                        onMouseEnter={(e) => { e.target.style.background = 'rgba(255,255,255,0.05)'; e.target.style.color = '#f0ecff'; }}
-                                        onMouseLeave={(e) => { e.target.style.background = 'transparent'; e.target.style.color = '#c4b5fd'; }}
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={updating || !editTitle.trim()}
-                                        style={{
-                                            borderRadius: '12px', padding: '10px 24px',
-                                            fontSize: '0.875rem', fontWeight: 700,
-                                            color: '#fff', border: 'none',
-                                            cursor: updating || !editTitle.trim() ? 'not-allowed' : 'pointer',
-                                            background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)',
-                                            boxShadow: '0 4px 16px rgba(109,95,231,0.4)',
-                                            opacity: updating || !editTitle.trim() ? 0.5 : 1,
-                                            transition: 'transform 0.15s, opacity 0.15s',
-                                        }}
-                                        onMouseEnter={(e) => { if (!updating && editTitle.trim()) e.target.style.transform = 'scale(1.02)'; }}
-                                        onMouseLeave={(e) => { e.target.style.transform = 'scale(1)'; }}
-                                    >
-                                        {updating ? "Saving..." : "Save Changes"}
-                                    </button>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                                        <button
+                                            type="button" onClick={() => editImageInputRef.current.click()} title="Attach Images"
+                                            style={{ borderRadius: '8px', padding: '6px', color: 'rgba(255,255,255,0.5)', background: 'none', border: 'none', cursor: 'pointer', transition: 'all 0.15s' }}
+                                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#fff'; }}
+                                            onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; }}
+                                        >
+                                            <svg style={{ width: '20px', height: '20px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                        </button>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            multiple
+                                            ref={editImageInputRef}
+                                            style={{ display: 'none' }}
+                                            onChange={handleEditImageUpload}
+                                        />
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                        <button
+                                            type="button" onClick={closeEditModal}
+                                            style={{ borderRadius: '12px', padding: '10px 20px', fontSize: '0.875rem', fontWeight: 500, color: '#c4b5fd', border: '1.5px solid rgba(167,139,250,0.3)', background: 'transparent', cursor: 'pointer', transition: 'all 0.15s' }}
+                                            onMouseEnter={(e) => { e.target.style.background = 'rgba(255,255,255,0.05)'; e.target.style.color = '#f0ecff'; }}
+                                            onMouseLeave={(e) => { e.target.style.background = 'transparent'; e.target.style.color = '#c4b5fd'; }}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={updating || !editTitle.trim()}
+                                            style={{
+                                                borderRadius: '12px', padding: '10px 24px',
+                                                fontSize: '0.875rem', fontWeight: 700,
+                                                color: '#fff', border: 'none',
+                                                cursor: updating || !editTitle.trim() ? 'not-allowed' : 'pointer',
+                                                background: 'linear-gradient(135deg, #6d5fe7 0%, #9b7ef8 100%)',
+                                                boxShadow: '0 4px 16px rgba(109,95,231,0.4)',
+                                                opacity: updating || !editTitle.trim() ? 0.5 : 1,
+                                                transition: 'transform 0.15s, opacity 0.15s',
+                                            }}
+                                            onMouseEnter={(e) => { if (!updating && editTitle.trim()) e.target.style.transform = 'scale(1.02)'; }}
+                                            onMouseLeave={(e) => { e.target.style.transform = 'scale(1)'; }}
+                                        >
+                                            {updating ? "Saving..." : "Save Changes"}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </form>
