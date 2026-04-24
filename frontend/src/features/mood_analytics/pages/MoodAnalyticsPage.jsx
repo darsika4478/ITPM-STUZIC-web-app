@@ -35,6 +35,7 @@ const toLocalDateId = (date) => {
 };
 
 const buildDocId = (uid, dateId) => `${uid}_${dateId}`;
+const MOOD_COLLECTIONS = ['moods', 'moodEntries'];
 
 const getRecentDateIds = (days) => {
     const ids = [];
@@ -62,6 +63,13 @@ const fetchEntriesByKnownIds = async (uid, days = 180) => {
     );
 
     return reads.filter(Boolean);
+};
+
+const fetchEntriesForUserFromCollection = async (collectionName, uid) => {
+    const moodsRef = collection(db, collectionName);
+    const moodQuery = query(moodsRef, where('userId', '==', uid));
+    const snapshot = await getDocs(moodQuery);
+    return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
 };
 
 const parseEntryDate = (entry) => {
@@ -134,29 +142,45 @@ const MoodAnalyticsPage = () => {
             setLoadError('');
 
             try {
-                const moodsRef = collection(db, 'moodEntries');
-                const moodQuery = query(moodsRef, where('userId', '==', currentUser.uid));
-                const snapshot = await getDocs(moodQuery);
-                const rows = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
-                setEntries(rows);
-            } catch (error) {
-                const code = error?.code || '';
-                const isQueryBlocked =
-                    code === 'permission-denied' ||
-                    code === 'failed-precondition' ||
-                    code === 'unavailable';
+                const mergedById = new Map();
+                let lastReadError = null;
 
-                if (isQueryBlocked) {
+                for (const collectionName of MOOD_COLLECTIONS) {
                     try {
-                        // Fallback for stricter rules that allow per-document reads but block list/query.
-                        const fallbackRows = await fetchEntriesByKnownIds(currentUser.uid, 180);
-                        setEntries(fallbackRows);
-                        return;
-                    } catch (fallbackError) {
-                        console.error('Fallback mood analytics load failed:', fallbackError);
+                        const rows = await fetchEntriesForUserFromCollection(collectionName, currentUser.uid);
+                        rows.forEach((row) => {
+                            if (!mergedById.has(row.id)) {
+                                mergedById.set(row.id, row);
+                            }
+                        });
+                    } catch (collectionError) {
+                        lastReadError = collectionError;
+
+                        const code = collectionError?.code || '';
+                        const isQueryBlocked =
+                            code === 'permission-denied' ||
+                            code === 'failed-precondition' ||
+                            code === 'unavailable';
+
+                        if (collectionName === 'moodEntries' && isQueryBlocked) {
+                            // Legacy fallback for stricter rules that block list/query.
+                            const fallbackRows = await fetchEntriesByKnownIds(currentUser.uid, 180);
+                            fallbackRows.forEach((row) => {
+                                if (!mergedById.has(row.id)) {
+                                    mergedById.set(row.id, row);
+                                }
+                            });
+                        }
                     }
                 }
 
+                if (mergedById.size === 0 && lastReadError) {
+                    throw lastReadError;
+                }
+
+                setEntries(Array.from(mergedById.values()));
+            } catch (error) {
+                const code = error?.code || '';
                 console.error('Failed to load mood analytics:', error);
                 if (code === 'permission-denied') {
                     setLoadError('Could not load your analytics from Firebase. Firestore rules blocked this read.');
