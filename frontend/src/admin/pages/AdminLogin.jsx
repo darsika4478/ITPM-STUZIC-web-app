@@ -1,11 +1,40 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { onAuthStateChanged, signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../../config/firebase';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { auth } from '../../config/firebase';
 import logoIcon from '../../assets/logo-icon.png';
+import { getAdminAccessError, hasAdminRole, loadUserAccess } from '../../utils/userAccess';
+
+const getAdminDestination = (locationState) => {
+    if (
+        typeof locationState?.fromPath === 'string'
+        && locationState.fromPath.startsWith('/admin')
+        && locationState.fromPath !== '/admin/login'
+    ) {
+        return locationState.fromPath;
+    }
+
+    return '/admin/dashboard';
+};
+
+const getAuthErrorMessage = (error) => {
+    switch (error?.code) {
+        case 'auth/invalid-credential':
+        case 'auth/invalid-login-credentials':
+        case 'auth/user-not-found':
+        case 'auth/wrong-password':
+            return 'Invalid email or password.';
+        case 'auth/too-many-requests':
+            return 'Too many attempts. Please wait a moment and try again.';
+        case 'auth/network-request-failed':
+            return 'Network error while signing in. Please check your connection and try again.';
+        default:
+            return 'Unable to sign in right now. Please try again.';
+    }
+};
 
 const AdminLogin = () => {
+    const location = useLocation();
     const navigate = useNavigate();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -13,21 +42,41 @@ const AdminLogin = () => {
     const [formError, setFormError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // If already logged in as admin, redirect to admin users page
     useEffect(() => {
+        if (location.state?.formError) {
+            setFormError(location.state.formError);
+        }
+    }, [location.state]);
+
+    // If already logged in as admin, send them to the intended admin page
+    useEffect(() => {
+        let isActive = true;
+
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (!user) return;
+
             try {
-                const userDoc = await getDoc(doc(db, 'users', user.uid));
-                if (userDoc.exists() && userDoc.data().role === 'admin') {
-                    navigate('/admin/dashboard');
+                const access = await loadUserAccess(user.uid);
+                if (!isActive) return;
+
+                if (hasAdminRole(access)) {
+                    navigate(getAdminDestination(location.state), { replace: true });
+                    return;
                 }
+
+                setFormError(location.state?.formError || getAdminAccessError(access));
             } catch {
-                // ignore
+                if (isActive) {
+                    setFormError('You are signed in, but admin access could not be verified in Firestore. Please try again.');
+                }
             }
         });
-        return () => unsubscribe();
-    }, [navigate]);
+
+        return () => {
+            isActive = false;
+            unsubscribe();
+        };
+    }, [location.state, navigate]);
 
     const validate = () => {
         const nextErrors = {};
@@ -44,22 +93,29 @@ const AdminLogin = () => {
 
         setLoading(true);
         try {
-            const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
+            const cred = await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
 
-            // Verify admin role in Firestore
-            const userDoc = await getDoc(doc(db, 'users', cred.user.uid));
-            if (!userDoc.exists() || userDoc.data().role !== 'admin') {
-                await auth.signOut();
-                setFormError('Access denied. Admin privileges required.');
-                setLoading(false);
+            let access;
+            try {
+                access = await loadUserAccess(cred.user.uid);
+            } catch {
+                await signOut(auth);
+                setFormError('Signed in, but failed to verify the Firestore role for this account. Please try again.');
                 return;
             }
 
-            navigate('/admin/dashboard');
-        } catch {
-            setFormError('Invalid email or password.');
+            if (!hasAdminRole(access)) {
+                await signOut(auth);
+                setFormError(getAdminAccessError(access));
+                return;
+            }
+
+            navigate(getAdminDestination(location.state), { replace: true });
+        } catch (error) {
+            setFormError(getAuthErrorMessage(error));
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     const inputStyle = {
@@ -133,7 +189,7 @@ const AdminLogin = () => {
                         </label>
                         <input
                             id="admin-email" type="email" value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            onChange={(e) => setEmail(e.target.value.toLowerCase())}
                             placeholder="admin@stuzic.lk" style={inputStyle}
                             onFocus={(e) => e.target.style.borderColor = 'rgba(248,113,113,0.6)'}
                             onBlur={(e) => e.target.style.borderColor = 'rgba(248,113,113,0.25)'}

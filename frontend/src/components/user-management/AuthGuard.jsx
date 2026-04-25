@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../../config/firebase';
+import { auth } from '../../config/firebase';
+import { hasAdminRole, loadUserAccess } from '../../utils/userAccess';
 
 /**
  * AuthGuard — Route protection wrapper
@@ -10,7 +10,7 @@ import { auth, db } from '../../config/firebase';
  * Listens for Firebase auth state on mount.
  * - While checking: shows a loading screen
  * - If no user: redirects to /login
- * - If admin user: redirects to /admin/users
+ * - If admin user: redirects to /admin/dashboard
  * - If regular user: renders child routes via <Outlet />
  *
  * Usage: wrap protected routes with <AuthGuard /> in App.jsx
@@ -21,20 +21,37 @@ const AuthGuard = () => {
     const [isAdmin, setIsAdmin] = useState(false);
 
     useEffect(() => {
+        let isActive = true;
+
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+            if (!isActive) return;
+
             setUser(currentUser);
-            if (currentUser) {
-                try {
-                    const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-                    setIsAdmin(userDoc.exists() && userDoc.data().role === 'admin');
-                } catch {
-                    setIsAdmin(false);
-                }
+
+            if (!currentUser) {
+                setIsAdmin(false);
+                setChecking(false);
+                return;
             }
-            setChecking(false);
+
+            try {
+                const access = await loadUserAccess(currentUser.uid);
+                if (!isActive) return;
+                setIsAdmin(hasAdminRole(access));
+            } catch {
+                if (!isActive) return;
+                setIsAdmin(false);
+            }
+
+            if (isActive) {
+                setChecking(false);
+            }
         });
 
-        return () => unsubscribe();
+        return () => {
+            isActive = false;
+            unsubscribe();
+        };
     }, []);
 
     // Show spinner while Firebase resolves the auth state
