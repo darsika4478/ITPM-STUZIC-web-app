@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../../config/firebase';
+import { auth } from '../../config/firebase';
+import { getAdminAccessError, hasAdminRole, loadUserAccess } from '../../utils/userAccess';
 
 /**
  * AdminGuard — Route protection for admin pages
@@ -16,33 +16,60 @@ import { auth, db } from '../../config/firebase';
  * - If admin: renders child routes via <Outlet />
  */
 const AdminGuard = () => {
+    const location = useLocation();
     const [checking, setChecking] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
+    const [redirectState, setRedirectState] = useState(null);
 
     useEffect(() => {
+        let isActive = true;
+
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            if (!isActive) return;
+
             if (!user) {
                 setIsAdmin(false);
+                setRedirectState({
+                    fromPath: location.pathname,
+                    formError: 'Please sign in with an admin account to continue.',
+                });
                 setChecking(false);
                 return;
             }
 
             try {
-                const userDoc = await getDoc(doc(db, 'users', user.uid));
-                if (userDoc.exists() && userDoc.data().role === 'admin') {
+                const access = await loadUserAccess(user.uid);
+                if (!isActive) return;
+
+                if (hasAdminRole(access)) {
                     setIsAdmin(true);
+                    setRedirectState(null);
                 } else {
                     setIsAdmin(false);
+                    setRedirectState({
+                        fromPath: location.pathname,
+                        formError: getAdminAccessError(access),
+                    });
                 }
             } catch {
+                if (!isActive) return;
                 setIsAdmin(false);
+                setRedirectState({
+                    fromPath: location.pathname,
+                    formError: 'Signed in, but admin access could not be verified in Firestore. Please try again.',
+                });
             }
 
-            setChecking(false);
+            if (isActive) {
+                setChecking(false);
+            }
         });
 
-        return () => unsubscribe();
-    }, []);
+        return () => {
+            isActive = false;
+            unsubscribe();
+        };
+    }, [location.pathname]);
 
     if (checking) {
         return (
@@ -71,7 +98,13 @@ const AdminGuard = () => {
     }
 
     if (!isAdmin) {
-        return <Navigate to="/admin/login" replace />;
+        return (
+            <Navigate
+                to="/admin/login"
+                replace
+                state={redirectState ?? { fromPath: location.pathname }}
+            />
+        );
     }
 
     return <Outlet />;

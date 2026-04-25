@@ -1,10 +1,32 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth';
+import { onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth';
 import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../config/firebase';
 import AuthHeader from '../components/user-management/AuthHeader';
 import { validateEmailDomain } from '../utils/emailValidation';
+import { hasAdminRole, loadUserAccess } from '../utils/userAccess';
+
+const redirectAuthenticatedUser = async (user, navigate, options = {}) => {
+    const { updateLastLogin = false } = options;
+    const userDocRef = doc(db, 'users', user.uid);
+    const access = await loadUserAccess(user.uid);
+
+    if (hasAdminRole(access)) {
+        navigate('/admin/dashboard', { replace: true });
+        return;
+    }
+
+    if (updateLastLogin) {
+        try {
+            await updateDoc(userDocRef, { lastLogin: serverTimestamp() });
+        } catch (updateErr) {
+            console.error('Failed to update last login:', updateErr);
+        }
+    }
+
+    navigate('/dashboard', { replace: true });
+};
 
 /**
  * Login — Email/password sign-in page
@@ -58,15 +80,9 @@ const Login = () => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user && !checkingRedirect) {
                 try {
-                    const userDoc = await getDoc(doc(db, 'users', user.uid));
-                    if (userDoc.exists() && userDoc.data().role === 'admin') {
-                        await signOut(auth);
-                        setFormError('Admin accounts cannot log in here. Please use the Admin Panel login.');
-                    } else {
-                        navigate('/dashboard');
-                    }
+                    await redirectAuthenticatedUser(user, navigate);
                 } catch (error) {
-                    console.error('Failed to get user role:', error);
+                    console.error('Failed to resolve user access:', error);
                 }
             }
         });
@@ -81,7 +97,7 @@ const Login = () => {
                 if (!result?.user) return;
 
                 await syncGoogleUser(result.user);
-                navigate('/dashboard');
+                await redirectAuthenticatedUser(result.user, navigate, { updateLastLogin: true });
             } catch (error) {
                 if (error?.code !== 'auth/no-auth-event') {
                     console.error('Google redirect sign-in failed:', error);
@@ -99,7 +115,7 @@ const Login = () => {
         const nextErrors = {};
         if (!email.trim()) {
             nextErrors.email = 'Email is required.';
-        } else if (!/^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$/.test(email)) {
+        } else if (!/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(email)) {
             nextErrors.email = 'Please enter a valid lowercase email address.';
         } else {
             const domainCheck = validateEmailDomain(email);
@@ -122,24 +138,8 @@ const Login = () => {
 
         try {
             const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
-            
-            // Check if user is an admin
-            const userDocRef = doc(db, 'users', userCredential.user.uid);
-            const userDoc = await getDoc(userDocRef);
-            if (userDoc.exists() && userDoc.data().role === 'admin') {
-                await signOut(auth);
-                setFormError('Admin accounts cannot log in here. Please use the Admin Panel login.');
-                return;
-            }
-
-            try {
-                await updateDoc(userDocRef, { lastLogin: serverTimestamp() });
-            } catch (updateErr) {
-                console.error('Failed to update last login:', updateErr);
-            }
-
-            navigate('/dashboard');
-        } catch (error) {
+            await redirectAuthenticatedUser(userCredential.user, navigate, { updateLastLogin: true });
+        } catch {
             // Generic error — don't expose whether email or password is wrong
             setFormError('Invalid email or password.');
         }
@@ -151,22 +151,7 @@ const Login = () => {
         try {
             const result = await signInWithPopup(auth, googleProvider);
             await syncGoogleUser(result.user);
-
-            const userDocRef = doc(db, 'users', result.user.uid);
-            const userDoc = await getDoc(userDocRef);
-            if (userDoc.exists() && userDoc.data().role === 'admin') {
-                await signOut(auth);
-                setFormError('Admin accounts cannot log in here. Please use the Admin Panel login.');
-                return;
-            }
-
-            try {
-                await updateDoc(userDocRef, { lastLogin: serverTimestamp() });
-            } catch (updateErr) {
-                console.error('Failed to update last login:', updateErr);
-            }
-
-            navigate('/dashboard');
+            await redirectAuthenticatedUser(result.user, navigate, { updateLastLogin: true });
         } catch (error) {
             console.error('Google sign-in failed:', error);
             if (error?.code === 'auth/popup-closed-by-user') {
@@ -342,7 +327,7 @@ const Login = () => {
                             id="email"
                             type="email"
                             required
-                            pattern="^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$"
+                            pattern="^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
                             title="Please enter a valid lowercase email address"
                             value={email}
                             onChange={(e) => setEmail(e.target.value.toLowerCase())}
